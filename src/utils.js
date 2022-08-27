@@ -35,6 +35,9 @@ const makeClientFromFolder = (database, sqlFolder) => {
     const setQueries = (type) => {
       const filenames = await readdir(`${path}/${type}`);
       for (const filename of filenames) {
+        if (!filename.endsWith('.sql')) {
+          continue;
+        }
         const sql = await readFile(`${path}/${type}/${filename}`, { encoding: 'utf8' });
         const statement = database.prepare(sql);
         const queryName = filename.split('.')[0];
@@ -51,4 +54,9 @@ const makeClientFromFolder = (database, sqlFolder) => {
     db[table] = { ...basic, ...queries };
   }
   return db;
+}
+
+export {
+  makeClientFromArray,
+  makeClientFromFolder
 }

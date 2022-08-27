@@ -73,11 +73,30 @@ const insertMany = async (db, table, items) => {
   }
 }
 
+const toClause = (query) => {
+  if (!query) {
+    return null;
+  }
+  const entries = Object.entries(query);
+  if (entries.length === 0) {
+    return null;
+  }
+  return entries.map(([column, param]) => {
+    if (Array.isArray(param)) {
+      return `${column} in (select json_each.value from json_each($${column}))`;
+    }
+    if (param instanceof RegExp) {
+      return `${column} regexp $${column}`;
+    }
+    return `${column} = $${column}`;
+  }).join(' and ');
+}
+
 const update = async (db, table, params, query) => {
   const set = Object.keys(params).map(param => `${param} = $${param}`).join(', ');
   let sql;
   if (query) {
-    const where = Object.keys(query).map(c => `${c} = $${c}`).join(' and ');
+    const where = toClause(query);
     sql = `update ${table} set ${set} where ${where}`;
   }
   else {
@@ -86,10 +105,52 @@ const update = async (db, table, params, query) => {
   return await db.run(sql, { ...params, ...query });
 }
 
+const toSelect = (columns, keywords) => {
+  if (columns) {
+    if (Array.isArray(columns) && columns.length > 0) {
+      return columns.join(', ');
+    }
+    else if (keywords && keywords.select) {
+      return keywords.select.join(', ');
+    }
+  }
+  else {
+    return '*';
+  }
+}
+
+const toKeywords = (keywords) => {
+  let sql = '';
+  if (keywords) {
+    if (keywords.orderBy) {
+      sql += ` order by ${keywords.orderBy}`;
+      if (keywords.desc) {
+        sql += ' desc';
+      }
+    }
+    if (keywords.skip !== undefined) {
+      if (Number.isInteger(keywords.skip)) {
+        sql += ` skip ${keywords.skip}`;
+      }
+    }
+    if (keywords.limit !== undefined) {
+      if (Number.isInteger(keywords.limit)) {
+        sql += ` limit ${keywords.limit}`;
+      }
+    }
+  }
+  return sql;
+}
+
 const get = async (db, table, query, columns) => {
-  const select = columns && columns.length > 0 ? columns.join(', ') : '*';
-  const where = Object.keys(query).map(c => `${c} = $${c}`).join(' and ');
-  const sql = `select ${select} from ${table} where ${where}`;
+  const keywords = columns && !Array.isArray(columns) ? columns : null;
+  const select = toSelect(columns, keywords);
+  let sql = `select ${select} from ${table}`;
+  const where = toClause(query);
+  if (where) {
+    sql += ` where ${where}`;
+  }
+  sql += toKeywords(keywords);
   const result = await db.get(sql, query);
   if (result) {
     const adjusted = {};
@@ -109,9 +170,14 @@ const get = async (db, table, query, columns) => {
 }
 
 const all = async (db, table, query, columns) => {
-  const where = Object.keys(query).map(c => `${c} = $${c}`).join(' and ');
-  const select = columns && columns.length > 0 ? columns.join(', ') : '*';
-  const sql = `select ${select} from ${table} where ${where}`;
+  const keywords = columns && !Array.isArray(columns) ? columns : null;
+  const select = toSelect(columns, keywords);
+  let sql = `select ${select} from ${table}`;
+  const where = toClause(query);
+  if (where) {
+    sql += ` where ${where}`;
+  }
+  sql += toKeywords(keywords);
   const rows = await db.all(sql, query);
   if (rows.length > 0) {
     const sample = rows[0];
@@ -148,8 +214,11 @@ const all = async (db, table, query, columns) => {
 }
 
 const remove = async (db, table, query) => {
-  const where = Object.keys(query).map(c => `${c} = $${c}`).join(' and ');
-  const sql = `delete from ${table} where ${where}`;
+  let sql = `delete from ${table}`;
+  const where = toClause(query);
+  if (where) {
+    sql += ` where ${where}`;
+  }
   return await db.run(sql, query);
 }
 

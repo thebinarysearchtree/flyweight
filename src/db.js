@@ -1,11 +1,14 @@
 import sqlite3 from 'sqlite3';
 
 const adjust = (params) => {
-  if (typeof params === 'string' || typeof params === 'number' || typeof params === 'boolean' || params instanceof Date || typeof params === 'bigint') {
-    return params;
-  }
   const adjusted = {};
-  for (const [key, value] of Object.entries(params)) {
+  for (let [key, value] of Object.entries(params)) {
+    if (value !== null && value !== undefined && (Object.getPrototypeOf(value) === Object.prototype || Array.isArray(value))) {
+      value = JSON.stringify(value);
+    }
+    else if (value instanceof RegExp) {
+      value = value.source;
+    }
     adjusted[`$${key}`] = value;
   }
   return adjusted;
