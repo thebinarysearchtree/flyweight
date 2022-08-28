@@ -154,7 +154,8 @@ const get = async (db, table, query, columns) => {
   const result = await db.get(sql, query);
   if (result) {
     const adjusted = {};
-    for (const [key, value] of Object.entries(result)) {
+    const entries = Object.entries(result);
+    for (const [key, value] of entries) {
       const parser = getDbToJsParser(key);
       if (parser) {
         const [k, v] = parser(key, value);
@@ -163,6 +164,9 @@ const get = async (db, table, query, columns) => {
       else {
         adjusted[key] = value;
       }
+    }
+    if (entries.length === 1) {
+      return entries[0][1];
     }
     return adjusted;
   }
@@ -183,7 +187,8 @@ const all = async (db, table, query, columns) => {
     const sample = rows[0];
     const parsers = {};
     let found = false;
-    for (const key of Object.keys(sample)) {
+    const keys = Object.keys(sample);
+    for (const key of keys) {
       const parser = getDbToJsParser(key);
       if (parser) {
         parsers[key] = parser;
@@ -206,7 +211,15 @@ const all = async (db, table, query, columns) => {
         }
         adjusted.push(created);
       }
+      if (keys.length === 1) {
+        const key = keys[0];
+        return adjusted.map(item => item[key]);
+      }
       return adjusted;
+    }
+    if (keys.length === 1) {
+      const key = keys[0];
+      return rows.map(item => item[key]);
     }
     return rows;
   }

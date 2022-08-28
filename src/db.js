@@ -1,4 +1,7 @@
 import sqlite3 from 'sqlite3';
+import { toValue, toValues } from './utils.js';
+import { parseOne, parseMany } from './parsers.js';
+import { mapOne, mapMany } from './map.js';
 
 const adjust = (params) => {
   const adjusted = {};
@@ -14,9 +17,39 @@ const adjust = (params) => {
   return adjusted;
 }
 
+const process = (result, options, one) => {
+  const parser = one ? parseOne : parseMany;
+  const mapper = one ? mapOne : mapMany;
+  const value = one ? toValue : toValues;
+  if (!options) {
+    return result;
+  }
+  if (options.value) {
+    if (options.parse) {
+      const parsed = parseOne(result);
+      return value(parsed);
+    }
+    return value(result);
+  }
+  if (options.parse) {
+    return parser(result);
+  }
+  if (options.map) {
+    return mapper(result, options.skip, options.prefixes);
+  }
+  return result;
+}
+
+const processResult = (result, options) => process(result, options, true);
+const processResults = (result, options) => process(result, options, false);
+
 class Database {
   constructor(path) {
     this.db = new sqlite3.Database(path);
+  }
+
+  async enableForeignKeys() {
+    await this.basicRun('pragma foreign_keys = on');
   }
 
   async begin() {
@@ -77,7 +110,7 @@ class Database {
     });
   }
 
-  async get(query, params) {
+  async get(query, params, options) {
     if (params !== null && params !== undefined) {
       params = adjust(params);
     }
@@ -89,7 +122,8 @@ class Database {
             reject(err);
           }
           else {
-            resolve(row);
+            const result = processResult(row, options);
+            resolve(result);
           }
         });
       });
@@ -100,13 +134,14 @@ class Database {
           reject(err);
         }
         else {
-          resolve(row);
+          const result = processResult(row, options);
+          resolve(result);
         }
       });
     });
   }
 
-  async all(query, params) {
+  async all(query, params, options) {
     if (params !== null && params !== undefined) {
       params = adjust(params);
     }
@@ -118,7 +153,8 @@ class Database {
             reject(err);
           }
           else {
-            resolve(rows);
+            const result = processResults(rows, options);
+            resolve(result);
           }
         });
       });
@@ -129,7 +165,8 @@ class Database {
           reject(err);
         }
         else {
-          resolve(rows);
+          const result = processResults(rows, options);
+          resolve(result);
         }
       });
     });

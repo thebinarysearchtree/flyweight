@@ -1,3 +1,5 @@
+import { toValue, toValues } from './utils.js';
+
 const parsers = [];
 
 const registerParser = (parser) => {
@@ -46,7 +48,7 @@ const parseOne = (row) => {
       result[key] = value;
     }
   }
-  return result;
+  return toValue(result);
 }
 
 const parseMany = (rows) => {
@@ -64,7 +66,7 @@ const parseMany = (rows) => {
     }
   }
   if (!found) {
-    return rows;
+    return toValues(rows);
   }
   const results = [];
   for (const row of rows) {
@@ -81,7 +83,7 @@ const parseMany = (rows) => {
     }
     results.push(adjusted);
   }
-  return results;
+  return toValues(results);
 }
 
 export {
