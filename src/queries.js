@@ -123,19 +123,23 @@ const toKeywords = (keywords) => {
   let sql = '';
   if (keywords) {
     if (keywords.orderBy) {
-      sql += ` order by ${keywords.orderBy}`;
+      let orderBy = keywords.orderBy;
+      if (Array.isArray(orderBy)) {
+        orderBy = orderBy.join(', ');
+      }
+      sql += ` order by ${orderBy}`;
       if (keywords.desc) {
         sql += ' desc';
-      }
-    }
-    if (keywords.skip !== undefined) {
-      if (Number.isInteger(keywords.skip)) {
-        sql += ` skip ${keywords.skip}`;
       }
     }
     if (keywords.limit !== undefined) {
       if (Number.isInteger(keywords.limit)) {
         sql += ` limit ${keywords.limit}`;
+      }
+    }
+    if (keywords.skip !== undefined) {
+      if (Number.isInteger(keywords.skip)) {
+        sql += ` offset ${keywords.skip}`;
       }
     }
   }

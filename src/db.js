@@ -48,8 +48,8 @@ class Database {
     this.db = new sqlite3.Database(path);
   }
 
-  async enableForeignKeys() {
-    await this.basicRun('pragma foreign_keys = on');
+  async enforceForeignKeys() {
+    await this.get('pragma foreign_keys = on');
   }
 
   async begin() {

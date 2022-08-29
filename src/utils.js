@@ -26,7 +26,7 @@ const makeClientFromArray = (database, tables) => {
   return db;
 }
 
-const makeClientFromFolder = (database, sqlFolder) => {
+const makeClientFromFolder = async (database, sqlFolder) => {
   const db = {};
   const folders = await readdir(sqlFolder);
   for (const folder of folders) {
@@ -34,7 +34,7 @@ const makeClientFromFolder = (database, sqlFolder) => {
     const queries = {};
     const path = `${sqlFolder}/${folder}`;
     const queryFolders = await readdir(path);
-    const setQueries = (type) => {
+    const setQueries = async (type) => {
       const filenames = await readdir(`${path}/${type}`);
       for (const filename of filenames) {
         if (!filename.endsWith('.sql')) {
@@ -49,7 +49,7 @@ const makeClientFromFolder = (database, sqlFolder) => {
     }
     for (const folder of queryFolders) {
       if (['run', 'get', 'all'].includes(folder)) {
-        setQueries(folder);
+        await setQueries(folder);
       }
     }
     const basic = makeBasicQueries(database, table);

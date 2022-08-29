@@ -1,5 +1,5 @@
 import Database from './src/db.js';
-import { registerParser } from './src/parsers';
+import { registerParser } from './src/parsers.js';
 import {
   makeClientFromArray,
   makeClientFromFolder,
