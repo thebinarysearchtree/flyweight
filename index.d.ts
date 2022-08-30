@@ -36,11 +36,13 @@ export class Database {
 export function registerParser(parser: Parser): void;
 
 export interface Keywords {
-  select?: Array<string>;
-  orderBy?: string;
+  select?: Array<string> | string;
+  orderBy?: Array<string> | string;
   desc?: boolean;
-  skip?: number;
   limit?: number;
+  offset?: number;
+  distinct?: boolean;
+  count?: boolean;
 }
 
 interface BasicQueries {

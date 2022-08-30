@@ -106,12 +106,25 @@ const update = async (db, table, params, query) => {
 }
 
 const toSelect = (columns, keywords) => {
+  if (keywords && keywords.count) {
+    return 'count(*)';
+  }
   if (columns) {
+    if (typeof columns === 'string') {
+      return columns;
+    }
     if (Array.isArray(columns) && columns.length > 0) {
       return columns.join(', ');
     }
     else if (keywords && keywords.select) {
-      return keywords.select.join(', ');
+      const select = keywords.select;
+      if (typeof select === 'string') {
+        return select;
+      }
+      if (Array.isArray(select) && select.length > 0) {
+        return select.join(', ');
+      }
+      return '*';
     }
   }
   else {
@@ -137,9 +150,9 @@ const toKeywords = (keywords) => {
         sql += ` limit ${keywords.limit}`;
       }
     }
-    if (keywords.skip !== undefined) {
-      if (Number.isInteger(keywords.skip)) {
-        sql += ` offset ${keywords.skip}`;
+    if (keywords.offset !== undefined) {
+      if (Number.isInteger(keywords.offset)) {
+        sql += ` offset ${keywords.offset}`;
       }
     }
   }
@@ -147,9 +160,13 @@ const toKeywords = (keywords) => {
 }
 
 const get = async (db, table, query, columns) => {
-  const keywords = columns && !Array.isArray(columns) ? columns : null;
+  const keywords = columns && typeof columns !== 'string' && !Array.isArray(columns) ? columns : null;
   const select = toSelect(columns, keywords);
-  let sql = `select ${select} from ${table}`;
+  let sql = 'select ';
+  if (keywords && keywords.distinct) {
+    sql += 'distinct ';
+  }
+  sql += `${select} from ${table}`;
   const where = toClause(query);
   if (where) {
     sql += ` where ${where}`;
@@ -178,9 +195,13 @@ const get = async (db, table, query, columns) => {
 }
 
 const all = async (db, table, query, columns) => {
-  const keywords = columns && !Array.isArray(columns) ? columns : null;
+  const keywords = columns && typeof columns !== 'string' && !Array.isArray(columns) ? columns : null;
   const select = toSelect(columns, keywords);
-  let sql = `select ${select} from ${table}`;
+  let sql = 'select ';
+  if (keywords && keywords.distinct) {
+    sql += 'distinct ';
+  }
+  sql += `${select} from ${table}`;
   const where = toClause(query);
   if (where) {
     sql += ` where ${where}`;
