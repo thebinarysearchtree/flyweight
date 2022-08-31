@@ -1,15 +1,15 @@
 import { readFile } from 'fs/promises';
 import { parseTables, getTables } from './sqlParsers/tables.js';
 import Database from './db.js';
+import { makeClient } from './proxy.js';
 
-const db = new Database('/Users/andrew/Projects/databases/splatter.db');
+const database = new Database('/Users/andrew/Projects/databases/splatter.db');
 
-const sql = await readFile('/Users/andrew/Projects/splatter/src/database/initial.sql', 'utf8');
-const tables = parseTables(sql);
-console.log(tables[1].columns);
+//const sql = await readFile('/Users/andrew/Projects/splatter/src/database/initial.sql', 'utf8');
 
-const result = await db.all('pragma table_info(events)');
+const db = makeClient(database);
 
-console.log(result);
+const event = await db.events.get({ id: 100 });
+console.log(event);
 
 process.exit();
