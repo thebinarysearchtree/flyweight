@@ -42,10 +42,24 @@ export interface Keywords<T> {
   limit?: number;
   offset?: number;
   distinct?: boolean;
-  count?: boolean;
 }
 
-type Select = Array<string> | string | undefined;
+export interface KeywordsWithoutSelect {
+  orderBy?: Array<string> | string;
+  desc?: boolean;
+  limit?: number;
+  offset?: number;
+  distinct?: boolean;
+}
+
+export interface KeywordsWithCount {
+  orderBy?: Array<string> | string;
+  desc?: boolean;
+  limit?: number;
+  offset?: number;
+  distinct?: boolean;
+  count: boolean;
+}
 
 interface BasicQueries<T> {
   insert(params: any): Promise<any>;
@@ -54,13 +68,14 @@ interface BasicQueries<T> {
   get(params?: any): Promise<T | null>;
   get<K extends keyof T>(params: any, columns: K[]): Promise<Pick<T, K> | null>;
   get<K extends keyof T>(params: any, column: K): Promise<T[K] | null>;
-  get(params: any, keywords: Keywords<Select>): Promise<T | null>;
+  get(params: any, keywords: KeywordsWithoutSelect): Promise<T | null>;
+  get(params: any, keywords: KeywordsWithCount): Promise<number | null>;
   get<K extends keyof T>(params: any, keywords: Keywords<K>): Promise<T[K] | null>;
   get<K extends keyof T>(params: any, keywords: Keywords<K[]>): Promise<Pick<T, K> | null>;
   all(params?: any): Promise<Array<T>>;
   all<K extends keyof T>(params: any, columns: K[]): Promise<Array<Pick<T, K>>>;
   all<K extends keyof T>(params: any, column: K): Promise<Array<T[K]>>;
-  all(params: any, keywords: Keywords<Select>): Promise<Array<T>>;
+  all(params: any, keywords: KeywordsWithoutSelect): Promise<Array<T>>;
   all<K extends keyof T>(params: any, keywords: Keywords<K>): Promise<Array<T[K]>>;
   all<K extends keyof T>(params: any, keywords: Keywords<K[]>): Promise<Array<Pick<T, K>>>;
   remove(params?: any): Promise<number>;
