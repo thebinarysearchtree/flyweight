@@ -6,6 +6,17 @@ const registerParser = (parser) => {
   parsers.push(parser);
 }
 
+const getType = (key) => {
+  const dbToJsParsers = parsers.filter(p => p.dbToJs);
+  for (const parser of dbToJsParsers) {
+    const { pattern, dbPattern, type } = parser;
+    if ((pattern && pattern.test(key) || (dbPattern && dbPattern.test(key)))) {
+      return type;
+    }
+  }
+  return null;
+}
+
 const getDbToJsParser = (key) => {
   const dbToJsParsers = parsers.filter(p => p.dbToJs);
   for (const parser of dbToJsParsers) {
@@ -87,6 +98,7 @@ const parseMany = (rows) => {
 }
 
 export {
+  getType,
   registerParser,
   getDbToJsParser,
   getJsToDbParser,
