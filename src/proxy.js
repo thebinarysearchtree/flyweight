@@ -1,4 +1,4 @@
-import { readFile } from 'fs/promises';
+import { readFileSync } from 'fs';
 import {
   insert,
   insertMany,
@@ -7,6 +7,7 @@ import {
   all,
   remove
 } from './queries.js';
+import { registeredMappers } from './utils.js';
 
 const queries = {
   insert: (database, table) => async (params) => await insert(database, table, params),
@@ -21,19 +22,35 @@ const makeQueryHandler = (table, db, sqlDir) => ({
   get: function(target, query, receiver) {
     if (!target[query]) {
       if (!sqlDir) {
-        target[query] = queries[query](db, table);
+        if (!queries[query]) {
+          throw Error(`Query ${query} of table ${table} not found`);
+        }
+        else {
+          target[query] = queries[query](db, table);
+        }
       }
       else {
+        let found = false;
         for (const type of ['all', 'get', 'run']) {
           const path = `${sqlDir}/${table}/${type}/${query}.sql`;
           try {
-            const sql = await readFile(path, 'utf8');
+            const sql = readFileSync(path, 'utf8');
             const statement = db.prepare(sql);
             const run = db[type];
+            target[query] = async (params, options) => await run(statement, params, options || registeredMappers[table][query]);
+            found = true;
             break;
           }
           catch {
             continue;
+          }
+        }
+        if (!found) {
+          if (queries[query]) {
+            target[query] = queries[query](db, table);
+          }
+          else {
+            throw Error(`Query ${query} of table ${table} not found`);
           }
         }
       }

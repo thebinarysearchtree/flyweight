@@ -186,7 +186,7 @@ const get = async (db, table, query, columns) => {
         adjusted[key] = value;
       }
     }
-    if (entries.length === 1) {
+    if (typeof columns === 'string' || keywords && typeof keywords.select === 'string') {
       return entries[0][1];
     }
     return adjusted;
@@ -236,13 +236,13 @@ const all = async (db, table, query, columns) => {
         }
         adjusted.push(created);
       }
-      if (keys.length === 1) {
+      if (typeof columns === 'string' || keywords && typeof keywords.select === 'string') {
         const key = keys[0];
         return adjusted.map(item => item[key]);
       }
       return adjusted;
     }
-    if (keys.length === 1) {
+    if (typeof columns === 'string' || keywords && typeof keywords.select === 'string') {
       const key = keys[0];
       return rows.map(item => item[key]);
     }
