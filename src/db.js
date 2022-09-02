@@ -2,6 +2,8 @@ import sqlite3 from 'sqlite3';
 import { toValue, toValues } from './utils.js';
 import { parseOne, parseMany } from './parsers.js';
 import { mapOne, mapMany } from './map.js';
+import { getTables } from './sqlParsers/tables.js';
+import { readFile } from 'fs/promises';
 
 const adjust = (params) => {
   const adjusted = {};
@@ -46,10 +48,25 @@ const processResults = (result, options) => process(result, options, false);
 class Database {
   constructor(path) {
     this.db = new sqlite3.Database(path);
+    this.tables = {};
   }
 
   async enforceForeignKeys() {
     await this.get('pragma foreign_keys = on');
+  }
+
+  async setTables(path) {
+    let tables;
+    if (path) {
+      const sql = await readFile(path, 'utf8');
+      tables = getTables(sql);
+    }
+    else {
+      tables = getTables(this);
+    }
+    for (const table of tables) {
+      this.tables[table.name] = table.columns;
+    }
   }
 
   async begin() {

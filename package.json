@@ -11,6 +11,7 @@
   "author": "Andrew Jones",
   "license": "MIT",
   "dependencies": {
+    "pluralize": "^8.0.0",
     "sqlite3": "^5.0.11"
   }
 }

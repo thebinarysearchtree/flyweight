@@ -1,4 +1,4 @@
-const parseTables = (sql) => {
+const fromSql = (sql) => {
   const tables = [];
 
   const matches = sql.matchAll(/^\s*create table (?<tableName>[^\s]+)\s+\((?<columns>[^;]+);/gmi);
@@ -12,9 +12,9 @@ const parseTables = (sql) => {
       .replaceAll(/\([^)]+\)/gm, '')
       .split(',');
     for (let column of columns) {
-      column = column.replace(/^\s+/, '');
+      column = column.replace(/^\s+/, '').replace(')', ' ');
       const words = column.split(/\s+/);
-      if (/^unique\(/.test(words[0])) {
+      if (['unique', 'check', 'primary', 'foreign'].includes(words[0])) {
         continue;
       }
       const name = words[0];
@@ -33,7 +33,7 @@ const parseTables = (sql) => {
   return tables;
 }
 
-const getTables = async (database) => {
+const fromDb = async (database) => {
   const result = await database.all(`select name from sqlite_master where type='table'`);
   const tableNames = result.map(r => r.name);
   const tables = [];
@@ -54,7 +54,13 @@ const getTables = async (database) => {
   return tables;
 }
 
+const getTables = (source) => {
+  if (typeof source === 'string') {
+    return fromSql(source);
+  }
+  return fromDb(source);
+}
+
 export {
-  parseTables,
   getTables
 }

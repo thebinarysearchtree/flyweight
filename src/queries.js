@@ -88,8 +88,24 @@ const toClause = (query) => {
     if (param instanceof RegExp) {
       return `${column} regexp $${column}`;
     }
+    if (param === null) {
+      return `${column} is null`;
+    }
     return `${column} = $${column}`;
   }).join(' and ');
+}
+
+const removeNulls = (query) => {
+  if (!query) {
+    return query;
+  }
+  const result = {};
+  for (const [key, value] of Object.entries(query)) {
+    if (value !== null) {
+      result[key] = value;
+    }
+  }
+  return result;
 }
 
 const update = async (db, table, params, query) => {
@@ -97,6 +113,7 @@ const update = async (db, table, params, query) => {
   let sql;
   if (query) {
     const where = toClause(query);
+    query = removeNulls(query);
     sql = `update ${table} set ${set} where ${where}`;
   }
   else {
@@ -105,10 +122,7 @@ const update = async (db, table, params, query) => {
   return await db.run(sql, { ...params, ...query });
 }
 
-const toSelect = (columns, keywords) => {
-  if (keywords && keywords.count) {
-    return 'count(*)';
-  }
+const toSelect = (columns, keywords, table, db) => {
   if (columns) {
     if (typeof columns === 'string') {
       return columns;
@@ -116,7 +130,10 @@ const toSelect = (columns, keywords) => {
     if (Array.isArray(columns) && columns.length > 0) {
       return columns.join(', ');
     }
-    else if (keywords && keywords.select) {
+    if (keywords && keywords.count) {
+      return 'count(*) as count';
+    }
+    if (keywords && keywords.select) {
       const select = keywords.select;
       if (typeof select === 'string') {
         return select;
@@ -126,6 +143,16 @@ const toSelect = (columns, keywords) => {
       }
       return '*';
     }
+    if (keywords && keywords.exclude) {
+      if (!db.tables[table]) {
+        throw Error('Database tables must be set before using exclude');
+      }
+      return db.tables[table]
+        .map(c => c.name)
+        .filter(c => !keywords.exclude.includes(c))
+        .join(', ');
+    }
+    return '*';
   }
   else {
     return '*';
@@ -161,13 +188,15 @@ const toKeywords = (keywords) => {
 
 const get = async (db, table, query, columns) => {
   const keywords = columns && typeof columns !== 'string' && !Array.isArray(columns) ? columns : null;
-  const select = toSelect(columns, keywords);
+  const select = toSelect(columns, keywords, table, db);
+  const returnValue = typeof columns === 'string' || (keywords && typeof keywords.select === 'string') || (keywords && keywords.count);
   let sql = 'select ';
   if (keywords && keywords.distinct) {
     sql += 'distinct ';
   }
   sql += `${select} from ${table}`;
   const where = toClause(query);
+  query = removeNulls(query);
   if (where) {
     sql += ` where ${where}`;
   }
@@ -186,7 +215,7 @@ const get = async (db, table, query, columns) => {
         adjusted[key] = value;
       }
     }
-    if (typeof columns === 'string' || keywords && typeof keywords.select === 'string') {
+    if (returnValue) {
       return entries[0][1];
     }
     return adjusted;
@@ -196,13 +225,15 @@ const get = async (db, table, query, columns) => {
 
 const all = async (db, table, query, columns) => {
   const keywords = columns && typeof columns !== 'string' && !Array.isArray(columns) ? columns : null;
-  const select = toSelect(columns, keywords);
+  const select = toSelect(columns, keywords, table, db);
+  const returnValue = typeof columns === 'string' || (keywords && typeof keywords.select === 'string') || (keywords && keywords.count);
   let sql = 'select ';
   if (keywords && keywords.distinct) {
     sql += 'distinct ';
   }
   sql += `${select} from ${table}`;
   const where = toClause(query);
+  query = removeNulls(query);
   if (where) {
     sql += ` where ${where}`;
   }
@@ -236,13 +267,13 @@ const all = async (db, table, query, columns) => {
         }
         adjusted.push(created);
       }
-      if (typeof columns === 'string' || keywords && typeof keywords.select === 'string') {
+      if (returnValue) {
         const key = keys[0];
         return adjusted.map(item => item[key]);
       }
       return adjusted;
     }
-    if (typeof columns === 'string' || keywords && typeof keywords.select === 'string') {
+    if (returnValue) {
       const key = keys[0];
       return rows.map(item => item[key]);
     }
@@ -254,6 +285,7 @@ const all = async (db, table, query, columns) => {
 const remove = async (db, table, query) => {
   let sql = `delete from ${table}`;
   const where = toClause(query);
+  query = removeNulls(query);
   if (where) {
     sql += ` where ${where}`;
   }

@@ -6,6 +6,7 @@ import {
   all,
   remove
 } from './queries.js';
+import pluralize from 'pluralize';
 
 const registeredMappers = {};
 
@@ -96,6 +97,27 @@ const registerMappers = (table, mappers) => {
   for (const mapper of mappers) {
     const { query, ...options } = mapper;
     registeredMappers[table][query] = options;
+  }
+}
+
+const joinOne = (t1, t2, columns) => {
+  for (const item of t1) {
+    for (const column of columns) {
+      const name = column.substring(0, column.length - 2);
+      item[name] = t2.find(r => r.id === item[column]);
+      delete item[column];
+    }
+  }
+}
+
+const joinMany = (tables) => {
+  const [left, right] = Object.keys(tables);
+  const foreignKey = pluralize.singular(left) + 'Id';
+  for (const item of tables[left]) {
+    item[right] = tables[right].filter(r => r[foreignKey] === item.id);
+  }
+  for (const item of tables[right]) {
+    delete item[foreignKey];
   }
 }
 
