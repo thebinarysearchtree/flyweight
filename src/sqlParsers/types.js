@@ -5,7 +5,7 @@ import pluralize from 'pluralize';
 
 const capitalize = (word) => word[0].toUpperCase() + word.substring(1);
 
-const createTypes = async (sqlPath, destinationFile) => {
+const createTypes = async (sqlPath, destinationPath) => {
   const sql = await readFile(sqlPath, 'utf8');
   const tables = getTables(sql);
   let types = '';
@@ -18,24 +18,27 @@ const createTypes = async (sqlPath, destinationFile) => {
     for (const column of table.columns) {
       const { name, type, notNull } = column;
       const parsedType = getType(name);
-      let jsType;
+      let tsType;
       if (parsedType) {
-        jsType = parsedType;
+        tsType = parsedType;
       }
       else {
-        if (type === 'integer' || type === 'real') {
-          jsType = 'number';
+        if (type === 'integer' || type === 'int' || type === 'real') {
+          tsType = 'number';
         }
         if (type === 'text') {
-          jsType = 'string';
+          tsType = 'string';
         }
         if (type === 'blob') {
-          jsType = 'Buffer';
+          tsType = 'Buffer';
+        }
+        if (type === 'any') {
+          tsType = 'any';
         }
       }
       let property = `  ${name}`;
       property += ': ';
-      property += jsType;
+      property += tsType;
       if (!notNull) {
         property += ' | null';
       }
@@ -49,7 +52,7 @@ const createTypes = async (sqlPath, destinationFile) => {
   types += returnTypes.join(',\n');
   types += '\n  }\n';
   types += '}\n\n';
-  console.log(types);
+  await writeFile(destinationPath, types, 'utf8');
 }
 
 export {

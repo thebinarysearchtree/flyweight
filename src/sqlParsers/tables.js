@@ -1,31 +1,42 @@
+import { blank } from './utils.js';
+
+const typeMap = {
+  integer: 'number',
+  int: 'number',
+  text: 'string',
+  blob: 'Buffer',
+  any: 'any'
+};
+
 const fromSql = (sql) => {
   const tables = [];
 
-  const matches = sql.matchAll(/^\s*create table (?<tableName>[^\s]+)\s+\((?<columns>[^;]+);/gmi);
+  const matches = blank(sql, { stringsOnly: true }).matchAll(/^\s*create table (?<tableName>[^\s]+)\s+\((?<columns>[^;]+);/gmi);
 
   for (const match of matches) {
     const table = {
       name: match.groups.tableName,
       columns: []
     };
-    const columns = match.groups.columns
+    const columns = blank(match.groups.columns)
+      .replaceAll(/\s+/gm, ' ')
       .replaceAll(/\([^)]+\)/gm, '')
-      .split(',');
+      .split(',')
+      .map(s => s.trim());
     for (let column of columns) {
-      column = column.replace(/^\s+/, '').replace(')', ' ');
-      const words = column.split(/\s+/);
-      if (['unique', 'check', 'primary', 'foreign'].includes(words[0])) {
+      const match = /^(?<name>[a-z0-9_]+)\s(?<type>[a-z0-9_]+)(\s(?<primaryKey>primary key)|(?<notNull>not null))?/gmi.exec(column);
+      if (!match) {
         continue;
       }
-      const name = words[0];
-      const type = words[1];
-      const primaryKey = words[2] === 'primary' && words[3] === 'key';
-      const notNull = primaryKey || (words[2] === 'not' && words[3] === 'null');
+      const { name, type, primaryKey, notNull } = match.groups;
+      if (['unique', 'check', 'primary', 'foreign'].includes(name)) {
+        continue;
+      }
       table.columns.push({
         name,
-        type,
-        primaryKey,
-        notNull
+        type: typeMap[type],
+        primaryKey: primaryKey !== undefined,
+        notNull: notNull !== undefined || primaryKey !== undefined
       });
     }
     tables.push(table);
@@ -45,7 +56,7 @@ const fromDb = async (database) => {
     const result = await database.all(`pragma table_info(${name})`);
     table.columns = result.map(r => ({
       name: r.name,
-      type: r.type.toLowerCase(),
+      type: typeMap[r.type.toLowerCase()],
       primaryKey: Boolean(r.pk),
       notNull: Boolean(r.notnull)
     }));
