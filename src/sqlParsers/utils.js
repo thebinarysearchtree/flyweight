@@ -6,6 +6,8 @@ const blank = (s, options) => {
   let previous;
   let inString = false;
   let i = 0;
+  let stringStart = false;
+  let bracketStart = false;
   let stringsOnly;
   if (options) {
     stringsOnly = options.stringsOnly;
@@ -20,15 +22,33 @@ const blank = (s, options) => {
       else {
         inString = !inString;
       }
+      if (inString) {
+        stringStart = true;
+      }
     }
     if (char === '(' && !inString) {
       count++;
+      if (count === 1) {
+        bracketStart = true;
+      }
     }
     if (char === ')' && !inString) {
       count--;
     }
     if ((!stringsOnly && count > 0) || inString) {
-      processed += ' ';
+      if (count === 0 && inString && stringStart) {
+        processed += char;
+        stringStart = false;
+      }
+      else {
+        if (count !== 0 && bracketStart) {
+          processed += char;
+          bracketStart = false;
+        }
+        else {
+          processed += ' ';
+        }
+      }
     }
     else {
       processed += char;

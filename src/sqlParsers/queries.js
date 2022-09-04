@@ -1,15 +1,38 @@
 import { blank } from './utils.js';
 import returnTypes from './returnTypes.js';
 
+const getTempTables = (query, fromPattern, tables) => {
+  const from = fromPattern.exec(query).groups.from;
+  const processed = blank(from);
+  const matches = processed.matchAll(/(?<subQuery>\([^)]+\))/gm);
+  const tempTables = {};
+  let processedQuery = query;
+  let i = 1;
+  for (const match of matches) {
+    const subQuery = match.groups.subQuery;
+    const processed = from.substring(match.index + 1, match.index + subQuery.length - 1);
+    const parsedTable = parse(processed, tables);
+    const tableName = `temp${i}`;
+    processedQuery = processedQuery.replace(from.substring(match.index, match.index + subQuery.length), tableName);
+    const columns = parsedTable.map(c => ({ name: c.column, type: c.type }));
+    tempTables[tableName] = columns;
+    i++;
+  }
+  return {
+    processedQuery,
+    tempTables
+  }
+}
+
 const parse = (query, tables) => {
-  const select = /select\s+(?<select>(.|\s)+?)\sfrom\s/
-    .exec(query)
+  query = query.replaceAll(/\s+/gm, ' ');
+  const processed = blank(query);
+  const select = /^\s*select\s(?<select>.+?)\sfrom\s.+$/
+    .exec(processed)
     .groups
     .select
-    .replaceAll(/\s+/g, ' ')
     .replaceAll(/^\s*distinct\s/gmi, '');
-  const processed = blank(select);
-  const matches = processed.matchAll(/,/gm);
+  const matches = select.matchAll(/,/gm);
   const statements = [];
   let lastIndex = 0;
   for (const match of matches) {
@@ -75,7 +98,7 @@ const parse = (query, tables) => {
     },
     {
       name: 'Operator pattern',
-      pattern: /^.+\s(=|(!=)|(==)|(<>)|(>=)|(<=)|>|<|\*|\/|%|\+|-)\s[^()]+\s(as)\s(?<columnAlias>[a-z0-9_]+)$/mi,
+      pattern: /^.+\s(=|(!=)|(==)|(<>)|(>=)|(<=)|>|<|\*|\/|%|\+|-)\s.+\s(as)\s(?<columnAlias>[a-z0-9_]+)$/mi,
       extractor: (groups) => {
         const { columnAlias } = groups;
         return {
@@ -104,7 +127,8 @@ const parse = (query, tables) => {
     let found = false;
     for (const parser of parsers) {
       const { pattern, extractor } = parser;
-      const result = pattern.exec(item);
+      const processed = blank(item);
+      const result = pattern.exec(processed);
       if (result) {
         const parsed = extractor(result.groups);
         selectColumns.push(parsed);
@@ -117,11 +141,13 @@ const parse = (query, tables) => {
     }
   }
   const fromTables = [];
-  const from = /\sfrom\s+(?<from>(.|\s)+?)(\swhere\s)|(\sgroup\s)|(\swindow\s)|(\sorder\s)|(\slimit\s)/
-    .exec(query)
+  const fromPattern = /\sfrom\s+(?<from>(.|\s)+?)((\swhere\s)|(\sgroup\s)|(\swindow\s)|(\sorder\s)|(\slimit\s)|(\s*$))/mi;
+  const { processedQuery, tempTables } = getTempTables(query, fromPattern, tables);
+  tables = { ...tables, ...tempTables };
+  const from = fromPattern
+    .exec(processedQuery)
     .groups
     .from
-    .replaceAll('\n', ' ')
     .replaceAll(/(\snatural\s)|(\sleft\s)|(\sright\s)|(\sfull\s)|(\sinner\s)|(\scross\s)|(\souter\s)/gm, '')
     .replaceAll(',', 'join')
     .replaceAll(/\son\s.+?\sjoin\s/gm, ' join ')
