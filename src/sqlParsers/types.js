@@ -58,10 +58,10 @@ const getQueries = async (db, sqlDir, tableName, tables) => {
       continue;
     }
     if (mapper.result.startsWith('value')) {
-      const { column, type } = parse(sql, tablesMap)[0];
+      const { name, type } = parse(sql, tablesMap)[0];
       let returnType;
       if (mapper.parse) {
-        const parsed = db.parseKey(column);
+        const parsed = db.parseKey(name);
         if (parsed) {
           returnType = parsed.type;
         }
@@ -83,7 +83,7 @@ const getQueries = async (db, sqlDir, tableName, tables) => {
     let interfaceString = `interface ${interfaceName} {\n`;
     if (!mapper.map) {
       for (const column of columns) {
-        const { column: name, type } = column;
+        const { name, type } = column;
         const parsedKey = db.parseKey(name);
         if (parsedKey && mapper.parse) {
           const { key, type } = parsedKey;
@@ -97,7 +97,7 @@ const getQueries = async (db, sqlDir, tableName, tables) => {
     else {
       const sample = {};
       for (const column of columns) {
-        const { column: name, type } = column;
+        const { name, type } = column;
         const parsedKey = db.parseKey(name);
         if (parsedKey && mapper.parse) {
           const { key, type } = parsedKey;
@@ -221,13 +221,13 @@ const createTypes = async (options) => {
     returnTypes.push(returnType);
     types += `export interface ${interfaceName} {\n`;
     for (const column of table.columns) {
-      const { name, type, notNull } = column;
+      const { name, type, primaryKey, notNull } = column;
       const parsedKey = db.parseKey(name);
       const tsType = parsedKey ? parsedKey.type : type;
       let property = `  ${name}`;
       property += ': ';
       property += tsType;
-      if (!notNull) {
+      if (!notNull && !primaryKey) {
         property += ' | null';
       }
       property += ';\n';

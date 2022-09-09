@@ -243,8 +243,9 @@ const parse = (query, tables) => {
       }
     }
     results.push({
-      column: column.columnAlias || column.columnName,
-      type
+      name: column.columnAlias || column.columnName,
+      type,
+      originalName: column.columnName
     });
   }
   return results;

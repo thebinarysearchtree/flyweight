@@ -35,7 +35,7 @@ const fromSql = (sql) => {
         name,
         type: typeMap[type],
         primaryKey: primaryKey !== undefined,
-        notNull: notNull !== undefined || primaryKey !== undefined
+        notNull: notNull !== undefined
       });
     }
     tables.push(table);

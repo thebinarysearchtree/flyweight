@@ -1,12 +1,12 @@
 export interface WeightClass {
-  id: number | null;
+  id: number;
   name: string;
   weightLbs: number;
   gender: string;
 }
 
 export interface Location {
-  id: number | null;
+  id: number;
   name: string;
   address: string;
   lat: undefined;
@@ -14,7 +14,7 @@ export interface Location {
 }
 
 export interface Event {
-  id: number | null;
+  id: number;
   name: string;
   startTime: number;
   locationId: number | null;
@@ -39,7 +39,7 @@ interface EventsQueries {
 }
 
 export interface Card {
-  id: number | null;
+  id: number;
   eventId: number;
   cardName: string;
   cardOrder: number;
@@ -47,14 +47,14 @@ export interface Card {
 }
 
 export interface Coach {
-  id: number | null;
+  id: number;
   name: string;
   city: string;
   fightStyleId: number;
 }
 
 export interface Fighter {
-  id: number | null;
+  id: number;
   name: string;
   nickname: string | null;
   born: string | null;
@@ -66,13 +66,13 @@ export interface Fighter {
 }
 
 export interface OtherName {
-  id: number | null;
+  id: number;
   fighterId: number;
   name: string;
 }
 
 export interface FighterCoach {
-  id: number | null;
+  id: number;
   coachId: number;
   fighterId: number;
   startDate: string;
@@ -80,7 +80,7 @@ export interface FighterCoach {
 }
 
 export interface Ranking {
-  id: number | null;
+  id: number;
   fighterId: number;
   weightClassId: number;
   rank: number;
@@ -88,13 +88,13 @@ export interface Ranking {
 }
 
 export interface Method {
-  id: number | null;
+  id: number;
   name: string;
   abbreviation: string;
 }
 
 export interface Fight {
-  id: number | null;
+  id: number;
   cardId: number;
   fightOrder: number;
   blueId: number;
@@ -115,7 +115,7 @@ export interface Fight {
 }
 
 export interface CancelledFight {
-  id: number | null;
+  id: number;
   cardId: number;
   cardOrder: number;
   blueId: number;
@@ -125,7 +125,7 @@ export interface CancelledFight {
 }
 
 export interface TitleRemoval {
-  id: number | null;
+  id: number;
   fighterId: number;
   weightClassId: number;
   isInterim: number;
