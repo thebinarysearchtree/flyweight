@@ -26,7 +26,26 @@ const getTempTables = (query, fromPattern, tables) => {
 
 const parse = (query, tables) => {
   query = query.replaceAll(/\s+/gm, ' ');
-  const processed = blank(query);
+  let processed = blank(query);
+  const isCte = /^\s*with\s/mi.test(processed);
+  if (isCte) {
+    let lastIndex;
+    const matches = processed.matchAll(/(\s|,)(?<tableName>[a-z0-9_]+)\s(as)\s(?<material>(not\s)?(materialized\s))?\((?<query>[^)]+)\)/gmi);
+    for (const match of matches) {
+      const tableName = match.groups.tableName;
+      const material = match.groups.material ? match.groups.material : '';
+      const processed = match.groups.query;
+      const offset = tableName.length + material.length + 6;
+      const start = match.index + offset;
+      const end = start + processed.length;
+      lastIndex = end + 1;
+      const actual = query.substring(start, end);
+      const columns = parse(actual, tables);
+      tables[tableName] = columns.map(c => ({ name: c.column, type: c.type }));
+    }
+    query = query.substring(lastIndex);
+    processed = processed.substring(lastIndex);
+  }
   const select = /^\s*select\s(?<select>.+?)\sfrom\s.+$/
     .exec(processed)
     .groups
@@ -84,6 +103,17 @@ const parse = (query, tables) => {
       }
     },
     {
+      name: 'Case pattern',
+      pattern: /^case when .+ then (?<then>.+(?!else)(?!when)) end as (?<columnAlias>[a-z0-9_]+)$/mi,
+      extractor: (groups) => {
+        const { then, columnAlias } = groups;
+        const columnName = then.split(/\s(else)|(when)/)[0];
+        const statement = `${columnName} as ${columnAlias}`;
+        console.log(statement);
+        return parseColumn(statement);
+      }
+    },
+    {
       name: 'Expression pattern',
       pattern: /^.+\s(not\s)?(\s(in \([^)]+\))|(like)|(regexp)|(exists \([^)]+\))|(is null)|(is not null)\s)(as)\s(?<columnAlias>[a-z0-9_]+)$/mi,
       extractor: (groups) => {
@@ -123,20 +153,25 @@ const parse = (query, tables) => {
       }
     }
   ];
-  for (const item of statements) {
-    let found = false;
+
+  const parseColumn = (statement) => {
     for (const parser of parsers) {
       const { pattern, extractor } = parser;
-      const processed = blank(item);
+      const processed = blank(statement);
       const result = pattern.exec(processed);
       if (result) {
-        const parsed = extractor(result.groups);
-        selectColumns.push(parsed);
-        found = true;
-        break;
+        return extractor(result.groups);
       }
     }
-    if (!found) {
+    return null;
+  }
+
+  for (const statement of statements) {
+    const parsed = parseColumn(statement);
+    if (parsed) {
+      selectColumns.push(parsed);
+    }
+    else {
       return null;
     }
   }
@@ -148,20 +183,33 @@ const parse = (query, tables) => {
     .exec(processedQuery)
     .groups
     .from
-    .replaceAll(/(\snatural\s)|(\sleft\s)|(\sright\s)|(\sfull\s)|(\sinner\s)|(\scross\s)|(\souter\s)/gm, '')
+    .replaceAll(/(\snatural\s)|(\sfull\s)|(\sinner\s)|(\scross\s)|(\souter\s)/gm, ' ')
     .replaceAll(',', 'join')
-    .replaceAll(/\son\s.+?\sjoin\s/gm, ' join ')
+    .replaceAll(/\son\s.+?(\s((left\s)|(right\s))?join\s)/gm, '$1')
     .replaceAll(/\son\s+[^\s]+\s=\s+[^\s]+/gm, ' ')
-    .split('join')
+    .split(/((?:(?:left\s)|(?:right\s))?join)\s/gm)
     .map(s => s.trim());
+  let previousTable;
+  let direction;
   for (const item of from) {
+    if (direction === 'right') {
+      previousTable.isOptional = true;
+    }
+    const match = /((?<direction>.+?)\s)?join/gmi.exec(item);
+    if (match) {
+      direction = match.groups.direction;
+      continue;
+    }
     const split = item.split(/\s/);
     const tableName = split[0];
     const tableAlias = split[1];
-    fromTables.push({
+    const table = {
       tableName,
-      tableAlias
-    });
+      tableAlias,
+      isOptional: direction === 'left'
+    };
+    previousTable = table;
+    fromTables.push(table);
   }
   const results = [];
   for (const column of selectColumns) {
@@ -173,18 +221,25 @@ const parse = (query, tables) => {
       if (column.columnName === '*') {
         const fromTable = fromTables.find(t => t.tableAlias === column.tableAlias);
         for (const column of tables[fromTable.tableName]) {
+          let type = column.type;
+          if ((column.notNull === false && !column.primaryKey) || fromTable.isOptional) {
+            type += ' | null';
+          }
           results.push({
             column: column.name,
-            type: column.type
+            type
           });
         }
         continue;
       }
       else {
         const fromTable = fromTables.find(t => t.tableAlias === column.tableAlias);
-        type = tables[fromTable.tableName]
-          .find(c => c.name === column.columnName)
-          .type;
+        const tableColumn = tables[fromTable.tableName].find(c => c.name === column.columnName);
+        let columnType = tableColumn.type;
+        if ((tableColumn.notNull === false && !tableColumn.primaryKey) || fromTable.isOptional) {
+          columnType += ' | null';
+        }
+        type = columnType;
       }
     }
     results.push({

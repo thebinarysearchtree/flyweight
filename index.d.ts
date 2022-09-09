@@ -25,6 +25,8 @@ export class Database {
   constructor(path: string);
   enforceForeignKeys(): Promise<void>;
   setTables(path?: string): Promise<void>;
+  registerParser(parser: Parser): void;
+  registerMappers(table: string, mappers: Array<Mapper>): void;
   begin(): Promise<void>;
   commit(): Promise<void>;
   rollback(): Promise<void>;
@@ -33,8 +35,6 @@ export class Database {
   get<T>(query: string | Statement, params?: any, options?: QueryOptions): Promise<T | null>;
   all<T>(query: string | Statement, params?: any, options?: QueryOptions): Promise<Array<T>>;
 }
-
-export function registerParser(parser: Parser): void;
 
 export interface Keywords<T> {
   select: T;
@@ -93,5 +93,13 @@ export interface BasicQueries<T> {
   remove(params?: Params<T>): Promise<number>;
 }
 
-export function registerMappers(table: string, mappers: Array<Mapper>): void;
+export interface TypeOptions {
+  db?: Database;
+  createTablePath?: string;
+  sqlDir?: string;
+  interfaceName: string;
+  destinationPath: string;
+}
+
 export function makeClient(database: Database, sqlDir?: string): { [key: string]: BasicQueries<any> };
+export function createTypes(options: TypeOptions): Promise<void>;

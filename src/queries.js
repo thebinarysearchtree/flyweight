@@ -1,9 +1,7 @@
-import { getDbToJsParser, getJsToDbParser } from './parsers.js';
-
 const insert = async (db, table, params) => {
   const adjusted = {};
   for (const [key, value] of Object.entries(params)) {
-    const parser = getJsToDbParser(key, value);
+    const parser = db.getJsToDbParser(key, value);
     if (parser) {
       const v = parser(value);
       adjusted[key] = v;
@@ -49,7 +47,7 @@ const insertMany = async (db, table, items) => {
   const parsers = {};
   let found = false;
   for (const [key, value] of Object.entries(sample)) {
-    const parser = getJsToDbParser(key, value);
+    const parser = db.getJsToDbParser(key, value);
     if (parser) {
       parsers[key] = parser;
       found = true;
@@ -206,7 +204,7 @@ const get = async (db, table, query, columns) => {
     const adjusted = {};
     const entries = Object.entries(result);
     for (const [key, value] of entries) {
-      const parser = getDbToJsParser(key);
+      const parser = db.getDbToJsParser(key);
       if (parser) {
         const [k, v] = parser(key, value);
         adjusted[k] = v;
@@ -245,7 +243,7 @@ const all = async (db, table, query, columns) => {
     let found = false;
     const keys = Object.keys(sample);
     for (const key of keys) {
-      const parser = getDbToJsParser(key);
+      const parser = db.getDbToJsParser(key);
       if (parser) {
         parsers[key] = parser;
         found = true;

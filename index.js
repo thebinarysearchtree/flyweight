@@ -1,14 +1,9 @@
 import Database from './src/db.js';
-import { registerParser } from './src/parsers.js';
-import { registerMappers } from './src/utils.js';
 import { makeClient } from './src/proxy.js';
-
-const makeTypedClient = makeClient;
+import { createTypes } from './src/sqlParsers/types.js';
 
 export {
   Database,
-  registerParser,
-  registerMappers,
   makeClient,
-  makeTypedClient
+  createTypes
 }

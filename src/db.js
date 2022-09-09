@@ -19,7 +19,7 @@ const adjust = (params) => {
   return adjusted;
 }
 
-const process = (result, options, one) => {
+const process = (db, result, options, one) => {
   const parser = one ? parseOne : parseMany;
   const mapper = one ? mapOne : mapMany;
   const value = one ? toValue : toValues;
@@ -28,27 +28,29 @@ const process = (result, options, one) => {
   }
   if (options.value) {
     if (options.parse) {
-      const parsed = parseOne(result);
+      const parsed = parseOne(db, result);
       return value(parsed);
     }
     return value(result);
   }
   if (options.parse) {
-    return parser(result);
+    return parser(db, result);
   }
-  if (options.map) {
-    return mapper(result, options.skip, options.prefixes);
+  if (options.map || options.skip || options.prefixes) {
+    return mapper(db, result, options.skip, options.prefixes);
   }
   return result;
 }
 
-const processResult = (result, options) => process(result, options, true);
-const processResults = (result, options) => process(result, options, false);
+const processResult = (db, result, options) => process(db, result, options, true);
+const processResults = (db, result, options) => process(db, result, options, false);
 
 class Database {
   constructor(path) {
     this.db = new sqlite3.Database(path);
     this.tables = {};
+    this.parsers = [];
+    this.mappers = {};
   }
 
   async enforceForeignKeys() {
@@ -62,11 +64,97 @@ class Database {
       tables = getTables(sql);
     }
     else {
-      tables = getTables(this);
+      tables = await getTables(this);
     }
     for (const table of tables) {
       this.tables[table.name] = table.columns;
     }
+  }
+
+  registerParser(parser) {
+    this.parsers.push(parser);
+  }
+
+  registerMappers(table, mappers) {
+    if (!this.mappers[table]) {
+      this.mappers[table] = {};
+    }
+    for (const mapper of mappers) {
+      const { query, ...options } = mapper;
+      if (options.parse === undefined) {
+        options.parse = true;
+      }
+      if (options.result === undefined) {
+        options.result = 'array';
+      }
+      if (options.map === undefined && (options.skip || options.prefixes)) {
+        options.map = true;
+      }
+      this.mappers[table][query] = options;
+    }
+  }
+
+  getMapper(table, query) {
+    const defaultMapper = {
+      parse: true,
+      result: 'array'
+    }
+    if (!this.mappers[table]) {
+      return defaultMapper;
+    }
+    const mapper = this.mappers[table][query];
+    if (!mapper) {
+      return defaultMapper;
+    }
+    return mapper;
+  }
+
+  parseKey(key) {
+    const dbToJsParsers = this.parsers.filter(p => p.dbToJs);
+    for (const parser of dbToJsParsers) {
+      const { pattern, dbPattern, type, trim } = parser;
+      if ((pattern && pattern.test(key) || (dbPattern && dbPattern.test(key)))) {
+        let parsedKey;
+        if (trim) {
+          parsedKey = key.substring(0, key.length - trim.length);
+        }
+        else {
+          parsedKey = key;
+        }
+        return {
+          key: parsedKey,
+          type
+        };
+      }
+    }
+    return null;
+  }
+
+  getDbToJsParser(key) {
+    const dbToJsParsers = this.parsers.filter(p => p.dbToJs);
+    for (const parser of dbToJsParsers) {
+      const { pattern, dbToJs, trim, dbPattern } = parser;
+      if ((pattern && pattern.test(key) || (dbPattern && dbPattern.test(key)))) {
+        const parse = (key, value) => {
+          const parsedKey = trim ? key.substring(0, key.length - trim.length) : key;
+          const parsedValue = dbToJs(value);
+          return [parsedKey, parsedValue];
+        }
+        return parse;
+      }
+    }
+    return null;
+  }
+
+  getJsToDbParser(key, value) {
+    const jsToDbParsers = this.parsers.filter(p => p.jsToDb);
+    for (const parser of jsToDbParsers) {
+      const { pattern, jsToDb, valueTest, jsPattern } = parser;
+      if ((pattern && pattern.test(key)) || (jsPattern && jsPattern.test(key)) || (valueTest && valueTest(value))) {
+        return jsToDb;
+      }
+    }
+    return null;
   }
 
   async begin() {
@@ -99,7 +187,10 @@ class Database {
   }
 
   async run(query, params) {
-    if (params !== null && params !== undefined) {
+    if (params === null) {
+      params = undefined;
+    }
+    if (params !== undefined) {
       params = adjust(params);
     }
     if (typeof query === 'string') {
@@ -128,9 +219,13 @@ class Database {
   }
 
   async get(query, params, options) {
-    if (params !== null && params !== undefined) {
+    if (params === null) {
+      params = undefined;
+    }
+    if (params !== undefined) {
       params = adjust(params);
     }
+    const db = this;
     if (typeof query === 'string') {
       const sql = query;
       return new Promise((resolve, reject) => {
@@ -139,7 +234,7 @@ class Database {
             reject(err);
           }
           else {
-            const result = processResult(row, options);
+            const result = processResult(db, row, options);
             resolve(result);
           }
         });
@@ -151,7 +246,7 @@ class Database {
           reject(err);
         }
         else {
-          const result = processResult(row, options);
+          const result = processResult(db, row, options);
           resolve(result);
         }
       });
@@ -159,9 +254,13 @@ class Database {
   }
 
   async all(query, params, options) {
-    if (params !== null && params !== undefined) {
+    if (params === null) {
+      params = undefined;
+    }
+    if (params !== undefined) {
       params = adjust(params);
     }
+    const db = this;
     if (typeof query === 'string') {
       const sql = query;
       return new Promise((resolve, reject) => {
@@ -170,7 +269,7 @@ class Database {
             reject(err);
           }
           else {
-            const result = processResults(rows, options);
+            const result = processResults(db, rows, options);
             resolve(result);
           }
         });
@@ -182,7 +281,7 @@ class Database {
           reject(err);
         }
         else {
-          const result = processResults(rows, options);
+          const result = processResults(db, rows, options);
           resolve(result);
         }
       });

@@ -1,4 +1,4 @@
-import { getDbToJsParser } from './parsers.js';
+import pluralize from 'pluralize';
 
 const map = (rows, itemSelector, keySelector) => {
   const results = [];
@@ -44,7 +44,7 @@ const removePrefix = (key, prefix) => {
   return without[0].toLowerCase() + without.substring(1);
 }
 
-const getParsers = (sample, prefixes) => {
+const getParsers = (db, sample, prefixes) => {
   const keys = Object.keys(sample);
   const parsers = {};
   let found = false;
@@ -57,7 +57,7 @@ const getParsers = (sample, prefixes) => {
     else {
       adjusted = removePrefix(key, prefix);
     }
-    const parser = getDbToJsParser(adjusted);
+    const parser = db.getDbToJsParser(adjusted);
     if (parser) {
       parsers[key] = parser;
       found = true;
@@ -153,7 +153,12 @@ const nullToArray = (rows, primaryKey) => {
   return rows;
 }
 
-const auto = (rows, skip, prefixes, primaryKeys, parsers, one) => {
+const toArrayName = (primaryKey) => {
+  const name = primaryKey.substring(0, primaryKey.length - 2);
+  return pluralize.plural(name);
+}
+
+const auto = (db, rows, skip, prefixes, primaryKeys, parsers, one) => {
   if (rows.length === 0) {
     return [];
   }
@@ -169,7 +174,7 @@ const auto = (rows, skip, prefixes, primaryKeys, parsers, one) => {
     primaryKeys = getPrimaryKeys(sample, skip, prefixes);
   }
   if (parsers === undefined) {
-    parsers = getParsers(sample, prefixes);
+    parsers = getParsers(db, sample, prefixes);
     if (primaryKeys.length < 2) {
       if (one) {
         let result = sample;
@@ -213,8 +218,7 @@ const auto = (rows, skip, prefixes, primaryKeys, parsers, one) => {
     return nullToArray(sliced, previousKey.name);
   }
   const nextKey = primaryKeys[1];
-  const name = nextKey.name.substring(0, nextKey.name.length - 2);
-  const arrayName = name.endsWith('s') ? name : name + 's';
+  const arrayName = toArrayName(nextKey.name);
   const getResults = (rows) => {
     let result = sliceProps(rows[0], previousKey.index, nextKey.index);
     if (parsers) {
@@ -225,7 +229,7 @@ const auto = (rows, skip, prefixes, primaryKeys, parsers, one) => {
     }
     const splitRows = split(rows, nextKey.name);
     const slicedKeys = primaryKeys.slice(1);
-    let mapped = splitRows.map(rows => auto(rows, skip, prefixes, slicedKeys, parsers, true));
+    let mapped = splitRows.map(rows => auto(db, rows, skip, prefixes, slicedKeys, parsers, true));
     if (slicedKeys.length === 1) {
       mapped = mapped.flat();
     }
@@ -238,11 +242,15 @@ const auto = (rows, skip, prefixes, primaryKeys, parsers, one) => {
   return split(rows, previousKey.name).map(r => getResults(r));
 }
 
-const mapOne = (rows, skip, prefixes) => auto(rows, skip, prefixes, null, undefined, true);
-const mapMany = (rows, skip, prefixes) => auto(rows, skip, prefixes, null, undefined, false);
+const mapOne = (db, rows, skip, prefixes) => auto(db, rows, skip, prefixes, null, undefined, true);
+const mapMany = (db, rows, skip, prefixes) => auto(db, rows, skip, prefixes, null, undefined, false);
 
 export {
   map,
   mapOne,
-  mapMany
+  mapMany,
+  getPrimaryKeys,
+  convertPrefixes,
+  sliceProps,
+  toArrayName
 }

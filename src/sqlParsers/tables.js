@@ -5,7 +5,7 @@ const typeMap = {
   int: 'number',
   text: 'string',
   blob: 'Buffer',
-  any: 'any'
+  any: 'number | string | Buffer'
 };
 
 const fromSql = (sql) => {
@@ -20,11 +20,10 @@ const fromSql = (sql) => {
     };
     const columns = blank(match.groups.columns)
       .replaceAll(/\s+/gm, ' ')
-      .replaceAll(/\([^)]+\)/gm, '')
       .split(',')
       .map(s => s.trim());
     for (let column of columns) {
-      const match = /^(?<name>[a-z0-9_]+)\s(?<type>[a-z0-9_]+)(\s(?<primaryKey>primary key)|(?<notNull>not null))?/gmi.exec(column);
+      const match = /^(?<name>[a-z0-9_]+)\s(?<type>[a-z0-9_]+)((?<primaryKey> primary key)|(?<notNull> not null))?/mi.exec(column);
       if (!match) {
         continue;
       }

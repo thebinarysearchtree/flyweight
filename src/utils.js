@@ -8,8 +8,6 @@ import {
 } from './queries.js';
 import pluralize from 'pluralize';
 
-const registeredMappers = {};
-
 const makeBasicQueries = (database, table) => ({
   insert: async (params) => await insert(database, table, params),
   insertMany: async (items) => await insertMany(database, table, items),
@@ -90,16 +88,6 @@ const toValues = (rows) => {
   return rows;
 }
 
-const registerMappers = (table, mappers) => {
-  if (!registeredMappers[table]) {
-    registeredMappers[table] = {};
-  }
-  for (const mapper of mappers) {
-    const { query, ...options } = mapper;
-    registeredMappers[table][query] = options;
-  }
-}
-
 const joinOne = (t1, t2, columns) => {
   for (const item of t1) {
     for (const column of columns) {
@@ -125,7 +113,5 @@ export {
   makeClientFromArray,
   makeClientFromFolder,
   toValue,
-  toValues,
-  registerMappers,
-  registeredMappers
+  toValues
 }

@@ -7,7 +7,7 @@ import {
   all,
   remove
 } from './queries.js';
-import { registeredMappers } from './utils.js';
+import { join } from 'path';
 
 const queries = {
   insert: (database, table) => async (params) => await insert(database, table, params),
@@ -30,22 +30,32 @@ const makeQueryHandler = (table, db, sqlDir) => ({
         }
       }
       else {
-        let found = false;
-        for (const type of ['all', 'get', 'run']) {
-          const path = `${sqlDir}/${table}/${type}/${query}.sql`;
-          try {
-            const sql = readFileSync(path, 'utf8');
-            const statement = db.prepare(sql);
-            const run = db[type];
-            target[query] = async (params, options) => await run(statement, params, options || registeredMappers[table][query]);
-            found = true;
-            break;
-          }
-          catch {
-            continue;
+        const path = join(sqlDir, table, `${query}.sql`);
+        try {
+          const sql = readFileSync(path, 'utf8');
+          const statement = db.prepare(sql);
+          target[query] = async (params, options) => {
+            let mapper;
+            if (options) {
+              mapper = options;
+            }
+            else {
+              mapper = db.getMapper(table, query);
+            }
+            let run;
+            if (mapper.result === 'none') {
+              run = db.run;
+            }
+            else if (mapper.result === 'value') {
+              run = db.get;
+            }
+            else {
+              run = db.all;
+            }
+            return await run(statement, params, mapper);
           }
         }
-        if (!found) {
+        catch {
           if (queries[query]) {
             target[query] = queries[query](db, table);
           }
