@@ -8,6 +8,7 @@ import {
   remove
 } from './queries.js';
 import { join } from 'path';
+import { parse } from './sqlParsers/queries.js';
 
 const queries = {
   insert: (database, table) => async (params) => await insert(database, table, params),
@@ -33,6 +34,11 @@ const makeQueryHandler = (table, db, sqlDir) => ({
         const path = join(sqlDir, table, `${query}.sql`);
         try {
           const sql = readFileSync(path, 'utf8');
+          const columns = parse(sql, db.tables);
+          const columnMap = {};
+          for (const column of columns) {
+            columnMap[column.name] = column.originalName;
+          }
           const statement = db.prepare(sql);
           target[query] = async (params, options) => {
             let mapper;
@@ -42,6 +48,7 @@ const makeQueryHandler = (table, db, sqlDir) => ({
             else {
               mapper = db.getMapper(table, query);
             }
+            mapper.columns = columnMap;
             let run;
             if (mapper.result === 'none') {
               run = db.run;

@@ -45,7 +45,8 @@ const process = (db, result, options) => {
     return parser(db, result);
   }
   if (options.map || options.skip || options.prefixes) {
-    return mapper(db, result, options.skip, options.prefixes);
+    const columns = options.renameColumns ? options.columns : undefined;
+    return mapper(db, result, options.skip, options.prefixes, columns);
   }
   return result;
 }
@@ -94,6 +95,9 @@ class Database {
       }
       if (options.map === undefined && (options.skip || options.prefixes)) {
         options.map = true;
+      }
+      if (options.renameColumns === undefined) {
+        options.renameColumns = true;
       }
       this.mappers[table][query] = options;
     }

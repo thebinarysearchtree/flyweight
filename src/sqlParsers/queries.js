@@ -214,12 +214,14 @@ const parse = (query, tables) => {
   const results = [];
   for (const column of selectColumns) {
     let type = null;
+    let tableName;
     if (column.type !== null) {
       type = column.type;
     }
     else if (column.columnName) {
+      const fromTable = fromTables.find(t => t.tableAlias === column.tableAlias);
+      tableName = fromTable.tableName;
       if (column.columnName === '*') {
-        const fromTable = fromTables.find(t => t.tableAlias === column.tableAlias);
         for (const column of tables[fromTable.tableName]) {
           let type = column.type;
           if ((column.notNull === false && !column.primaryKey) || fromTable.isOptional) {
@@ -233,7 +235,6 @@ const parse = (query, tables) => {
         continue;
       }
       else {
-        const fromTable = fromTables.find(t => t.tableAlias === column.tableAlias);
         const tableColumn = tables[fromTable.tableName].find(c => c.name === column.columnName);
         let columnType = tableColumn.type;
         if ((tableColumn.notNull === false && !tableColumn.primaryKey) || fromTable.isOptional) {
@@ -245,7 +246,8 @@ const parse = (query, tables) => {
     results.push({
       name: column.columnAlias || column.columnName,
       type,
-      originalName: column.columnName
+      originalName: column.columnName,
+      tableName
     });
   }
   return results;
