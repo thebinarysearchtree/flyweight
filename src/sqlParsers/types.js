@@ -183,7 +183,7 @@ const getQueries = async (db, sqlDir, tableName, tables) => {
       interfaceString
     });
   }
-  const interfaceName = capitalize(tableName) + 'Queries';
+  const interfaceName = capitalize(pluralize.singular(tableName)) + 'Queries';
   let interfaceString = `interface ${interfaceName} {\n`;
   for (const query of parsedQueries) {
     const { queryName, returnType } = query;
@@ -201,7 +201,6 @@ const createTypes = async (options) => {
   const {
     db,
     sqlDir, 
-    interfaceName, 
     destinationPath 
   } = options;
   const tables = await getTablesFrom(options);
@@ -244,10 +243,12 @@ const createTypes = async (options) => {
     }
   }
   types += definitions;
-  types += '\n';
-  types += `export interface ${interfaceName} {\n`;
+  types += '\n\n';
+  types += 'export interface TypedDb {\n';
   types += returnTypes.join(',\n');
-  types += '\n}\n';
+  types += '\n}\n\n';
+  types += 'declare const db: TypedDb;\n\n';
+  types += 'export default db;\n';
   await writeFile(destinationPath, types, 'utf8');
 }
 

@@ -1,8 +1,6 @@
-import Database from '../db.js';
+import database from './database.js';
+import { makeClient } from '../proxy.js';
 
-const db = new Database('/Users/andrew/Projects/databases/splatter.db');
+const client = makeClient(database, '/Users/andrew/Projects/flyweight/src/test/sql');
 
-await db.enforceForeignKeys();
-await db.setTables();
-
-export default db;
+export default client;

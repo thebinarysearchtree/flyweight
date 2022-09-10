@@ -9,7 +9,6 @@ db.registerMappers('events', [{
 const options = {
   db,
   sqlDir: '/Users/andrew/Projects/flyweight/src/test/sql',
-  interfaceName: 'TypedDb',
   destinationPath: '/Users/andrew/Projects/flyweight/src/test/db.d.ts'
 }
 

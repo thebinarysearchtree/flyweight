@@ -34,7 +34,7 @@ interface EventsGetById {
   }>;
 }
 
-interface EventsQueries {
+interface EventQueries {
   getById: Promise<Array<EventsGetById>>;
 }
 
@@ -189,10 +189,11 @@ export interface BasicQueries<T> {
   all<K extends keyof T>(params: Params<T>, keywords: KeywordsWithExclude<K[]>): Promise<Array<Omit<T, K>>>;
   remove(params?: Params<T>): Promise<number>;
 }
+
 export interface TypedDb {
   weightClasses: BasicQueries<WeightClass>,
   locations: BasicQueries<Location>,
-  events: BasicQueries<Event> & EventsQueries,
+  events: BasicQueries<Event> & EventQueries,
   cards: BasicQueries<Card>,
   coaches: BasicQueries<Coach>,
   fighters: BasicQueries<Fighter>,
@@ -204,3 +205,7 @@ export interface TypedDb {
   cancelledFights: BasicQueries<CancelledFight>,
   titleRemovals: BasicQueries<TitleRemoval>
 }
+
+declare const db: TypedDb;
+
+export default db;

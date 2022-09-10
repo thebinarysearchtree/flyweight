@@ -52,6 +52,7 @@ const makeQueryHandler = (table, db, sqlDir) => ({
             else {
               run = db.all;
             }
+            run = run.bind(db);
             return await run(statement, params, mapper);
           }
         }

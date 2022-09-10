@@ -19,21 +19,29 @@ const adjust = (params) => {
   return adjusted;
 }
 
-const process = (db, result, options, one) => {
-  const parser = one ? parseOne : parseMany;
-  const mapper = one ? mapOne : mapMany;
-  const value = one ? toValue : toValues;
+const process = (db, result, options) => {
   if (!options) {
     return result;
   }
-  if (options.value) {
+  let parser, mapper, value;
+  if (options.result === 'object' || options.result === 'value') {
+    parser = parseOne;
+    mapper = mapOne;
+    value = toValue;
+  }
+  else {
+    parser = parseMany;
+    mapper = mapMany;
+    value = toValues;
+  }
+  if (options.result === 'value' || options.result === 'values') {
     if (options.parse) {
-      const parsed = parseOne(db, result);
+      const parsed = parser(db, result);
       return value(parsed);
     }
     return value(result);
   }
-  if (options.parse) {
+  if (options.parse && !options.map) {
     return parser(db, result);
   }
   if (options.map || options.skip || options.prefixes) {
@@ -41,9 +49,6 @@ const process = (db, result, options, one) => {
   }
   return result;
 }
-
-const processResult = (db, result, options) => process(db, result, options, true);
-const processResults = (db, result, options) => process(db, result, options, false);
 
 class Database {
   constructor(path) {
@@ -234,7 +239,7 @@ class Database {
             reject(err);
           }
           else {
-            const result = processResult(db, row, options);
+            const result = process(db, row, options);
             resolve(result);
           }
         });
@@ -246,7 +251,7 @@ class Database {
           reject(err);
         }
         else {
-          const result = processResult(db, row, options);
+          const result = process(db, row, options);
           resolve(result);
         }
       });
@@ -269,7 +274,7 @@ class Database {
             reject(err);
           }
           else {
-            const result = processResults(db, rows, options);
+            const result = process(db, rows, options);
             resolve(result);
           }
         });
@@ -281,7 +286,7 @@ class Database {
           reject(err);
         }
         else {
-          const result = processResults(db, rows, options);
+          const result = process(db, rows, options);
           resolve(result);
         }
       });
