@@ -25,7 +25,7 @@ export class Database {
   constructor(path: string);
   enforceForeignKeys(): Promise<void>;
   setTables(path?: string): Promise<void>;
-  registerParser(parser: Parser): void;
+  registerParsers(parsers: Array<Parser>): void;
   registerMappers(table: string, mappers: Array<Mapper>): void;
   begin(): Promise<void>;
   commit(): Promise<void>;

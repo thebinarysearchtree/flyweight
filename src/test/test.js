@@ -8,5 +8,5 @@ database.registerMappers('events', [{
 }]);
 
 const event = await db.events.getById();
-console.log(event);
+console.log(event.cards[0].fights[0]);
 process.exit();

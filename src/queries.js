@@ -1,16 +1,4 @@
 const insert = async (db, table, params) => {
-  const adjusted = {};
-  for (const [key, value] of Object.entries(params)) {
-    const parser = db.getJsToDbParser(key, value);
-    if (parser) {
-      const v = parser(value);
-      adjusted[key] = v;
-    }
-    else {
-      adjusted[key] = value;
-    }
-  }
-  params = adjusted;
   const columns = Object.keys(params);
   const placeholders = columns.map(c => `$${c}`);
   const sql = `insert into ${table}(${columns.join(', ')}) values(${placeholders.join(', ')})`;
@@ -44,15 +32,6 @@ const insertMany = async (db, table, items) => {
     return;
   }
   const sample = items[0];
-  const parsers = {};
-  let found = false;
-  for (const [key, value] of Object.entries(sample)) {
-    const parser = db.getJsToDbParser(key, value);
-    if (parser) {
-      parsers[key] = parser;
-      found = true;
-    }
-  }
   const columns = Object.keys(sample);
   const placeholders = columns.map(c => `$${c}`);
   const sql = `insert into ${table}(${columns.join(', ')}) values(${placeholders.join(', ')})`;
@@ -60,8 +39,7 @@ const insertMany = async (db, table, items) => {
   try {
     await db.begin();
     for (const item of items) {
-      const parsed = found ? parse(item) : item;
-      await db.run(statement, parsed);
+      await db.run(statement, item);
     }
     await db.commit();
   }
@@ -204,17 +182,10 @@ const get = async (db, table, query, columns) => {
     const adjusted = {};
     const entries = Object.entries(result);
     for (const [key, value] of entries) {
-      const parser = db.getDbToJsParser(key);
-      if (parser) {
-        const [k, v] = parser(key, value);
-        adjusted[k] = v;
-      }
-      else {
-        adjusted[key] = value;
-      }
+      adjusted[key] = db.convertToJs(table, key, value);
     }
     if (returnValue) {
-      return entries[0][1];
+      return adjusted[entries[0][0]];
     }
     return adjusted;
   }
@@ -249,33 +220,19 @@ const all = async (db, table, query, columns) => {
         found = true;
       }
     }
-    if (found) {
-      const adjusted = [];
-      for (const row of rows) {
-        const created = {};
-        for (const [key, value] of Object.entries(row)) {
-          const parser = parsers[key];
-          if (parser) {
-            const [k, v] = parser(key, value);
-            created[k] = v;
-          }
-          else {
-            created[key] = value;
-          }
-        }
-        adjusted.push(created);
+    const adjusted = [];
+    for (const row of rows) {
+      const created = {};
+      for (const [key, value] of Object.entries(row)) {
+        created[key] = db.convertToJs(table, key, value);
       }
-      if (returnValue) {
-        const key = keys[0];
-        return adjusted.map(item => item[key]);
-      }
-      return adjusted;
+      adjusted.push(created);
     }
     if (returnValue) {
       const key = keys[0];
-      return rows.map(item => item[key]);
+      return adjusted.map(item => item[key]);
     }
-    return rows;
+    return adjusted;
   }
   return rows;
 }

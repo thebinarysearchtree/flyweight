@@ -8,6 +8,44 @@ const typeMap = {
   any: 'number | string | Buffer'
 };
 
+const getFragments = (sql) => {
+  const fragments = [];
+  let lastEnd = 0;
+  const tableMatches = blank(sql, { stringsOnly: true }).matchAll(/^\s*create table (?<tableName>[^\s]+)\s+\((?<columns>[^;]+);/gmid);
+  for (const tableMatch of tableMatches) {
+    const [tableStart] = tableMatch.indices.groups.columns;
+    const columnMatches = blank(tableMatch.groups.columns).matchAll(/(?<column>[^,]+)(,|(\s*\)\s*$))/gmd);
+    for (const columnMatch of columnMatches) {
+      const [columnStart, columnEnd] = columnMatch.indices.groups.column;
+      const match = /^\s+(?<name>[a-z0-9_]+)\s+(?<type>[a-z0-9_]+)((?<primaryKey>\s+primary key)|(?<notNull>\s+not null))?/mi.exec(columnMatch.groups.column);
+      const isColumn = match && !['unique', 'check', 'primary', 'foreign'].includes(match.groups.name);
+      const start = tableStart + columnStart;
+      const end = start + (columnEnd - columnStart);
+      if (lastEnd !== start) {
+        fragments.push({
+          isColumn: false,
+          sql: sql.substring(lastEnd, start)
+        });
+      }
+      lastEnd = end;
+      fragments.push({
+        columnName: isColumn ? match.groups.name : null,
+        type: isColumn ? match.groups.type : null,
+        isColumn,
+        start,
+        end,
+        sql: sql.substring(start, end),
+        blanked: columnMatch.groups.column
+      });
+    }
+  }
+  fragments.push({
+    isColumn: false,
+    sql: sql.substring(lastEnd)
+  });
+  return fragments;
+}
+
 const fromSql = (sql) => {
   const tables = [];
 
@@ -53,12 +91,18 @@ const fromDb = async (database) => {
       columns: []
     };
     const result = await database.all(`pragma table_info(${name})`);
-    table.columns = result.map(r => ({
-      name: r.name,
-      type: typeMap[r.type.toLowerCase()],
-      primaryKey: Boolean(r.pk),
-      notNull: Boolean(r.notnull)
-    }));
+    table.columns = result.map(r => {
+      let type = typeMap[r.type.toLowerCase()];
+      if (!type) {
+        type = r.type;
+      }
+      return {
+        name: r.name,
+        type,
+        primaryKey: Boolean(r.pk),
+        notNull: Boolean(r.notnull)
+      }
+    });
     tables.push(table);
   }
   return tables;
@@ -72,5 +116,6 @@ const getTables = (source) => {
 }
 
 export {
-  getTables
+  getTables,
+  getFragments
 }

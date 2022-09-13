@@ -4,20 +4,7 @@ import { parseOne, parseMany } from './parsers.js';
 import { mapOne, mapMany } from './map.js';
 import { getTables } from './sqlParsers/tables.js';
 import { readFile } from 'fs/promises';
-
-const adjust = (params) => {
-  const adjusted = {};
-  for (let [key, value] of Object.entries(params)) {
-    if (value !== null && value !== undefined && (Object.getPrototypeOf(value) === Object.prototype || Array.isArray(value))) {
-      value = JSON.stringify(value);
-    }
-    else if (value instanceof RegExp) {
-      value = value.source;
-    }
-    adjusted[`$${key}`] = value;
-  }
-  return adjusted;
-}
+import { getFragments } from './sqlParsers/tables.js';
 
 const process = (db, result, options) => {
   if (!options) {
@@ -57,6 +44,8 @@ class Database {
     this.tables = {};
     this.parsers = [];
     this.mappers = {};
+    this.customTypes = {};
+    this.columns = {};
   }
 
   async enforceForeignKeys() {
@@ -74,11 +63,15 @@ class Database {
     }
     for (const table of tables) {
       this.tables[table.name] = table.columns;
+      this.columns[table.name] = {};
+      for (const column of table.columns) {
+        this.columns[table.name][column.name] = column.type;
+      }
     }
   }
 
-  registerParser(parser) {
-    this.parsers.push(parser);
+  registerParsers(parsers) {
+    this.parsers.push(...parsers);
   }
 
   registerMappers(table, mappers) {
@@ -166,6 +159,90 @@ class Database {
     return null;
   }
 
+  registerTypes(customTypes) {
+    for (const customType of customTypes) {
+      const { name, ...options } = customType;
+      this.customTypes[name] = options;
+    }
+  }
+
+  convertTables(sql) {
+    const fragments = getFragments(sql);
+    let converted = '';
+    for (const fragment of fragments) {
+      if (!fragment.isColumn) {
+        converted += fragment.sql;
+        continue;
+      }
+      const customType = this.customTypes[fragment.type];
+      if (!customType) {
+        converted += fragment.sql;
+        continue;
+      }
+      fragment.sql = fragment.sql.replace(/(^\s*[a-z0-9_]+\s+)([a-z0-9_]+)(\s+)/gmi, `$1${customType.dbType}$3`);
+      if (customType.makeConstraint) {
+        const constraint = customType.makeConstraint(fragment.columnName);
+        fragment.sql += ' ';
+        fragment.sql += constraint;
+      }
+      converted += fragment.sql;
+    }
+    return converted;
+  }
+
+  convertToDb(value) {
+    for (const customType of Object.values(this.customTypes)) {
+      if (customType.valueTest(value)) {
+        return customType.jsToDb(value);
+      }
+    }
+    return value;
+  }
+
+  convertToJs(table, column, value) {
+    const type = this.columns[table][column];
+    if (type === 'number' || type === 'string') {
+      return value;
+    }
+    const customType = this.customTypes[type];
+    return customType.dbToJs(value);
+  }
+
+  getJsToDbConverter(value) {
+    for (const customType of Object.values(this.customTypes)) {
+      if (customType.valueTest(value)) {
+        return customType.jsToDb;
+      }
+    }
+    return null;
+  }
+
+  getDbToJsConverter(type) {
+    return this.customTypes[type].dbToJs;
+  }
+
+  adjust(params) {
+    const adjusted = {};
+    for (let [key, value] of Object.entries(params)) {
+      if (value === undefined) {
+        value = null;
+      }
+      if (value === null || typeof value === 'string' || typeof value === 'number') {
+        adjusted[`$${key}`] = value;
+      }
+      else {
+        for (const customType of Object.values(this.customTypes)) {
+          if (customType.valueTest(value)) {
+            value = customType.jsToDb(value);
+            break;
+          }
+        }
+        adjusted[`$${key}`] = value;
+      }
+    }
+    return adjusted;
+  }
+
   async begin() {
     await this.basicRun('begin');
   }
@@ -200,7 +277,7 @@ class Database {
       params = undefined;
     }
     if (params !== undefined) {
-      params = adjust(params);
+      params = this.adjust(params);
     }
     if (typeof query === 'string') {
       const sql = query;
@@ -232,7 +309,7 @@ class Database {
       params = undefined;
     }
     if (params !== undefined) {
-      params = adjust(params);
+      params = this.adjust(params);
     }
     const db = this;
     if (typeof query === 'string') {
@@ -267,7 +344,7 @@ class Database {
       params = undefined;
     }
     if (params !== undefined) {
-      params = adjust(params);
+      params = this.adjust(params);
     }
     const db = this;
     if (typeof query === 'string') {

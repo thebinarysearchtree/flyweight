@@ -6,10 +6,10 @@ select
     f.id as fightId,
     bf.id as blueId,
     bf.name as blueName,
-    bf.social as blueSocialJson,
+    bf.social as blueSocial,
     rf.id as redId,
     rf.name as redName,
-    rf.social as redSocialJson
+    rf.social as redSocial
 from
     events e join
     cards c on c.eventId = e.id join
