@@ -1,7 +1,6 @@
 select
     e.id as eventId,
     e.name as eventName,
-    max(e.startTime) as latestEvent,
     c.id as cardId,
     c.cardName,
     f.id as fightId,

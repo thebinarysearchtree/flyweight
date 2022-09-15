@@ -99,7 +99,7 @@ const makeQueryHandler = (table, db, sqlDir) => ({
           const primaryKeys = [];
           let i = 0;
           for (const column of columns) {
-            columnMap[column.name] = column.originalName;
+            columnMap[column.name] = column.rename ? column.originalName : column.name;
             const converter = db.getDbToJsConverter(column.type);
             if (converter) {
               if (!typeMap) {

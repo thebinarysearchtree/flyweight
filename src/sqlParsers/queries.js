@@ -1,6 +1,8 @@
 import { blank } from './utils.js';
 import returnTypes from './returnTypes.js';
 
+const isNumber = (s) => /^((-|\+)?(0x)?\d+)(\.\d+)?(e\d)?$/.test(s);
+
 const getTempTables = (query, fromPattern, tables) => {
   const from = fromPattern.exec(query).groups.from;
   const processed = blank(from);
@@ -56,19 +58,18 @@ const parseQuery = (sql, tables) => {
 }
 
 const getSelectColumns = (select) => {
-  const matches = select.matchAll(/,/gm);
+  const matches = blank(select).matchAll(/(?<statement>[^,]+)(,|$)/gmd);
   const statements = [];
-  let lastIndex = 0;
   for (const match of matches) {
-    statements.push(select.substring(lastIndex === 0 ? 0 : lastIndex + 1, match.index).trim());
-    lastIndex = match.index;
+    const [start, end] = match.indices.groups.statement;
+    const statement = select.substring(start, end).trim();
+    statements.push(statement);
   }
-  statements.push(select.substring(lastIndex + 1).trim());
   const selectColumns = [];
   const parsers = [
     {
       name: 'Literal pattern',
-      pattern: /^((?<isString>'.+')|(?<isNumber>(-?(0x)?\d+)(\.\d+)?(e\d)?)|(?<isBoolean>(true)|(false)))\s(as)\s(?<columnAlias>[a-z0-9_]+)$/mi,
+      pattern: /^((?<isString>'.+')|(?<isNumber>((-|\+)?(0x)?\d+)(\.\d+)?(e\d)?)|(?<isBoolean>(true)|(false)))\s(as)\s(?<columnAlias>[a-z0-9_]+)$/mi,
       extractor: (groups) => {
         const { isString, isNumber, isBoolean, columnAlias } = groups;
         let type;
@@ -103,7 +104,8 @@ const getSelectColumns = (select) => {
           tableAlias,
           columnName,
           columnAlias,
-          type: null
+          type: null,
+          rename: true
         };
       }
     },
@@ -114,6 +116,15 @@ const getSelectColumns = (select) => {
       extractor: (groups) => {
         const { functionName, tableAlias, columnName, columnAlias } = groups;
         const type = returnTypes[functionName] || null;
+        if (columnName !== undefined && isNumber(columnName)) {
+          return {
+            tableAlias,
+            columnName: undefined,
+            columnAlias: undefined,
+            type,
+            functionName
+          }
+        }
         return {
           tableAlias,
           columnName,
@@ -155,7 +166,7 @@ const getSelectColumns = (select) => {
     },
     {
       name: 'Expression pattern',
-      pattern: /^.+\s(not\s)?(\s(in \([^)]+\))|(like)|(regexp)|(exists \([^)]+\))|(is null)|(is not null)\s)(as)\s(?<columnAlias>[a-z0-9_]+)$/mi,
+      pattern: /^.+ (not )?((in \([^)]+\))|(like)|(regexp)|(exists \([^)]+\))|(is null)|(is not null)|(is true)|(is false)) as (?<columnAlias>[a-z0-9_]+)$/mi,
       extractor: (groups) => {
         const { columnAlias } = groups;
         return {
@@ -368,7 +379,8 @@ const parseSelect = (query, tables) => {
       tableName,
       primaryKey,
       foreign,
-      canBeNull
+      canBeNull,
+      rename: column.rename
     });
   }
   return results;
