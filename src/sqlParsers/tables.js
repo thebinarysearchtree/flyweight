@@ -28,13 +28,14 @@ const getFragments = (sql) => {
         });
       }
       lastEnd = end;
+      const fragment = sql.substring(start, end).replace(/\n$/, '');
       fragments.push({
         columnName: isColumn ? match.groups.name : null,
         type: isColumn ? match.groups.type : null,
         isColumn,
         start,
         end,
-        sql: sql.substring(start, end),
+        sql: fragment,
         blanked: columnMatch.groups.column
       });
     }
@@ -61,19 +62,20 @@ const fromSql = (sql) => {
       .split(',')
       .map(s => s.trim());
     for (let column of columns) {
-      const match = /^(?<name>[a-z0-9_]+)\s(?<type>[a-z0-9_]+)((?<primaryKey> primary key)|(?<notNull> not null))?/mi.exec(column);
+      const match = /^(?<name>[a-z0-9_]+)\s(?<type>[a-z0-9_]+)((?<primaryKey> primary key)|(?<notNull> not null))?(\sreferences\s+(?<foreign>[a-z0-9_]+)\s)?/mi.exec(column);
       if (!match) {
         continue;
       }
-      const { name, type, primaryKey, notNull } = match.groups;
+      const { name, type, primaryKey, notNull, foreign } = match.groups;
       if (['unique', 'check', 'primary', 'foreign'].includes(name)) {
         continue;
       }
       table.columns.push({
         name,
-        type: typeMap[type],
+        type,
         primaryKey: primaryKey !== undefined,
-        notNull: notNull !== undefined
+        notNull: notNull !== undefined,
+        foreign
       });
     }
     tables.push(table);

@@ -1,13 +1,14 @@
 select
     e.id as eventId,
     e.name as eventName,
+    max(e.startTime) as latestEvent,
     c.id as cardId,
     c.cardName,
     f.id as fightId,
-    bf.id as blueId,
+    f.blueId,
     bf.name as blueName,
     bf.social as blueSocial,
-    rf.id as redId,
+    f.redId,
     rf.name as redName,
     rf.social as redSocial
 from

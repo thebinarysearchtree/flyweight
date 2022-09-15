@@ -98,37 +98,32 @@ const sliceProps = (o, start, end) => {
 }
 
 const convertPrefixes = (o, prefixes) => {
-  const entries = Object.entries(o);
-  const prefixEntries = Object.entries(prefixes);
+  const stored = {};
+  const map = {};
+  const skip = new Set(Object.values(prefixes).flat());
+  for (const [key, columns] of Object.entries(prefixes)) {
+    stored[key] = {};
+    map[columns[0]] = key;
+    for (const name of columns) {
+      const value = o[name];
+      const adjusted = removePrefix(name, key);
+      stored[key][adjusted] = value;
+    }
+  }
   const result = {};
-  const names = Object.keys(prefixes);
-  const values = Object.values(prefixes);
-  for (const [name, prefix] of prefixEntries) {
-    let created = {};
-    let found = false;
-    for (const [key, value] of entries) {
-      if (key.startsWith(prefix) && !names.includes(key) && key.length !== prefix.length) {
-        found = true;
-        const without = removePrefix(key, prefix);
-        created[without] = value;
-      }
+  for (const [key, value] of Object.entries(o)) {
+    const mapped = map[key];
+    if (mapped) {
+      result[mapped] = stored[mapped];
     }
-    const primaryKey = Object.keys(created)[0];
-    if (created[primaryKey] === null) {
-      created = null;
+    else if (skip.has(key)) {
+      continue;
     }
-    if (found) {
-      result[name] = created;
+    else {
+      result[key] = value;
     }
   }
-  let adjusted = {};
-  for (const [key, value] of entries) {
-    if (!values.some(v => key.startsWith(v) && v.length !== key.length)) {
-      adjusted[key] = value;
-    }
-  }
-  adjusted = { ...adjusted, ...result };
-  return adjusted;
+  return result;
 }
 
 const renameColumns = (o, columns, prefixes) => {
@@ -146,13 +141,12 @@ const renameColumns = (o, columns, prefixes) => {
   return result;
 }
 
-const parse = (o, parsers) => {
+const parse = (o, types) => {
   const result = {};
   for (const [key, value] of Object.entries(o)) {
-    const parser = parsers[key];
+    const parser = types[key];
     if (parser) {
-      const [k, v] = parser(key, value);
-      result[k] = v;
+      result[key] = parser(value);
     }
     else {
       result[key] = value;
@@ -173,7 +167,7 @@ const toArrayName = (primaryKey) => {
   return pluralize.plural(name);
 }
 
-const auto = (db, rows, skip, prefixes, columns, primaryKeys, parsers, one) => {
+const auto = (db, rows, skip, prefixes, columns, types, primaryKeys, firstRun, one) => {
   if (rows.length === 0) {
     return [];
   }
@@ -185,16 +179,13 @@ const auto = (db, rows, skip, prefixes, columns, primaryKeys, parsers, one) => {
     prefixes = result;
   }
   const sample = rows[0];
-  if (!primaryKeys) {
-    primaryKeys = getPrimaryKeys(sample, skip, prefixes);
-  }
-  if (parsers === undefined) {
-    parsers = getParsers(db, sample, prefixes);
+  if (firstRun) {
+    firstRun = false;
     if (primaryKeys.length < 2) {
       if (one) {
         let result = sample;
-        if (parsers) {
-          result = parse(result, parsers);
+        if (types) {
+          result = parse(result, types);
         }
         if (prefixes) {
           result = convertPrefixes(result, prefixes);
@@ -205,8 +196,8 @@ const auto = (db, rows, skip, prefixes, columns, primaryKeys, parsers, one) => {
         return result;
       }
       else {
-        if (parsers) {
-          rows = rows.map(s => parse(s, parsers));
+        if (types) {
+          rows = rows.map(s => parse(s, types));
         }
         if (prefixes) {
           rows = rows.map(s => convertPrefixes(s, prefixes));
@@ -219,8 +210,8 @@ const auto = (db, rows, skip, prefixes, columns, primaryKeys, parsers, one) => {
     }
   }
   if (primaryKeys.length === 0) {
-    if (parsers) {
-      rows = rows.map(s => parse(s, parsers));
+    if (types) {
+      rows = rows.map(s => parse(s, types));
     }
     if (prefixes) {
       rows = rows.map(s => convertPrefixes(s, prefixes));
@@ -233,8 +224,8 @@ const auto = (db, rows, skip, prefixes, columns, primaryKeys, parsers, one) => {
   const previousKey = primaryKeys[0];
   if (primaryKeys.length === 1) {
     let sliced = rows.map(r => sliceProps(r, previousKey.index));
-    if (parsers) {
-      sliced = sliced.map(s => parse(s, parsers));
+    if (types) {
+      sliced = sliced.map(s => parse(s, types));
     }
     if (prefixes) {
       sliced = sliced.map(s => convertPrefixes(s, prefixes));
@@ -248,8 +239,8 @@ const auto = (db, rows, skip, prefixes, columns, primaryKeys, parsers, one) => {
   const arrayName = toArrayName(nextKey.name);
   const getResults = (rows) => {
     let result = sliceProps(rows[0], previousKey.index, nextKey.index);
-    if (parsers) {
-      result = parse(result, parsers);
+    if (types) {
+      result = parse(result, types);
     }
     if (prefixes) {
       result = convertPrefixes(result, prefixes);
@@ -259,7 +250,7 @@ const auto = (db, rows, skip, prefixes, columns, primaryKeys, parsers, one) => {
     }
     const splitRows = split(rows, nextKey.name);
     const slicedKeys = primaryKeys.slice(1);
-    let mapped = splitRows.map(rows => auto(db, rows, skip, prefixes, columns, slicedKeys, parsers, true));
+    let mapped = splitRows.map(rows => auto(db, rows, skip, prefixes, columns, types, slicedKeys, firstRun, true));
     if (slicedKeys.length === 1) {
       mapped = mapped.flat();
     }
@@ -272,8 +263,8 @@ const auto = (db, rows, skip, prefixes, columns, primaryKeys, parsers, one) => {
   return split(rows, previousKey.name).map(r => getResults(r));
 }
 
-const mapOne = (db, rows, skip, prefixes, columns) => auto(db, rows, skip, prefixes, columns, null, undefined, true);
-const mapMany = (db, rows, skip, prefixes, columns) => auto(db, rows, skip, prefixes, columns, null, undefined, false);
+const mapOne = (db, rows, skip, prefixes, columns, types, primaryKeys) => auto(db, rows, skip, prefixes, columns, types, primaryKeys, true, true);
+const mapMany = (db, rows, skip, prefixes, columns, types, primaryKeys) => auto(db, rows, skip, prefixes, columns, types, primaryKeys, true, false);
 
 export {
   map,

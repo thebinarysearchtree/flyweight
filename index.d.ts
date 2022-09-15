@@ -21,11 +21,21 @@ export interface Parser {
   valueTest: (value: any) => boolean;
 }
 
+export interface CustomType {
+  name: string;
+  valueTest: (v: any) => boolean;
+  makeConstraint?: (column: string) => string;
+  dbToJs: (v: any) => any;
+  jsToDb: (v: any) => any;
+  tsType: string;
+  dbType: string;
+}
+
 export class Database {
   constructor(path: string);
   enforceForeignKeys(): Promise<void>;
-  setTables(path?: string): Promise<void>;
-  registerParsers(parsers: Array<Parser>): void;
+  setTables(path: string): Promise<void>;
+  registerTypes(customTypes: Array<CustomType>): void;
   registerMappers(table: string, mappers: Array<Mapper>): void;
   begin(): Promise<void>;
   commit(): Promise<void>;

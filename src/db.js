@@ -5,6 +5,7 @@ import { mapOne, mapMany } from './map.js';
 import { getTables } from './sqlParsers/tables.js';
 import { readFile } from 'fs/promises';
 import { getFragments } from './sqlParsers/tables.js';
+import { blank } from './sqlParsers/utils.js';
 
 const process = (db, result, options) => {
   if (!options) {
@@ -23,17 +24,17 @@ const process = (db, result, options) => {
   }
   if (options.result === 'value' || options.result === 'values') {
     if (options.parse) {
-      const parsed = parser(db, result);
+      const parsed = parser(result, options.types);
       return value(parsed);
     }
     return value(result);
   }
   if (options.parse && !options.map) {
-    return parser(db, result);
+    return parser(result, options.types);
   }
   if (options.map || options.skip || options.prefixes) {
     const columns = options.renameColumns ? options.columns : undefined;
-    return mapper(db, result, options.skip, options.prefixes, columns);
+    return mapper(db, result, options.skip, options.prefixes, columns, options.types, options.primaryKeys);
   }
   return result;
 }
@@ -42,10 +43,44 @@ class Database {
   constructor(path) {
     this.db = new sqlite3.Database(path);
     this.tables = {};
-    this.parsers = [];
     this.mappers = {};
     this.customTypes = {};
     this.columns = {};
+    this.registerTypes([
+      {
+        name: 'boolean',
+        valueTest: (v) => typeof v === 'boolean',
+        makeConstraint: (column) => `check (${column} in (0, 1))`,
+        dbToJs: (v) => Boolean(v),
+        jsToDb: (v) => v === true ? 1 : 0,
+        tsType: 'boolean',
+        dbType: 'integer'
+      },
+      {
+        name: 'date',
+        valueTest: (v) => v instanceof Date,
+        dbToJs: (v) => new Date(v),
+        jsToDb: (v) => v.getTime(),
+        tsType: 'Date',
+        dbType: 'integer'
+      },
+      {
+        name: 'json',
+        valueTest: (v) => Object.getPrototypeOf(v) === Object.prototype || Array.isArray(v),
+        dbToJs: (v) => JSON.parse(v),
+        jsToDb: (v) => JSON.stringify(v),
+        tsType: 'any',
+        dbType: 'text'
+      },
+      {
+        name: 'regexp',
+        valueTest: (v) => v instanceof RegExp,
+        dbToJs: (v) => new RegExp(v),
+        jsToDb: (v) => v.source,
+        tsType: 'RegExp',
+        dbType: 'text'
+      }
+    ]);
   }
 
   async enforceForeignKeys() {
@@ -53,14 +88,8 @@ class Database {
   }
 
   async setTables(path) {
-    let tables;
-    if (path) {
-      const sql = await readFile(path, 'utf8');
-      tables = getTables(sql);
-    }
-    else {
-      tables = await getTables(this);
-    }
+    const sql = await readFile(path, 'utf8');
+    const tables = getTables(sql);
     for (const table of tables) {
       this.tables[table.name] = table.columns;
       this.columns[table.name] = {};
@@ -68,10 +97,6 @@ class Database {
         this.columns[table.name][column.name] = column.type;
       }
     }
-  }
-
-  registerParsers(parsers) {
-    this.parsers.push(...parsers);
   }
 
   registerMappers(table, mappers) {
@@ -111,59 +136,27 @@ class Database {
     return mapper;
   }
 
-  parseKey(key) {
-    const dbToJsParsers = this.parsers.filter(p => p.dbToJs);
-    for (const parser of dbToJsParsers) {
-      const { pattern, dbPattern, type, trim } = parser;
-      if ((pattern && pattern.test(key) || (dbPattern && dbPattern.test(key)))) {
-        let parsedKey;
-        if (trim) {
-          parsedKey = key.substring(0, key.length - trim.length);
-        }
-        else {
-          parsedKey = key;
-        }
-        return {
-          key: parsedKey,
-          type
-        };
-      }
-    }
-    return null;
-  }
-
-  getDbToJsParser(key) {
-    const dbToJsParsers = this.parsers.filter(p => p.dbToJs);
-    for (const parser of dbToJsParsers) {
-      const { pattern, dbToJs, trim, dbPattern } = parser;
-      if ((pattern && pattern.test(key) || (dbPattern && dbPattern.test(key)))) {
-        const parse = (key, value) => {
-          const parsedKey = trim ? key.substring(0, key.length - trim.length) : key;
-          const parsedValue = dbToJs(value);
-          return [parsedKey, parsedValue];
-        }
-        return parse;
-      }
-    }
-    return null;
-  }
-
-  getJsToDbParser(key, value) {
-    const jsToDbParsers = this.parsers.filter(p => p.jsToDb);
-    for (const parser of jsToDbParsers) {
-      const { pattern, jsToDb, valueTest, jsPattern } = parser;
-      if ((pattern && pattern.test(key)) || (jsPattern && jsPattern.test(key)) || (valueTest && valueTest(value))) {
-        return jsToDb;
-      }
-    }
-    return null;
-  }
-
   registerTypes(customTypes) {
     for (const customType of customTypes) {
       const { name, ...options } = customType;
       this.customTypes[name] = options;
     }
+  }
+
+  addStrict(sql) {
+    const matches = blank(sql, { stringsOnly: true }).matchAll(/^\s*create table (?<tableName>[^\s]+)\s+\((?<columns>[^;]+)(?<ending>;)/gmid);
+    let lastIndex = 0;
+    const fragments = [];
+    for (const match of matches) {
+      const [index] = match.indices.groups.ending;
+      const fragment = sql.substring(lastIndex, index);
+      fragments.push(fragment);
+      fragments.push(' strict');
+      lastIndex = index;
+    }
+    const fragment = sql.substring(lastIndex);
+    fragments.push(fragment);
+    return fragments.join('');
   }
 
   convertTables(sql) {
@@ -187,7 +180,7 @@ class Database {
       }
       converted += fragment.sql;
     }
-    return converted;
+    return this.addStrict(converted);
   }
 
   convertToDb(value) {
@@ -218,7 +211,11 @@ class Database {
   }
 
   getDbToJsConverter(type) {
-    return this.customTypes[type].dbToJs;
+    const customType = this.customTypes[type];
+    if (customType) {
+      return customType.dbToJs;
+    }
+    return null;
   }
 
   adjust(params) {
@@ -227,7 +224,7 @@ class Database {
       if (value === undefined) {
         value = null;
       }
-      if (value === null || typeof value === 'string' || typeof value === 'number') {
+      if (value === null || typeof value === 'string' || typeof value === 'number' || value instanceof Buffer) {
         adjusted[`$${key}`] = value;
       }
       else {

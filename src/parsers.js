@@ -1,15 +1,14 @@
 import { toValue, toValues } from './utils.js';
 
-const parseOne = (db, row) => {
+const parseOne = (row, types) => {
   if (!row) {
     return row;
   }
   const result = {};
   for (const [key, value] of Object.entries(row)) {
-    const parser = db.getDbToJsParser(key);
+    const parser = types[key];
     if (parser) {
-      const [k, v] = parser(key, value);
-      result[k] = v;
+      result[key] = parser(value);
     }
     else {
       result[key] = value;
@@ -18,31 +17,21 @@ const parseOne = (db, row) => {
   return toValue(result);
 }
 
-const parseMany = (db, rows) => {
+const parseMany = (rows, types) => {
   if (rows.length === 0) {
     return rows;
   }
-  const sample = rows[0];
-  const parsers = {};
-  let found = false;
-  for (const key of Object.keys(sample)) {
-    const parser = db.getDbToJsParser(key);
-    if (parser) {
-      parsers[key] = parser;
-      found = true;
-    }
-  }
-  if (!found) {
+  const needsParsing = Object.values(types).some(t => t !== null);
+  if (!needsParsing) {
     return toValues(rows);
   }
   const results = [];
   for (const row of rows) {
     const adjusted = {};
     for (const [key, value] of Object.entries(row)) {
-      const parser = parsers[key];
+      const parser = types[key];
       if (parser) {
-        const [k, v] = parser(key, value);
-        adjusted[k] = v;
+        adjusted[key] = parser(value);
       }
       else {
         adjusted[key] = value;
