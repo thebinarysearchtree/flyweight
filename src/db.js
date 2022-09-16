@@ -39,6 +39,15 @@ const process = (db, result, options) => {
   return result;
 }
 
+const dbTypes = {
+  integer: true,
+  int: true,
+  real: true,
+  text: true,
+  blob: true,
+  any: true
+}
+
 class Database {
   constructor(path) {
     this.db = new sqlite3.Database(path);
@@ -192,9 +201,27 @@ class Database {
     return value;
   }
 
+  needsParsing(table, keys) {
+    for (const key of keys) {
+      const type = this.columns[table][key];
+      if (!dbTypes[type]) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  getPrimaryKey(table) {
+    const primaryKey = this.tables[table].columns.find(c => c.primaryKey);
+    return primaryKey.name;
+  }
+
   convertToJs(table, column, value) {
+    if (value === null) {
+      return value;
+    }
     const type = this.columns[table][column];
-    if (type === 'number' || type === 'string') {
+    if (dbTypes[type]) {
       return value;
     }
     const customType = this.customTypes[type];

@@ -16,4 +16,4 @@ from
     fights f on f.cardId = c.id join
     fighters bf on f.blueId = bf.id join
     fighters rf on f.redId = rf.id
-where e.id = 100
+where e.id = $id

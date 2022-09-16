@@ -1,12 +1,7 @@
 import db from './db.js';
-import database from './database.js';
 
-database.registerMappers('events', [{
-  query: 'getById',
-  prefixes: ['blue', 'red'],
-  result: 'object'
-}]);
-
-const event = await db.events.getById();
+const event = await db.events.getById({ id: 100 });
+const cards = await db.cards.all({ eventId: 100 });
 console.log(event);
+console.log(cards[0]);
 process.exit();

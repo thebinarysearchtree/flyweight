@@ -47,7 +47,7 @@ const getFragments = (sql) => {
   return fragments;
 }
 
-const fromSql = (sql) => {
+const getTables = (sql) => {
   const tables = [];
 
   const matches = blank(sql, { stringsOnly: true }).matchAll(/^\s*create table (?<tableName>[^\s]+)\s+\((?<columns>[^;]+);/gmi);
@@ -81,40 +81,6 @@ const fromSql = (sql) => {
     tables.push(table);
   }
   return tables;
-}
-
-const fromDb = async (database) => {
-  const result = await database.all(`select name from sqlite_master where type='table'`);
-  const tableNames = result.map(r => r.name);
-  const tables = [];
-  for (const name of tableNames) {
-    const table = {
-      name,
-      columns: []
-    };
-    const result = await database.all(`pragma table_info(${name})`);
-    table.columns = result.map(r => {
-      let type = typeMap[r.type.toLowerCase()];
-      if (!type) {
-        type = r.type;
-      }
-      return {
-        name: r.name,
-        type,
-        primaryKey: Boolean(r.pk),
-        notNull: Boolean(r.notnull)
-      }
-    });
-    tables.push(table);
-  }
-  return tables;
-}
-
-const getTables = (source) => {
-  if (typeof source === 'string') {
-    return fromSql(source);
-  }
-  return fromDb(source);
 }
 
 export {

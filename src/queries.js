@@ -2,29 +2,15 @@ const insert = async (db, table, params) => {
   const columns = Object.keys(params);
   const placeholders = columns.map(c => `$${c}`);
   const sql = `insert into ${table}(${columns.join(', ')}) values(${placeholders.join(', ')})`;
-  if (params.id !== undefined) {
+  const primaryKey = db.getPrimaryKey(table);
+  if (params[primaryKey] !== undefined) {
     return await db.run(sql, params);
   }
-  const result = await db.get(`${sql} returning id`, params);
+  const result = await db.get(`${sql} returning ${primaryKey}`, params);
   if (result !== undefined) {
-    return result.id;
+    return result[primaryKey];
   }
   return null;
-}
-
-const parse = (item, parsers) => {
-  const result = {};
-  for (const [key, value] of Object.entries(item)) {
-    const parser = parsers[key];
-    if (parser) {
-      const v = parser(value);
-      result[key] = v;
-    }
-    else {
-      result[key] = value;
-    }
-  }
-  return result;
 }
 
 const insertMany = async (db, table, items) => {
@@ -208,19 +194,15 @@ const all = async (db, table, query, columns) => {
   }
   sql += toKeywords(keywords);
   const rows = await db.all(sql, query);
-  if (rows.length > 0) {
-    const sample = rows[0];
-    const parsers = {};
-    let found = false;
-    const keys = Object.keys(sample);
-    for (const key of keys) {
-      const parser = db.getDbToJsParser(key);
-      if (parser) {
-        parsers[key] = parser;
-        found = true;
-      }
-    }
-    const adjusted = [];
+  if (rows.length === 0) {
+    return rows;
+  }
+  const sample = rows[0];
+  const keys = Object.keys(sample);
+  const needsParsing = db.needsParsing(table, keys);
+  let adjusted;
+  if (needsParsing) {
+    adjusted = [];
     for (const row of rows) {
       const created = {};
       for (const [key, value] of Object.entries(row)) {
@@ -228,13 +210,15 @@ const all = async (db, table, query, columns) => {
       }
       adjusted.push(created);
     }
-    if (returnValue) {
-      const key = keys[0];
-      return adjusted.map(item => item[key]);
-    }
-    return adjusted;
   }
-  return rows;
+  else {
+    adjusted = rows;
+  }
+  if (returnValue) {
+    const key = keys[0];
+    return adjusted.map(item => item[key]);
+  }
+  return adjusted;
 }
 
 const remove = async (db, table, query) => {
