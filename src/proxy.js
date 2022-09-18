@@ -9,6 +9,7 @@ import {
 } from './queries.js';
 import { join } from 'path';
 import { parseQuery, getQueryType } from './sqlParsers/queries.js';
+import pluralize from 'pluralize';
 
 const queries = {
   insert: (database, table) => async (params) => await insert(database, table, params),
@@ -17,6 +18,20 @@ const queries = {
   get: (database, table) => async (query, columns) => await get(database, table, query, columns),
   all: (database, table) => async (query, columns) => await all(database, table, query, columns),
   remove: (database, table) => async (query) => await remove(database, table, query)
+}
+
+const singularQueries = {
+  insert: queries.insert,
+  update: queries.update,
+  get: queries.get,
+  remove: queries.remove
+}
+
+const multipleQueries = {
+  insert: queries.insertMany,
+  update: queries.update,
+  get: queries.all,
+  remove: queries.remove
 }
 
 const getPrefixes = (columns) => {
@@ -76,85 +91,137 @@ const getPrefixes = (columns) => {
   return result;
 }
 
-const makeQueryHandler = (table, db, sqlDir) => ({
-  get: function(target, query, receiver) {
-    if (!target[query]) {
-      if (!sqlDir) {
-        if (!queries[query]) {
-          throw Error(`Query ${query} of table ${table} not found`);
-        }
-        else {
-          target[query] = queries[query](db, table);
-        }
+const makeOptions = (columns, db) => {
+  const prefixes = getPrefixes(columns);
+  const columnMap = {};
+  let typeMap = null;
+  const primaryKeys = [];
+  let i = 0;
+  let revertMap = {};
+  for (const column of columns) {
+    const columnName = column.rename ? column.originalName : column.name;
+    columnMap[column.name] = column.rename ? column.originalName : column.name;
+    const converter = db.getDbToJsConverter(column.type);
+    if (converter) {
+      if (!typeMap) {
+        typeMap = {};
+      }
+      typeMap[column.name] = converter;
+    }
+    if (column.primaryKey) {
+      primaryKeys.push({
+        name: column.name,
+        index: i
+      });
+      revertMap = {};
+      revertMap[columnName] = column.name;
+    }
+    else {
+      const revert = revertMap[columnName];
+      if (revert) {
+        columnMap[revert] = revert;
+        columnMap[column.name] = column.name;
       }
       else {
-        const path = join(sqlDir, table, `${query}.sql`);
-        try {
-          const sql = readFileSync(path, 'utf8');
-          const queryType = getQueryType(sql);
-          const columns = parseQuery(sql, db.tables);
-          const prefixes = getPrefixes(columns);
-          const columnMap = {};
-          let typeMap = null;
-          const primaryKeys = [];
-          let i = 0;
-          for (const column of columns) {
-            columnMap[column.name] = column.rename ? column.originalName : column.name;
-            const converter = db.getDbToJsConverter(column.type);
-            if (converter) {
-              if (!typeMap) {
-                typeMap = {};
-              }
-              typeMap[column.name] = converter;
-            }
-            if (column.primaryKey) {
-              primaryKeys.push({
-                name: column.name,
-                index: i
-              });
-            }
-            i++;
+        revertMap[columnName] = column.name;
+      }
+    }
+    i++;
+  }
+  const options = {
+    parse: true,
+    map: true
+  }
+  options.columns = columnMap;
+  options.types = typeMap;
+  options.primaryKeys = primaryKeys;
+  options.prefixes = prefixes;
+  return options;
+}
+
+const getResultType = (columns, isSingular) => {
+  if (columns.length === 0) {
+    return 'none';
+  }
+  else if (isSingular) {
+    if (columns.length === 1) {
+      return 'value';
+    }
+    else {
+      return 'object';
+    }
+  }
+  else {
+    if (columns.length === 1) {
+      return 'values';
+    }
+    else {
+      return 'array';
+    }
+  }
+}
+
+const makeQueryHandler = (table, db, sqlDir) => {
+  let isSingular;
+  let queries;
+  if (pluralize.isSingular(table)) {
+    isSingular = true;
+    table = pluralize.plural(table);
+    queries = singularQueries;
+  }
+  else {
+    isSingular = false;
+    queries = multipleQueries;
+  }
+  return {
+    get: function(target, query, receiver) {
+      if (!target[query]) {
+        if (!sqlDir) {
+          if (!queries[query]) {
+            throw Error(`Query ${query} of table ${table} not found`);
           }
-          const statement = db.prepare(sql);
-          target[query] = async (params, options) => {
-            let mapper;
-            if (options) {
-              mapper = options;
-            }
-            else {
-              mapper = db.getMapper(table, query);
-            }
-            mapper.columns = columnMap;
-            mapper.types = typeMap;
-            mapper.primaryKeys = primaryKeys;
-            mapper.prefixes = prefixes;
+          else {
+            target[query] = queries[query](db, table);
+          }
+        }
+        else {
+          const path = join(sqlDir, table, `${query}.sql`);
+          try {
+            const sql = readFileSync(path, 'utf8');
+            const queryType = getQueryType(sql);
+            const columns = parseQuery(sql, db.tables);
+            const options = makeOptions(columns, db);
+            options.result = getResultType(columns, isSingular);
+            const statement = db.prepare(sql);
             let run;
-            if (mapper.result === 'none') {
+            if (options.result === 'none') {
               run = db.run;
             }
-            else if (mapper.result === 'value') {
+            else if (options.result === 'value') {
               run = db.get;
             }
             else {
               run = db.all;
             }
             run = run.bind(db);
-            return await run(statement, params, mapper);
+            target[query] = async (params) => {
+              return await run(statement, params, options);
+            }
           }
-        }
-        catch {
-          if (queries[query]) {
-            target[query] = queries[query](db, table);
-          }
-          else {
-            throw Error(`Query ${query} of table ${table} not found`);
+          catch {
+            if (queries[query]) {
+              target[query] = queries[query](db, table);
+            }
+            else {
+              throw Error(`Query ${query} of table ${table} not found`);
+            }
           }
         }
       }
+      return target[query];
     }
-    return target[query];
   }
-});
+}
 
 const makeClient = (db, sqlDir) => {
   const tableHandler = {
@@ -169,5 +236,7 @@ const makeClient = (db, sqlDir) => {
 }
 
 export {
-  makeClient
+  makeClient,
+  makeOptions,
+  getResultType
 }

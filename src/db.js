@@ -32,9 +32,8 @@ const process = (db, result, options) => {
   if (options.parse && !options.map) {
     return parser(result, options.types);
   }
-  if (options.map || options.skip || options.prefixes) {
-    const columns = options.renameColumns ? options.columns : undefined;
-    return mapper(db, result, options.skip, options.prefixes, columns, options.types, options.primaryKeys);
+  if (options.map) {
+    return mapper(db, result, options.prefixes, options.columns, options.types, options.primaryKeys);
   }
   return result;
 }
@@ -106,43 +105,6 @@ class Database {
         this.columns[table.name][column.name] = column.type;
       }
     }
-  }
-
-  registerMappers(table, mappers) {
-    if (!this.mappers[table]) {
-      this.mappers[table] = {};
-    }
-    for (const mapper of mappers) {
-      const { query, ...options } = mapper;
-      if (options.parse === undefined) {
-        options.parse = true;
-      }
-      if (options.result === undefined) {
-        options.result = 'array';
-      }
-      if (options.map === undefined && (options.skip || options.prefixes)) {
-        options.map = true;
-      }
-      if (options.renameColumns === undefined) {
-        options.renameColumns = true;
-      }
-      this.mappers[table][query] = options;
-    }
-  }
-
-  getMapper(table, query) {
-    const defaultMapper = {
-      parse: true,
-      result: 'array'
-    }
-    if (!this.mappers[table]) {
-      return defaultMapper;
-    }
-    const mapper = this.mappers[table][query];
-    if (!mapper) {
-      return defaultMapper;
-    }
-    return mapper;
   }
 
   registerTypes(customTypes) {

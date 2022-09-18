@@ -9,33 +9,59 @@ export interface Location {
   id: number;
   name: string;
   address: string;
-  lat: undefined;
-  long: undefined;
+  lat: number;
+  long: number;
 }
 
 export interface Event {
   id: number;
   name: string;
-  startTime: number;
+  startTime: Date;
   locationId: number | null;
 }
 
-interface EventsGetById {
-  eventId: number;
-  eventName: string;
+export interface EventsGetById {
+  id: number;
+  name: string;
   cards: Array<{
-    cardId: number;
+    id: number;
     cardName: string;
     fights: Array<{
-      fightId: number;
-      blue: { id: number; name: string; socialJson: string | null };
-      red: { id: number; name: string; socialJson: string | null };
+      id: number;
+      blue: { id: number; name: string; social: any };
+      red: { id: number; name: string; social: any };
     }>;
   }>;
 }
 
-interface EventQueries {
-  getById: Promise<Array<EventsGetById>>;
+export interface RawEventsGetById {
+  eventId: number;
+  eventName: string;
+  cardId: number;
+  cardName: string;
+  fightId: number;
+  blueId: number;
+  blueName: string;
+  blueSocial: any;
+  redId: number;
+  redName: string;
+  redSocial: any;
+}
+
+export interface EventsQueries {
+  getById(params: any): Promise<Array<EventsGetById>>;
+}
+
+export interface EventQueries {
+  getById(params: any): Promise<EventsGetById>;
+}
+
+export interface RawEventsQueries {
+  getById(params: any): Promise<Array<RawEventsGetById>>;
+}
+
+export interface RawEventQueries {
+  getById(params: any): Promise<RawEventsGetById>;
 }
 
 export interface Card {
@@ -43,7 +69,7 @@ export interface Card {
   eventId: number;
   cardName: string;
   cardOrder: number;
-  startTime: number | null;
+  startTime: Date | null;
 }
 
 export interface Coach {
@@ -61,8 +87,8 @@ export interface Fighter {
   heightCm: number | null;
   reachCm: number | null;
   hometown: string;
-  social: string | null;
-  isActive: number;
+  social: any;
+  isActive: boolean;
 }
 
 export interface OtherName {
@@ -84,7 +110,7 @@ export interface Ranking {
   fighterId: number;
   weightClassId: number;
   rank: number;
-  isInterim: number;
+  isInterim: boolean;
 }
 
 export interface Method {
@@ -104,14 +130,14 @@ export interface Fight {
   methodDescription: string | null;
   endRound: number | null;
   endSeconds: number | null;
-  titleFight: number;
-  isInterim: number;
+  titleFight: boolean;
+  isInterim: boolean;
   weightClassId: number | null;
-  missedWeightBlue: number;
-  missedWeightRed: number;
+  missedWeightBlue: boolean;
+  missedWeightRed: boolean;
   oddsBlue: number | null;
   oddsRed: number | null;
-  catchweightLbs: undefined | null;
+  catchweightLbs: number | null;
 }
 
 export interface CancelledFight {
@@ -120,7 +146,7 @@ export interface CancelledFight {
   cardOrder: number;
   blueId: number;
   redId: number;
-  cancelledAt: number;
+  cancelledAt: Date;
   cancellationReason: string | null;
 }
 
@@ -128,8 +154,8 @@ export interface TitleRemoval {
   id: number;
   fighterId: number;
   weightClassId: number;
-  isInterim: number;
-  removedAt: number;
+  isInterim: boolean;
+  removedAt: Date;
   reason: string;
 }
 
@@ -168,9 +194,8 @@ export type RequiredParams<T> = Partial<Record<keyof T, any>>;
 
 export type Params<T> = null | Partial<Record<keyof T, any>>;
 
-export interface BasicQueries<T> {
+export interface SingularQueries<T> {
   insert(params: T): Promise<any>;
-  insertMany(params: Array<T>): Promise<void>;
   update(params: RequiredParams<T>, query?: Params<T>): Promise<number>;
   get(params?: Params<T>): Promise<T | null>;
   get<K extends keyof T>(params: Params<T>, columns: K[]): Promise<Pick<T, K> | null>;
@@ -180,30 +205,75 @@ export interface BasicQueries<T> {
   get<K extends keyof T>(params: Params<T>, keywords: Keywords<K>): Promise<T[K] | null>;
   get<K extends keyof T>(params: Params<T>, keywords: Keywords<K[]>): Promise<Pick<T, K> | null>;
   get<K extends keyof T>(params: Params<T>, keywords: KeywordsWithExclude<K[]>): Promise<Omit<T, K> | null>;
-  all(params?: any): Promise<Array<T>>;
-  all<K extends keyof T>(params: Params<T>, columns: K[]): Promise<Array<Pick<T, K>>>;
-  all<K extends keyof T>(params: Params<T>, column: K): Promise<Array<T[K]>>;
-  all(params: Params<T>, keywords: KeywordsWithoutSelect): Promise<Array<T>>;
-  all<K extends keyof T>(params: Params<T>, keywords: Keywords<K>): Promise<Array<T[K]>>;
-  all<K extends keyof T>(params: Params<T>, keywords: Keywords<K[]>): Promise<Array<Pick<T, K>>>;
-  all<K extends keyof T>(params: Params<T>, keywords: KeywordsWithExclude<K[]>): Promise<Array<Omit<T, K>>>;
+  remove(params?: Params<T>): Promise<number>;
+}
+
+export interface MultipleQueries<T> {
+  insert(params: Array<T>): Promise<void>;
+  update(params: RequiredParams<T>, query?: Params<T>): Promise<number>;
+  get(params?: any): Promise<Array<T>>;
+  get<K extends keyof T>(params: Params<T>, columns: K[]): Promise<Array<Pick<T, K>>>;
+  get<K extends keyof T>(params: Params<T>, column: K): Promise<Array<T[K]>>;
+  get(params: Params<T>, keywords: KeywordsWithoutSelect): Promise<Array<T>>;
+  get<K extends keyof T>(params: Params<T>, keywords: Keywords<K>): Promise<Array<T[K]>>;
+  get<K extends keyof T>(params: Params<T>, keywords: Keywords<K[]>): Promise<Array<Pick<T, K>>>;
+  get<K extends keyof T>(params: Params<T>, keywords: KeywordsWithExclude<K[]>): Promise<Array<Omit<T, K>>>;
   remove(params?: Params<T>): Promise<number>;
 }
 
 export interface TypedDb {
-  weightClasses: BasicQueries<WeightClass>,
-  locations: BasicQueries<Location>,
-  events: BasicQueries<Event> & EventQueries,
-  cards: BasicQueries<Card>,
-  coaches: BasicQueries<Coach>,
-  fighters: BasicQueries<Fighter>,
-  otherNames: BasicQueries<OtherName>,
-  fighterCoaches: BasicQueries<FighterCoach>,
-  rankings: BasicQueries<Ranking>,
-  methods: BasicQueries<Method>,
-  fights: BasicQueries<Fight>,
-  cancelledFights: BasicQueries<CancelledFight>,
-  titleRemovals: BasicQueries<TitleRemoval>
+  weightClasses: MultipleQueries<WeightClass>,
+  weightClass: SingularQueries<WeightClass>,
+  rawWeightClasses: MultipleQueries<WeightClass>,
+  rawWeightClass: SingularQueries<WeightClass>,
+  locations: MultipleQueries<Location>,
+  location: SingularQueries<Location>,
+  rawLocations: MultipleQueries<Location>,
+  rawLocation: SingularQueries<Location>,
+  events: MultipleQueries<Event> & EventsQueries,
+  event: SingularQueries<Event> & EventQueries,
+  rawEvents: MultipleQueries<Event> & RawEventsQueries,
+  rawEvent: SingularQueries<Event> & RawEventQueries,
+  cards: MultipleQueries<Card>,
+  card: SingularQueries<Card>,
+  rawCards: MultipleQueries<Card>,
+  rawCard: SingularQueries<Card>,
+  coaches: MultipleQueries<Coach>,
+  coach: SingularQueries<Coach>,
+  rawCoaches: MultipleQueries<Coach>,
+  rawCoach: SingularQueries<Coach>,
+  fighters: MultipleQueries<Fighter>,
+  fighter: SingularQueries<Fighter>,
+  rawFighters: MultipleQueries<Fighter>,
+  rawFighter: SingularQueries<Fighter>,
+  otherNames: MultipleQueries<OtherName>,
+  otherName: SingularQueries<OtherName>,
+  rawOtherNames: MultipleQueries<OtherName>,
+  rawOtherName: SingularQueries<OtherName>,
+  fighterCoaches: MultipleQueries<FighterCoach>,
+  fighterCoach: SingularQueries<FighterCoach>,
+  rawFighterCoaches: MultipleQueries<FighterCoach>,
+  rawFighterCoach: SingularQueries<FighterCoach>,
+  rankings: MultipleQueries<Ranking>,
+  ranking: SingularQueries<Ranking>,
+  rawRankings: MultipleQueries<Ranking>,
+  rawRanking: SingularQueries<Ranking>,
+  methods: MultipleQueries<Method>,
+  method: SingularQueries<Method>,
+  rawMethods: MultipleQueries<Method>,
+  rawMethod: SingularQueries<Method>,
+  fights: MultipleQueries<Fight>,
+  fight: SingularQueries<Fight>,
+  rawFights: MultipleQueries<Fight>,
+  rawFight: SingularQueries<Fight>,
+  cancelledFights: MultipleQueries<CancelledFight>,
+  cancelledFight: SingularQueries<CancelledFight>,
+  rawCancelledFights: MultipleQueries<CancelledFight>,
+  rawCancelledFight: SingularQueries<CancelledFight>,
+  titleRemovals: MultipleQueries<TitleRemoval>,
+  titleRemoval: SingularQueries<TitleRemoval>,
+  rawTitleRemovals: MultipleQueries<TitleRemoval>,
+  rawTitleRemoval: SingularQueries<TitleRemoval>
 }
 
 declare const db: TypedDb;

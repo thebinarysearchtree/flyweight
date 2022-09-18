@@ -1,14 +1,10 @@
-import db from './db.js';
+import database from './database.js';
 import { createTypes } from '../sqlParsers/types.js';
 
-db.registerMappers('events', [{
-  query: 'getById',
-  prefixes: ['blue', 'red']
-}]);
-
 const options = {
-  db,
+  db: database,
   sqlDir: '/Users/andrew/Projects/flyweight/src/test/sql',
+  createTablePath: '/Users/andrew/Projects/flyweight/src/test/sql/initial.sql',
   destinationPath: '/Users/andrew/Projects/flyweight/src/test/db.d.ts'
 }
 

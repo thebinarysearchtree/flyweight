@@ -44,50 +44,6 @@ const removePrefix = (key, prefix) => {
   return without[0].toLowerCase() + without.substring(1);
 }
 
-const getParsers = (db, sample, prefixes) => {
-  const keys = Object.keys(sample);
-  const parsers = {};
-  let found = false;
-  for (const key of keys) {
-    const prefix = prefixes ? Object.values(prefixes).find(p => key.startsWith(p) && key.length !== p.length) : undefined;
-    let adjusted;
-    if (prefix === undefined) {
-      adjusted = key;
-    }
-    else {
-      adjusted = removePrefix(key, prefix);
-    }
-    const parser = db.getDbToJsParser(adjusted);
-    if (parser) {
-      parsers[key] = parser;
-      found = true;
-    }
-  }
-  if (!found) {
-    return null;
-  }
-  return parsers;
-}
-
-const getPrimaryKeys = (sample, skip, prefixes) => {
-  const prefixValues = prefixes ? Object.values(prefixes) : null;
-  const keys = Object.keys(sample);
-  const primaryKeys = [];
-  let i = 0;
-  for (const key of keys) {
-    if (key.endsWith('Id') && (!skip || !skip.includes(key))) {
-      if (prefixValues) {
-        if (prefixValues.some(v => key.startsWith(v))) {
-          continue;
-        }
-      }
-      primaryKeys.push({ name: key, index: i });
-    }
-    i++;
-  }
-  return primaryKeys;
-}
-
 const sliceProps = (o, start, end) => {
   const entries = Object.entries(o).slice(start, end);
   const result = {};
@@ -167,7 +123,7 @@ const toArrayName = (primaryKey) => {
   return pluralize.plural(name);
 }
 
-const auto = (db, rows, skip, prefixes, columns, types, primaryKeys, firstRun, one) => {
+const auto = (db, rows, prefixes, columns, types, primaryKeys, firstRun, one) => {
   if (rows.length === 0) {
     return [];
   }
@@ -250,7 +206,7 @@ const auto = (db, rows, skip, prefixes, columns, types, primaryKeys, firstRun, o
     }
     const splitRows = split(rows, nextKey.name);
     const slicedKeys = primaryKeys.slice(1);
-    let mapped = splitRows.map(rows => auto(db, rows, skip, prefixes, columns, types, slicedKeys, firstRun, true));
+    let mapped = splitRows.map(rows => auto(db, rows, prefixes, columns, types, slicedKeys, firstRun, true));
     if (slicedKeys.length === 1) {
       mapped = mapped.flat();
     }
@@ -263,15 +219,15 @@ const auto = (db, rows, skip, prefixes, columns, types, primaryKeys, firstRun, o
   return split(rows, previousKey.name).map(r => getResults(r));
 }
 
-const mapOne = (db, rows, skip, prefixes, columns, types, primaryKeys) => auto(db, rows, skip, prefixes, columns, types, primaryKeys, true, true);
-const mapMany = (db, rows, skip, prefixes, columns, types, primaryKeys) => auto(db, rows, skip, prefixes, columns, types, primaryKeys, true, false);
+const mapOne = (db, rows, prefixes, columns, types, primaryKeys) => auto(db, rows, prefixes, columns, types, primaryKeys, true, true);
+const mapMany = (db, rows, prefixes, columns, types, primaryKeys) => auto(db, rows, prefixes, columns, types, primaryKeys, true, false);
 
 export {
   map,
   mapOne,
   mapMany,
-  getPrimaryKeys,
   convertPrefixes,
+  renameColumns,
   sliceProps,
   toArrayName
 }
