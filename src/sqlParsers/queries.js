@@ -4,7 +4,9 @@ import returnTypes from './returnTypes.js';
 const isNumber = (s) => /^((-|\+)?(0x)?\d+)(\.\d+)?(e\d)?$/.test(s);
 
 const getTempTables = (query, fromPattern, tables) => {
-  const from = fromPattern.exec(query).groups.from;
+  const blanked = blank(query);
+  const [start, end] = fromPattern.exec(blanked).indices.groups.from;
+  const from = query.substring(start, end);
   const processed = blank(from);
   const matches = processed.matchAll(/(?<subQuery>\([^)]+\))/gm);
   const tempTables = {};
@@ -57,7 +59,7 @@ const parseQuery = (sql, tables) => {
   return parseWrite(sql, tables);
 }
 
-const getSelectColumns = (select) => {
+const getSelectColumns = (select, tables) => {
   const matches = blank(select).matchAll(/(?<statement>[^,]+)(,|$)/gmd);
   const statements = [];
   for (const match of matches) {
@@ -132,6 +134,21 @@ const getSelectColumns = (select) => {
           type,
           functionName
         };
+      }
+    },
+    {
+      name: 'Select pattern',
+      pattern: /^\s*\(\s*(?<select>select\s.+)\)\s(as)\s(?<columnAlias>[a-z0-9_]+)$/mi,
+      pre: (statement) => blank(statement, { stringsOnly: true }),
+      extractor: (groups) => {
+        const { select, columnAlias } = groups;
+        const columns = parseQuery(select, tables);
+        const column = columns[0];
+        column.column = columnAlias;
+        column.rename = false;
+        column.primaryKey = false;
+        column.foreign = false;
+        return { column };
       }
     },
     {
@@ -224,7 +241,7 @@ const parseWrite = (query, tables) => {
   if (!returningMatch) {
     return [];
   }
-  const selectColumns = getSelectColumns(returningMatch.groups.columns);
+  const selectColumns = getSelectColumns(returningMatch.groups.columns, tables);
   const tableName = tableMatch.groups.tableName;
   const table = tables[tableName];
   if (selectColumns.length === 1 && selectColumns[0].columnName === '*') {
@@ -279,15 +296,15 @@ const parseSelect = (query, tables) => {
     .groups
     .select;
   const select = query.substring(start, end);
-  const selectColumns = getSelectColumns(select);
+  const selectColumns = getSelectColumns(select, tables);
   const fromTables = [];
-  const fromPattern = /\sfrom\s+(?<from>(.|\s)+?)((\swhere\s)|(\sgroup\s)|(\swindow\s)|(\sorder\s)|(\slimit\s)|(\s*$))/mi;
+  const fromPattern = /\sfrom\s+(?<from>(.|\s)+?)((\swhere\s)|(\sgroup\s)|(\swindow\s)|(\sorder\s)|(\slimit\s)|(\s*$))/mid;
   const { processedQuery, tempTables } = getTempTables(query, fromPattern, tables);
   tables = { ...tables, ...tempTables };
-  const from = fromPattern
-    .exec(processedQuery)
-    .groups
-    .from
+  const blanked = blank(processedQuery);
+  const [fromStart, fromEnd] = fromPattern.exec(blanked).indices.groups.from;
+  const fromClause = processedQuery.substring(fromStart, fromEnd);
+  const from = fromClause
     .replaceAll(/(\snatural\s)|(\sfull\s)|(\sinner\s)|(\scross\s)|(\souter\s)/gm, ' ')
     .replaceAll(',', 'join')
     .replaceAll(/\son\s.+?(\s((left\s)|(right\s))?join\s)/gm, '$1')
@@ -318,6 +335,10 @@ const parseSelect = (query, tables) => {
   }
   const results = [];
   for (const column of selectColumns) {
+    if (column.column) {
+      results.push(column.column);
+      continue;
+    }
     let type = null;
     let tableName;
     let primaryKey;

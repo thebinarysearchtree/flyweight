@@ -13,6 +13,34 @@ export interface Location {
   long: number;
 }
 
+export interface LocationsByKnockouts {
+  id: number;
+  name: string;
+  knockouts: number;
+}
+
+export interface RawLocationsByKnockouts {
+  id: number;
+  name: string;
+  knockouts: number;
+}
+
+export interface LocationsQueries {
+  byKnockouts(params: any): Promise<Array<LocationsByKnockouts>>;
+}
+
+export interface LocationQueries {
+  byKnockouts(params: any): Promise<LocationsByKnockouts>;
+}
+
+export interface RawLocationsQueries {
+  byKnockouts(params: any): Promise<Array<RawLocationsByKnockouts>>;
+}
+
+export interface RawLocationQueries {
+  byKnockouts(params: any): Promise<RawLocationsByKnockouts>;
+}
+
 export interface Event {
   id: number;
   name: string;
@@ -226,10 +254,10 @@ export interface TypedDb {
   weightClass: SingularQueries<WeightClass>,
   rawWeightClasses: MultipleQueries<WeightClass>,
   rawWeightClass: SingularQueries<WeightClass>,
-  locations: MultipleQueries<Location>,
-  location: SingularQueries<Location>,
-  rawLocations: MultipleQueries<Location>,
-  rawLocation: SingularQueries<Location>,
+  locations: MultipleQueries<Location> & LocationsQueries,
+  location: SingularQueries<Location> & LocationQueries,
+  rawLocations: MultipleQueries<Location> & RawLocationsQueries,
+  rawLocation: SingularQueries<Location> & RawLocationQueries,
   events: MultipleQueries<Event> & EventsQueries,
   event: SingularQueries<Event> & EventQueries,
   rawEvents: MultipleQueries<Event> & RawEventsQueries,

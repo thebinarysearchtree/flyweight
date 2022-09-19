@@ -54,6 +54,9 @@ const sliceProps = (o, start, end) => {
 }
 
 const convertPrefixes = (o, prefixes) => {
+  if (!prefixes) {
+    return o;
+  }
   const stored = {};
   const map = {};
   const skip = new Set(Object.values(prefixes).flat());
@@ -83,11 +86,11 @@ const convertPrefixes = (o, prefixes) => {
 }
 
 const renameColumns = (o, columns, prefixes) => {
-  const prefixedColumns = Object.keys(prefixes);
+  const prefixedColumns = prefixes ? Object.keys(prefixes) : null;
   const result = {};
   for (const [key, value] of Object.entries(o)) {
     const column = columns[key];
-    if (column && !prefixedColumns.includes(key)) {
+    if (column && (!prefixedColumns || !prefixedColumns.includes(key))) {
       result[column] = value;
     }
     else {
