@@ -245,6 +245,19 @@ class Database {
     return this.db.prepare(sql);
   }
 
+  async loadExtension(path) {
+    return new Promise((resolve, reject) => {
+      this.db.loadExtension(path, (err) => {
+        if (err) {
+          reject(err);
+        }
+        else {
+          resolve();
+        }
+      });
+    });
+  }
+
   async basicRun(sql) {
     return new Promise((resolve, reject) => {
       this.db.run(sql, null, function (err) {

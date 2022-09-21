@@ -98,9 +98,11 @@ const makeOptions = (columns, db) => {
   const primaryKeys = [];
   let i = 0;
   let revertMap = {};
+  const primaryKeyCount = columns.filter(c => c.primaryKey).length;
   for (const column of columns) {
-    const columnName = column.rename ? column.originalName : column.name;
-    columnMap[column.name] = column.rename ? column.originalName : column.name;
+    const rename = column.rename && primaryKeyCount > 1 && column.originalName.length < column.name.length;
+    const columnName = rename ? column.originalName : column.name;
+    columnMap[column.name] = rename ? column.originalName : column.name;
     const converter = db.getDbToJsConverter(column.type);
     if (converter) {
       if (!typeMap) {
@@ -209,8 +211,9 @@ const makeQueryHandler = (table, db, sqlDir) => {
             }
           }
           catch {
-            if (queries[query]) {
-              target[query] = queries[query](db, table);
+            const makeQuery = isSingular ? singularQueries[query] : multipleQueries[query];
+            if (makeQuery) {
+              target[query] = makeQuery(db, table);
             }
             else {
               throw Error(`Query ${query} of table ${table} not found`);

@@ -163,6 +163,7 @@ const get = async (db, table, query, columns) => {
     sql += ` where ${where}`;
   }
   sql += toKeywords(keywords);
+  console.log(sql);
   const result = await db.get(sql, query);
   if (result) {
     const adjusted = {};
