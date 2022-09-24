@@ -4,6 +4,9 @@ const parseOne = (row, types) => {
   if (!row) {
     return row;
   }
+  if (!types) {
+    return toValue(row);
+  }
   const result = {};
   for (const [key, value] of Object.entries(row)) {
     const parser = types[key];
@@ -20,6 +23,9 @@ const parseOne = (row, types) => {
 const parseMany = (rows, types) => {
   if (rows.length === 0) {
     return rows;
+  }
+  if (!types) {
+    return toValues(rows);
   }
   const needsParsing = Object.values(types).some(t => t !== null);
   if (!needsParsing) {

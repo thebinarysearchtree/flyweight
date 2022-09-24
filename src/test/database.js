@@ -1,6 +1,6 @@
 import Database from '../db.js';
 
-const db = new Database('/Users/andrew/Projects/databases/splatter.db');
+const db = new Database('/Users/andrew/Projects/databases/test.db');
 
 await db.enforceForeignKeys();
 await db.setTables('/Users/andrew/Projects/flyweight/src/test/sql/initial.sql');

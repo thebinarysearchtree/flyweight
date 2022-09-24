@@ -174,7 +174,7 @@ class Database {
   }
 
   getPrimaryKey(table) {
-    const primaryKey = this.tables[table].columns.find(c => c.primaryKey);
+    const primaryKey = this.tables[table].find(c => c.primaryKey);
     return primaryKey.name;
   }
 

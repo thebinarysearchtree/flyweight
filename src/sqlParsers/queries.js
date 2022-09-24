@@ -1,5 +1,5 @@
 import { blank } from './utils.js';
-import returnTypes from './returnTypes.js';
+import { returnTypes, notNullFunctions } from './returnTypes.js';
 
 const isNumber = (s) => /^((-|\+)?(0x)?\d+)(\.\d+)?(e\d)?$/.test(s);
 
@@ -90,8 +90,6 @@ const getSelectColumns = (select, tables) => {
           type = 'boolean';
         }
         return {
-          tableAlias: null,
-          columnName: null,
           columnAlias,
           type
         };
@@ -106,9 +104,30 @@ const getSelectColumns = (select, tables) => {
           tableAlias,
           columnName,
           columnAlias,
-          type: null,
           rename: true
         };
+      }
+    },
+    {
+      name: 'Cast pattern',
+      pattern: /^cast\(.+? as (?<type>[a-z0-9_]+)\) as (?<columnAlias>[a-z0-9_]+)$/mi,
+      pre: (statement) => blank(statement, { stringsOnly: true }),
+      extractor: (groups) => {
+        const { type, columnAlias } = groups;
+        let dbType;
+        if (type === 'none') {
+          dbType = 'blob';
+        }
+        else if (type === 'numeric') {
+          dbType = 'integer';
+        }
+        else {
+          dbType = type;
+        }
+        return {
+          columnAlias,
+          type: dbType
+        }
       }
     },
     {
@@ -121,8 +140,6 @@ const getSelectColumns = (select, tables) => {
         if (columnName !== undefined && isNumber(columnName)) {
           return {
             tableAlias,
-            columnName: undefined,
-            columnAlias: undefined,
             type,
             functionName
           }
@@ -164,8 +181,6 @@ const getSelectColumns = (select, tables) => {
           type = 'integer';
         }
         return {
-          tableAlias: null,
-          columnName: null,
           columnAlias,
           type
         };
@@ -200,10 +215,7 @@ const getSelectColumns = (select, tables) => {
       extractor: (groups) => {
         const { columnAlias } = groups;
         return {
-          tableAlias: null,
-          columnName: null,
-          columnAlias,
-          type: null
+          columnAlias
         };
       }
     }
@@ -252,7 +264,7 @@ const parseWrite = (query, tables) => {
       tableName,
       primaryKey: c.primaryKey,
       foreign: c.foreign,
-      canBeNull: !c.notNull && !c.primaryKey
+      notNull: c.notNull || c.primaryKey
     }));
   }
   return selectColumns.map(column => {
@@ -264,7 +276,7 @@ const parseWrite = (query, tables) => {
       tableName,
       primaryKey: column.primaryKey,
       foreign: column.foreign,
-      canBeNull: !tableColumn.notNull && !tableColumn.primaryKey
+      notNull: tableColumn.notNull || tableColumn.primaryKey
     }
   });
 }
@@ -343,8 +355,14 @@ const parseSelect = (query, tables) => {
     let tableName;
     let primaryKey;
     let foreign;
-    let canBeNull = false;
-    if (column.type !== null) {
+    let notNull = false;
+    let isOptional = false;
+    if (column.functionName) {
+      if (notNullFunctions.has(column.functionName)) {
+        notNull = true;
+      }
+    }
+    if (column.type) {
       if ((column.functionName === 'min' || column.functionName === 'max') && column.columnName) {
         const fromTable = fromTables.find(t => t.tableAlias === column.tableAlias);
         tableName = fromTable.tableName;
@@ -358,6 +376,9 @@ const parseSelect = (query, tables) => {
         else if (tableColumn.type === 'text') {
           type = 'text';
         }
+        else {
+          type = column.type;
+        }
       }
       else {
         type = column.type;
@@ -369,10 +390,7 @@ const parseSelect = (query, tables) => {
       if (column.columnName === '*') {
         for (const column of tables[fromTable.tableName]) {
           let type = column.type;
-          const canBeNull = (column.notNull === false && !column.primaryKey) || fromTable.isOptional;
-          if ((column.notNull === false && !column.primaryKey) || fromTable.isOptional) {
-            type += ' | null';
-          }
+          const notNull = column.notNull === true || column.primaryKey;
           results.push({
             column: column.name,
             type,
@@ -380,7 +398,8 @@ const parseSelect = (query, tables) => {
             tableName,
             primaryKey: column.primaryKey,
             foreign: column.foreign,
-            canBeNull
+            notNull,
+            isOptional: fromTable.isOptional
           });
         }
         continue;
@@ -390,7 +409,8 @@ const parseSelect = (query, tables) => {
         primaryKey = tableColumn.primaryKey;
         foreign = tableColumn.foreign;
         type = tableColumn.type;
-        canBeNull = (tableColumn.notNull === false && !tableColumn.primaryKey) || fromTable.isOptional;
+        notNull = tableColumn.notNull === true || tableColumn.primaryKey;
+        isOptional = fromTable.isOptional;
       }
     }
     results.push({
@@ -400,7 +420,8 @@ const parseSelect = (query, tables) => {
       tableName,
       primaryKey,
       foreign,
-      canBeNull,
+      notNull,
+      isOptional,
       rename: column.rename
     });
   }

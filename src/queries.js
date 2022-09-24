@@ -70,7 +70,7 @@ const removeNulls = (query) => {
   return result;
 }
 
-const update = async (db, table, params, query) => {
+const update = async (db, table, query, params) => {
   const set = Object.keys(params).map(param => `${param} = $${param}`).join(', ');
   let sql;
   if (query) {
@@ -163,7 +163,6 @@ const get = async (db, table, query, columns) => {
     sql += ` where ${where}`;
   }
   sql += toKeywords(keywords);
-  console.log(sql);
   const result = await db.get(sql, query);
   if (result) {
     const adjusted = {};

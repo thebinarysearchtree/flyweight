@@ -20,11 +20,11 @@ export interface LocationsByMethod {
 }
 
 export interface LocationsQueries {
-  byMethod(params: any): Promise<Array<LocationsByMethod>>;
+  byMethod(params: { id: any; }): Promise<Array<LocationsByMethod>>;
 }
 
 export interface LocationQueries {
-  byMethod(params: any): Promise<LocationsByMethod>;
+  byMethod(params: { id: any; }): Promise<LocationsByMethod>;
 }
 
 export interface Event {
@@ -49,11 +49,11 @@ export interface EventsGetById {
 }
 
 export interface EventsQueries {
-  getById(params: any): Promise<Array<EventsGetById>>;
+  getById(params: { id: any; }): Promise<Array<EventsGetById>>;
 }
 
 export interface EventQueries {
-  getById(params: any): Promise<EventsGetById>;
+  getById(params: { id: any; }): Promise<EventsGetById>;
 }
 
 export interface Card {
@@ -68,7 +68,6 @@ export interface Coach {
   id: number;
   name: string;
   city: string;
-  fightStyleId: number;
 }
 
 export interface Fighter {
@@ -92,19 +91,33 @@ export interface FightersCommon {
   event: { id: number; name: string; date: Date };
 }
 
+export interface FightersLeft {
+  id: number;
+  winner?: { id: number; name: string };
+}
+
 export interface FightersMethods {
   method: string;
   count: number;
 }
 
+export interface FightersRight {
+  id: number;
+  winner?: { id: number; name: string };
+}
+
 export interface FightersQueries {
-  common(params: any): Promise<Array<FightersCommon>>;
-  methods(params: any): Promise<Array<FightersMethods>>;
+  common(params: { fighter1: any; fighter1: any; fighter2: any; fighter2: any; }): Promise<Array<FightersCommon>>;
+  left(): Promise<Array<FightersLeft>>;
+  methods(params: { id: any; }): Promise<Array<FightersMethods>>;
+  right(): Promise<Array<FightersRight>>;
 }
 
 export interface FighterQueries {
-  common(params: any): Promise<FightersCommon>;
-  methods(params: any): Promise<FightersMethods>;
+  common(params: { fighter1: any; fighter1: any; fighter2: any; fighter2: any; }): Promise<FightersCommon>;
+  left(): Promise<FightersLeft>;
+  methods(params: { id: any; }): Promise<FightersMethods>;
+  right(): Promise<FightersRight>;
 }
 
 export interface OtherName {
@@ -141,11 +154,13 @@ export interface MethodsByFighter {
 }
 
 export interface MethodsQueries {
-  byFighter(params: any): Promise<Array<MethodsByFighter>>;
+  byFighter(params: { fighterId: any; }): Promise<Array<MethodsByFighter>>;
+  topSubmission(): Promise<Array<string | null>>;
 }
 
 export interface MethodQueries {
-  byFighter(params: any): Promise<MethodsByFighter>;
+  byFighter(params: { fighterId: any; }): Promise<MethodsByFighter>;
+  topSubmission(): Promise<string | null>;
 }
 
 export interface Fight {
@@ -162,8 +177,6 @@ export interface Fight {
   titleFight: boolean;
   isInterim: boolean;
   weightClassId: number | null;
-  missedWeightBlue: boolean;
-  missedWeightRed: boolean;
   oddsBlue: number | null;
   oddsRed: number | null;
   catchweightLbs: number | null;
@@ -171,7 +184,7 @@ export interface Fight {
 
 export interface FightsByFighter {
   opponent: string;
-  win: boolean;
+  win: boolean | null;
   winnerId: number | null;
   method: string;
   methodDescription: string | null;
@@ -184,11 +197,11 @@ export interface FightsByFighter {
 }
 
 export interface FightsQueries {
-  byFighter(params: any): Promise<Array<FightsByFighter>>;
+  byFighter(params: { id: any; 1: any; id: any; id: any; }): Promise<Array<FightsByFighter>>;
 }
 
 export interface FightQueries {
-  byFighter(params: any): Promise<FightsByFighter>;
+  byFighter(params: { id: any; 1: any; id: any; id: any; }): Promise<FightsByFighter>;
 }
 
 export interface CancelledFight {
@@ -247,21 +260,21 @@ export type Params<T> = null | Partial<Record<keyof T, any>>;
 
 export interface SingularQueries<T> {
   insert(params: T): Promise<any>;
-  update(params: RequiredParams<T>, query?: Params<T>): Promise<number>;
-  get(params?: Params<T>): Promise<T | null>;
-  get<K extends keyof T>(params: Params<T>, columns: K[]): Promise<Pick<T, K> | null>;
-  get<K extends keyof T>(params: Params<T>, column: K): Promise<T[K] | null>;
-  get(params: Params<T>, keywords: KeywordsWithoutSelect): Promise<T | null>;
+  update(query: Params<T> | null, params: RequiredParams<T>): Promise<number>;
+  get(params?: Params<T>): Promise<T | undefined>;
+  get<K extends keyof T>(params: Params<T>, columns: K[]): Promise<Pick<T, K> | undefined>;
+  get<K extends keyof T>(params: Params<T>, column: K): Promise<T[K] | undefined>;
+  get(params: Params<T>, keywords: KeywordsWithoutSelect): Promise<T | undefined>;
   get(params: Params<T>, keywords: KeywordsWithCount): Promise<number>;
-  get<K extends keyof T>(params: Params<T>, keywords: Keywords<K>): Promise<T[K] | null>;
-  get<K extends keyof T>(params: Params<T>, keywords: Keywords<K[]>): Promise<Pick<T, K> | null>;
-  get<K extends keyof T>(params: Params<T>, keywords: KeywordsWithExclude<K[]>): Promise<Omit<T, K> | null>;
+  get<K extends keyof T>(params: Params<T>, keywords: Keywords<K>): Promise<T[K] | undefined>;
+  get<K extends keyof T>(params: Params<T>, keywords: Keywords<K[]>): Promise<Pick<T, K> | undefined>;
+  get<K extends keyof T>(params: Params<T>, keywords: KeywordsWithExclude<K[]>): Promise<Omit<T, K> | undefined>;
   remove(params?: Params<T>): Promise<number>;
 }
 
 export interface MultipleQueries<T> {
   insert(params: Array<T>): Promise<void>;
-  update(params: RequiredParams<T>, query?: Params<T>): Promise<number>;
+  update(query: Params<T> | null, params: RequiredParams<T>): Promise<number>;
   get(params?: any): Promise<Array<T>>;
   get<K extends keyof T>(params: Params<T>, columns: K[]): Promise<Array<Pick<T, K>>>;
   get<K extends keyof T>(params: Params<T>, column: K): Promise<Array<T[K]>>;

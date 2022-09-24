@@ -8,7 +8,7 @@ import {
   remove
 } from './queries.js';
 import { join } from 'path';
-import { parseQuery, getQueryType } from './sqlParsers/queries.js';
+import { parseQuery } from './sqlParsers/queries.js';
 import pluralize from 'pluralize';
 
 const queries = {
@@ -190,7 +190,6 @@ const makeQueryHandler = (table, db, sqlDir) => {
           const path = join(sqlDir, table, `${query}.sql`);
           try {
             const sql = readFileSync(path, 'utf8');
-            const queryType = getQueryType(sql);
             const columns = parseQuery(sql, db.tables);
             const options = makeOptions(columns, db);
             options.result = getResultType(columns, isSingular);

@@ -5,6 +5,7 @@ import { join } from 'path';
 import { parseQuery } from './queries.js';
 import { convertPrefixes, renameColumns, toArrayName, sliceProps } from '../map.js';
 import { makeOptions } from '../proxy.js';
+import { blank } from './utils.js';
 
 const capitalize = (word) => word[0].toUpperCase() + word.substring(1);
 
@@ -37,8 +38,24 @@ const functionTypes = {
   json_group_object: '{ [key: string]: any }'
 }
 
+const hasNull = (tsType) => {
+  return tsType
+    .split('|')
+    .map(t => t.trim())
+    .some(t => t === 'null');
+}
+
+const removeOptional = (tsType) => tsType.replace(/ \| optional$/, '');
+
+const convertOptional = (tsType) => {
+  if (hasNull(tsType)) {
+    return removeOptional(tsType);
+  }
+  return tsType.replace(/ \| optional$/, ' | null');
+}
+
 const toTsType = (column, customTypes) => {
-  const { type, functionName, canBeNull } = column;
+  const { type, functionName, notNull, isOptional } = column;
   let tsType;
   if (typeMap[type]) {
     tsType = typeMap[type];
@@ -55,14 +72,23 @@ const toTsType = (column, customTypes) => {
       tsType += ' | null';
     }
   }
-  const hasNull = tsType
-    .split('|')
-    .map(t => t.trim())
-    .some(t => t === 'null');
-  if (canBeNull && !hasNull && tsType !== 'any') {
+  if (!notNull && !hasNull(tsType) && tsType !== 'any') {
     tsType += ' | null';
   }
+  if (isOptional) {
+    tsType += ' | optional';
+  }
   return tsType;
+}
+
+const parseParams = (sql) => {
+  const processed = blank(sql, { stringsOnly: true });
+  const matches = processed.matchAll(/(\s|,)\$(?<param>[a-z0-9_]+)(\s|,|$)/gmi);
+  const params = [];
+  for (const match of matches) {
+    params.push(match.groups.param);
+  }
+  return params;
 }
 
 const getQueries = async (db, sqlDir, tableName, tables) => {
@@ -87,11 +113,11 @@ const getQueries = async (db, sqlDir, tableName, tables) => {
     const queryPath = join(path, fileName);
     const sql = await readFile(queryPath, 'utf8');
     const columns = parseQuery(sql, tablesMap);
+    const params = parseParams(sql);
     if (columns.length === 0) {
       parsedQueries.push({
         queryName,
-        singular: 'Promise<void>',
-        multiple: 'Promise<void>'
+        params
       });
       continue;
     }
@@ -99,8 +125,8 @@ const getQueries = async (db, sqlDir, tableName, tables) => {
       const tsType = toTsType(columns[0], db.customTypes);
       parsedQueries.push({
         queryName,
-        singular: `Promise<${tsType}>`,
-        multiple: `Promise<Array<${tsType}>>`
+        interfaceName: convertOptional(tsType),
+        params
       });
       continue;
     }
@@ -118,16 +144,22 @@ const getQueries = async (db, sqlDir, tableName, tables) => {
       let interfaceString = '';
       for (const [key, type] of Object.entries(sample)) {
         if (typeof type === 'string') {
-          interfaceString += `${indent}${key}: ${type};\n`;
+          interfaceString += `${indent}${key}: ${convertOptional(type)};\n`;
         }
         else {
           const types = [];
-          let optional = true;
+          const foreignKeyName = Object.keys(type)[0];
+          const foreignKeyType = type[foreignKeyName];
+          const optional = hasNull(foreignKeyType);
           for (const [k, t] of Object.entries(type)) {
-            types.push(`${k}: ${t}`);
-            if (!t.split('|').map(type => type.trim()).includes('null')) {
-              optional = false;
+            let type;
+            if (k === foreignKeyName && optional) {
+              type = t.split(' | ').filter(t => t !== 'null').join(' | ');
             }
+            else {
+              type = t;
+            }
+            types.push(`${k}: ${removeOptional(type)}`);
           }
           const colon = optional ? '?:' : ':';
           const properties = types.join('; ');
@@ -166,7 +198,8 @@ const getQueries = async (db, sqlDir, tableName, tables) => {
     parsedQueries.push({
       queryName,
       interfaceName,
-      interfaceString
+      interfaceString,
+      params
     });
   }
   const multipleInterfaceName = capitalize(tableName) + 'Queries';
@@ -176,21 +209,33 @@ const getQueries = async (db, sqlDir, tableName, tables) => {
   for (const query of parsedQueries) {
     const {
       queryName,
-      interfaceName
+      interfaceName,
+      params
     } = query;
-    const multipleReturnType = `Promise<Array<${interfaceName}>>`;
-    const singularReturnType = `Promise<${interfaceName}>`;
-    multipleInterfaceString += `  ${queryName}(params: any): ${multipleReturnType};\n`;
-    singularInterfaceString += `  ${queryName}(params: any): ${singularReturnType};\n`;
+    const multipleReturnType = interfaceName ? `Promise<Array<${interfaceName}>>` : 'Promise<void>';
+    const singularReturnType = interfaceName ? `Promise<${interfaceName}>` : 'Promise<void>';
+    let paramInterface = '';
+    if (params.length > 0) {
+      paramInterface += 'params: { ';
+      for (const param of params) {
+        paramInterface += `${param}: any; `;
+      }
+      paramInterface += '}';
+    }
+    multipleInterfaceString += `  ${queryName}(${paramInterface}): ${multipleReturnType};\n`;
+    singularInterfaceString += `  ${queryName}(${paramInterface}): ${singularReturnType};\n`;
   }
   multipleInterfaceString += `}\n`;
   singularInterfaceString += `}\n`;
+  const queryInterfaces = parsedQueries
+    .filter(q => q.interfaceString !== undefined)
+    .map(q => q.interfaceString);
   return {
     multipleInterfaceName,
     singularInterfaceName,
     multipleInterfaceString,
     singularInterfaceString,
-    queryInterfaces: parsedQueries.map(q => q.interfaceString)
+    queryInterfaces
   }
 }
 
@@ -225,7 +270,7 @@ const createTypes = async (options) => {
       const { name, type, primaryKey, notNull } = column;
       const tsType = toTsType({
         type,
-        canBeNull: !notNull && !primaryKey
+        notNull: notNull || primaryKey
       }, db.customTypes);
       let property = `  ${name}`;
       property += ': ';

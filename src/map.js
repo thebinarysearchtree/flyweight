@@ -63,6 +63,10 @@ const convertPrefixes = (o, prefixes) => {
   for (const [key, columns] of Object.entries(prefixes)) {
     stored[key] = {};
     map[columns[0]] = key;
+    if (o[columns[0]] === null) {
+      stored[key] = null;
+      continue;
+    }
     for (const name of columns) {
       const value = o[name];
       const adjusted = removePrefix(name, key);

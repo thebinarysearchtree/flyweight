@@ -35,8 +35,7 @@ create index cardsEventIdIndex on cards(eventId);
 create table coaches (
     id integer primary key,
     name text not null,
-    city text not null,
-    fightStyleId integer not null references fightStyles on delete cascade
+    city text not null
 );
 
 create table fighters (
@@ -98,8 +97,6 @@ create table fights (
     titleFight boolean not null,
     isInterim boolean not null,
     weightClassId integer references weightClasses on delete cascade,
-    missedWeightBlue boolean not null,
-    missedWeightRed boolean not null,
     oddsBlue integer,
     oddsRed integer,
     catchweightLbs real

@@ -65,21 +65,21 @@ export type Params<T> = null | Partial<Record<keyof T, any>>;
 
 export interface SingularQueries<T> {
   insert(params: T): Promise<any>;
-  update(params: RequiredParams<T>, query?: Params<T>): Promise<number>;
-  get(params?: Params<T>): Promise<T | null>;
-  get<K extends keyof T>(params: Params<T>, columns: K[]): Promise<Pick<T, K> | null>;
-  get<K extends keyof T>(params: Params<T>, column: K): Promise<T[K] | null>;
-  get(params: Params<T>, keywords: KeywordsWithoutSelect): Promise<T | null>;
+  update(query: Params<T> | null, params: RequiredParams<T>): Promise<number>;
+  get(params?: Params<T>): Promise<T | undefined>;
+  get<K extends keyof T>(params: Params<T>, columns: K[]): Promise<Pick<T, K> | undefined>;
+  get<K extends keyof T>(params: Params<T>, column: K): Promise<T[K] | undefined>;
+  get(params: Params<T>, keywords: KeywordsWithoutSelect): Promise<T | undefined>;
   get(params: Params<T>, keywords: KeywordsWithCount): Promise<number>;
-  get<K extends keyof T>(params: Params<T>, keywords: Keywords<K>): Promise<T[K] | null>;
-  get<K extends keyof T>(params: Params<T>, keywords: Keywords<K[]>): Promise<Pick<T, K> | null>;
-  get<K extends keyof T>(params: Params<T>, keywords: KeywordsWithExclude<K[]>): Promise<Omit<T, K> | null>;
+  get<K extends keyof T>(params: Params<T>, keywords: Keywords<K>): Promise<T[K] | undefined>;
+  get<K extends keyof T>(params: Params<T>, keywords: Keywords<K[]>): Promise<Pick<T, K> | undefined>;
+  get<K extends keyof T>(params: Params<T>, keywords: KeywordsWithExclude<K[]>): Promise<Omit<T, K> | undefined>;
   remove(params?: Params<T>): Promise<number>;
 }
 
 export interface MultipleQueries<T> {
   insert(params: Array<T>): Promise<void>;
-  update(params: RequiredParams<T>, query?: Params<T>): Promise<number>;
+  update(query: Params<T> | null, params: RequiredParams<T>): Promise<number>;
   get(params?: any): Promise<Array<T>>;
   get<K extends keyof T>(params: Params<T>, columns: K[]): Promise<Array<Pick<T, K>>>;
   get<K extends keyof T>(params: Params<T>, column: K): Promise<Array<T[K]>>;

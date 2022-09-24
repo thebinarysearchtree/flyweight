@@ -1,4 +1,4 @@
-const types = {
+const returnTypes = {
   abs: 'integer',
   changes: 'integer',
   char: 'text',
@@ -83,4 +83,45 @@ const types = {
   json_group_object: 'json'
 }
 
-export default types;
+const notNullFunctions = new Set([
+  'count',
+  'changes',
+  'char',
+  'glob',
+  'hex',
+  'last_insert_rowid',
+  'like',
+  'likelihood',
+  'likely',
+  'lower',
+  'printf',
+  'quote',
+  'random',
+  'randomblob',
+  'replace',
+  'round',
+  'rtrim',
+  'sqlite_source_id',
+  'sqlite_version',
+  'substr',
+  'substring',
+  'total_changes',
+  'trim',
+  'typeof',
+  'unicode',
+  'unlikely',
+  'upper',
+  'zeroblob',
+  'json_array',
+  'json_object',
+  'json_valid',
+  'json_group_array',
+  'json_group_object',
+  'json_each',
+  'json_tree'
+]);
+
+export {
+  returnTypes,
+  notNullFunctions
+}
