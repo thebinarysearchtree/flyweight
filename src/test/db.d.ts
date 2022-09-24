@@ -103,7 +103,7 @@ export interface FightersMethods {
 
 export interface FightersRight {
   id: number;
-  winner?: { id: number; name: string };
+  winner: { id: number; name: string };
 }
 
 export interface FightersQueries {

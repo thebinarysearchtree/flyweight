@@ -323,6 +323,29 @@ const parseSelect = (query, tables) => {
     .replaceAll(/\son\s+[^\s]+\s=\s+[^\s]+/gm, ' ')
     .split(/((?:(?:left\s)|(?:right\s))?join)\s/gm)
     .map(s => s.trim());
+  const matches = fromClause
+    .replaceAll(/(\snatural\s)|(\sfull\s)|(\sinner\s)|(\scross\s)|(\souter\s)/gm, ' ')
+    .matchAll(/(?<! left) join .+ on (.+) = (.+)($|( join )|( left join ))/gmi);
+  const joinColumns = Array
+    .from(matches)
+    .flatMap(m => [m[1], m[2]])
+    .map(c => {
+      const parts = c.split('.');
+      let tableAlias;
+      let columnName;
+      if (parts.length === 1) {
+        tableAlias = undefined;
+        columnName = parts[0];
+      }
+      else {
+        tableAlias = parts[0];
+        columnName = parts[1];
+      }
+      return {
+        tableAlias,
+        columnName
+      }
+    });
   let previousTable;
   let direction;
   for (const item of from) {
@@ -367,6 +390,7 @@ const parseSelect = (query, tables) => {
         const fromTable = fromTables.find(t => t.tableAlias === column.tableAlias);
         tableName = fromTable.tableName;
         const tableColumn = tables[fromTable.tableName].find(c => c.name === column.columnName);
+        notNull = tableColumn.notNull;
         if (tableColumn.type === 'date') {
           type = 'date';
         }
@@ -387,10 +411,12 @@ const parseSelect = (query, tables) => {
     else if (column.columnName) {
       const fromTable = fromTables.find(t => t.tableAlias === column.tableAlias);
       tableName = fromTable.tableName;
+      const tableAlias = column.tableAlias;
       if (column.columnName === '*') {
         for (const column of tables[fromTable.tableName]) {
           let type = column.type;
-          const notNull = column.notNull === true || column.primaryKey;
+          const joinColumn = joinColumns.find(c => c.tableAlias === tableAlias && c.columnName === column.name);
+          const notNull = column.notNull === true || column.primaryKey || joinColumn;
           results.push({
             column: column.name,
             type,
@@ -406,10 +432,11 @@ const parseSelect = (query, tables) => {
       }
       else {
         const tableColumn = tables[fromTable.tableName].find(c => c.name === column.columnName);
+        const joinColumn = joinColumns.find(c => c.tableAlias === column.tableAlias && c.columnName === column.columnName);
         primaryKey = tableColumn.primaryKey;
         foreign = tableColumn.foreign;
         type = tableColumn.type;
-        notNull = tableColumn.notNull === true || tableColumn.primaryKey;
+        notNull = tableColumn.notNull === true || tableColumn.primaryKey || joinColumn;
         isOptional = fromTable.isOptional;
       }
     }
