@@ -439,7 +439,7 @@ const parseSelect = (query, tables) => {
           const whereColumn = whereColumns.find(c => c.tableAlias === tableAlias && c.columnName === column.name);
           const notNull = column.notNull === true || column.primaryKey || joinColumn || whereColumn;
           results.push({
-            column: column.name,
+            name: column.name,
             type,
             originalName: column.name,
             tableName,

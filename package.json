@@ -1,5 +1,5 @@
 {
-  "name": "flyweight",
+  "name": "flyweightjs",
   "version": "0.0.1",
   "description": "An ORM for SQLite",
   "main": "index.js",

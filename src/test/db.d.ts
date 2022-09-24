@@ -103,6 +103,10 @@ export interface FightersMethods {
 
 export interface FightersRight {
   id: number;
+  eventId: number;
+  cardName: string;
+  cardOrder: number;
+  startTime: Date | null;
   winner: { id: number; name: string };
 }
 
