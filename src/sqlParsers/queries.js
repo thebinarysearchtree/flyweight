@@ -246,6 +246,30 @@ const getSelectColumns = (select, tables) => {
   return selectColumns;
 }
 
+const getWhereColumns = (query) => {
+  const blanked = blank(query);
+  const match = blanked.match(/ where (?<where>.+?)(( group )|( window )|( order )|( limit )|$)/mi);
+  if (!match) {
+    return [];
+  }
+  const where = match.groups.where;
+  if (/ or /gmi.test(where)) {
+    return [];
+  }
+  const matches = where.matchAll(/(?<column>[a-z0-9_.]+) is not null/gmi);
+  return Array.from(matches).map(match => {
+    const column = match.groups.column;
+    const split = column.split('.');
+    if (split.length === 1) {
+      return { columnName: column };
+    }
+    return {
+      tableAlias: split[0],
+      columnName: split[1]
+    }
+  });
+}
+
 const parseWrite = (query, tables) => {
   const blanked = blank(query);
   const tableMatch = blanked.match(/^\s*(insert into )|(update )|(delete from )(?<tableName>[a-z0-9_]+)/gmi);
@@ -331,21 +355,17 @@ const parseSelect = (query, tables) => {
     .flatMap(m => [m[1], m[2]])
     .map(c => {
       const parts = c.split('.');
-      let tableAlias;
-      let columnName;
       if (parts.length === 1) {
-        tableAlias = undefined;
-        columnName = parts[0];
-      }
-      else {
-        tableAlias = parts[0];
-        columnName = parts[1];
+        return {
+          columnName: parts[0]
+        }
       }
       return {
-        tableAlias,
-        columnName
+        tableAlias: parts[0],
+        columnName: parts[1]
       }
     });
+  const whereColumns = getWhereColumns(query);
   let previousTable;
   let direction;
   for (const item of from) {
@@ -416,7 +436,8 @@ const parseSelect = (query, tables) => {
         for (const column of tables[fromTable.tableName]) {
           let type = column.type;
           const joinColumn = joinColumns.find(c => c.tableAlias === tableAlias && c.columnName === column.name);
-          const notNull = column.notNull === true || column.primaryKey || joinColumn;
+          const whereColumn = whereColumns.find(c => c.tableAlias === tableAlias && c.columnName === column.name);
+          const notNull = column.notNull === true || column.primaryKey || joinColumn || whereColumn;
           results.push({
             column: column.name,
             type,
@@ -433,10 +454,11 @@ const parseSelect = (query, tables) => {
       else {
         const tableColumn = tables[fromTable.tableName].find(c => c.name === column.columnName);
         const joinColumn = joinColumns.find(c => c.tableAlias === column.tableAlias && c.columnName === column.columnName);
+        const whereColumn = whereColumns.find(c => c.tableAlias === column.tableAlias && c.columnName === column.columnName);
         primaryKey = tableColumn.primaryKey;
         foreign = tableColumn.foreign;
         type = tableColumn.type;
-        notNull = tableColumn.notNull === true || tableColumn.primaryKey || joinColumn;
+        notNull = tableColumn.notNull === true || tableColumn.primaryKey || joinColumn || whereColumn;
         isOptional = fromTable.isOptional;
       }
     }

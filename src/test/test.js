@@ -49,7 +49,7 @@ const removed = await db.coach.get({ id: 1 });
 assert.equal(removed, undefined);
 const limited = await db.fighters.get(null, { limit: 10 });
 assert.equal(limited.length, 10);
-const left = await db.fighters.right();
+const left = await db.fighters.left();
 console.log(left);
 
 console.log('All tests passed');
