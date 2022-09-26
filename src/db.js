@@ -6,6 +6,8 @@ import { getTables } from './sqlParsers/tables.js';
 import { readFile } from 'fs/promises';
 import { getFragments } from './sqlParsers/tables.js';
 import { blank } from './sqlParsers/utils.js';
+import { makeClient } from './proxy.js';
+import { createTypes } from './sqlParsers/types.js';
 
 const process = (db, result, options) => {
   if (!options) {
@@ -48,8 +50,8 @@ const dbTypes = {
 }
 
 class Database {
-  constructor(path) {
-    this.db = new sqlite3.Database(path);
+  constructor() {
+    this.db = null;
     this.tables = {};
     this.mappers = {};
     this.customTypes = {};
@@ -89,6 +91,39 @@ class Database {
         dbType: 'text'
       }
     ]);
+  }
+
+  async initialize(paths, interfaceName) {
+    const { db, sql, tables, types, extensions } = paths;
+    this.db = new sqlite3.Database(db);
+    await this.setTables(tables);
+    const client = makeClient(this, sql);
+    const makeTypes = () => createTypes({
+      db: this,
+      sqlDir: sql,
+      createTablePath: tables,
+      destinationPath: types,
+      interfaceName
+    });
+    const getTables = async () => {
+      const sql = await readFile(tables, 'utf8');
+      return this.convertTables(sql);
+    }
+    if (extensions) {
+      if (typeof extensions === 'string') {
+        await this.loadExtension(extensions);
+      }
+      else {
+        for (const extension of extensions) {
+          await this.loadExtension(extension);
+        }
+      }
+    }
+    return {
+      db: client,
+      makeTypes,
+      getTables
+    }
   }
 
   async enforceForeignKeys() {
@@ -143,7 +178,7 @@ class Database {
         converted += fragment.sql;
         continue;
       }
-      fragment.sql = fragment.sql.replace(/(^\s*[a-z0-9_]+\s+)([a-z0-9_]+)(\s+)/gmi, `$1${customType.dbType}$3`);
+      fragment.sql = fragment.sql.replace(/(^\s*[a-z0-9_]+\s+)([a-z0-9_]+)((\s+)|$)/gmi, `$1${customType.dbType}$3`);
       if (customType.makeConstraint) {
         const constraint = customType.makeConstraint(fragment.columnName);
         fragment.sql += ' ';

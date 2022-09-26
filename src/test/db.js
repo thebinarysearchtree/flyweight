@@ -1,6 +1,25 @@
-import database from './database.js';
-import { makeClient } from '../proxy.js';
+import Database from '../db.js';
 
-const client = makeClient(database, '/Users/andrew/Projects/flyweight/src/test/sql');
+const dbPath = '/Users/andrew/Projects/databases';
+const testPath = '/Users/andrew/Projects/flyweight/src/test';
 
-export default client;
+const database = new Database();
+
+const result = await database.initialize({
+  db: `${dbPath}/test.db`,
+  sql: `${testPath}/sql`,
+  tables: `${testPath}/sql/initial.sql`,
+  types: `${testPath}/db.d.ts`,
+  extensions: `${dbPath}/regexp.dylib`
+});
+
+const db = result.db;
+const makeTypes = result.makeTypes;
+const getTables = result.getTables;
+
+export {
+  database,
+  db,
+  makeTypes,
+  getTables
+}

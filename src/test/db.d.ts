@@ -1,230 +1,44 @@
-export interface WeightClass {
-  id: number;
+import { Statement } from 'sqlite3';
+
+export interface QueryOptions {
+  parse: boolean;
+}
+
+export interface CustomType {
   name: string;
-  weightLbs: number;
-  gender: string;
+  valueTest: (v: any) => boolean;
+  makeConstraint?: (column: string) => string;
+  dbToJs: (v: any) => any;
+  jsToDb: (v: any) => any;
+  tsType: string;
+  dbType: string;
 }
 
-export interface Location {
-  id: number;
-  name: string;
-  address: string;
-  lat: number;
-  long: number;
+export interface Paths {
+  db: string;
+  sql?: string;
+  tables: string;
+  types?: string;
+  extensions?: string | Array<string>;
 }
 
-export interface LocationsByMethod {
-  id: number;
-  name: string;
-  count: number;
+export interface Initialize {
+  db: any;
+  makeTypes(): Promise<void>;
+  getTables(): Promise<string>;
 }
 
-export interface LocationsQueries {
-  byMethod(params: { id: any; }): Promise<Array<LocationsByMethod>>;
-}
-
-export interface LocationQueries {
-  byMethod(params: { id: any; }): Promise<LocationsByMethod>;
-}
-
-export interface Event {
-  id: number;
-  name: string;
-  startTime: Date;
-  locationId: number | null;
-}
-
-export interface EventsGetById {
-  id: number;
-  name: string;
-  cards: Array<{
-    id: number;
-    cardName: string;
-    fights: Array<{
-      id: number;
-      blue: { id: number; name: string; social: any };
-      red: { id: number; name: string; social: any };
-    }>;
-  }>;
-}
-
-export interface EventsQueries {
-  getById(params: { id: any; }): Promise<Array<EventsGetById>>;
-}
-
-export interface EventQueries {
-  getById(params: { id: any; }): Promise<EventsGetById>;
-}
-
-export interface Card {
-  id: number;
-  eventId: number;
-  cardName: string;
-  cardOrder: number;
-  startTime: Date | null;
-}
-
-export interface Coach {
-  id: number;
-  name: string;
-  city: string;
-}
-
-export interface Fighter {
-  id: number;
-  name: string;
-  nickname: string | null;
-  born: string | null;
-  heightCm: number | null;
-  reachCm: number | null;
-  hometown: string;
-  social: any;
-  isActive: boolean;
-}
-
-export interface FightersCommon {
-  red: { id: number; name: string };
-  blue: { id: number; name: string };
-  winnerId: number | null;
-  method: string;
-  description: string | null;
-  event: { id: number; name: string; date: Date };
-}
-
-export interface FightersLeft {
-  id: number;
-  winner?: { id: number; name: string };
-}
-
-export interface FightersMethods {
-  method: string;
-  count: number;
-}
-
-export interface FightersRight {
-  id: number;
-  eventId: number;
-  cardName: string;
-  cardOrder: number;
-  startTime: Date | null;
-  winner: { id: number; name: string };
-}
-
-export interface FightersQueries {
-  common(params: { fighter1: any; fighter1: any; fighter2: any; fighter2: any; }): Promise<Array<FightersCommon>>;
-  left(): Promise<Array<FightersLeft>>;
-  methods(params: { id: any; }): Promise<Array<FightersMethods>>;
-  right(): Promise<Array<FightersRight>>;
-}
-
-export interface FighterQueries {
-  common(params: { fighter1: any; fighter1: any; fighter2: any; fighter2: any; }): Promise<FightersCommon>;
-  left(): Promise<FightersLeft>;
-  methods(params: { id: any; }): Promise<FightersMethods>;
-  right(): Promise<FightersRight>;
-}
-
-export interface OtherName {
-  id: number;
-  fighterId: number;
-  name: string;
-}
-
-export interface FighterCoach {
-  id: number;
-  coachId: number;
-  fighterId: number;
-  startDate: string;
-  endDate: string | null;
-}
-
-export interface Ranking {
-  id: number;
-  fighterId: number;
-  weightClassId: number;
-  rank: number;
-  isInterim: boolean;
-}
-
-export interface Method {
-  id: number;
-  name: string;
-  abbreviation: string;
-}
-
-export interface MethodsByFighter {
-  method: string;
-  count: number;
-}
-
-export interface MethodsQueries {
-  byFighter(params: { fighterId: any; }): Promise<Array<MethodsByFighter>>;
-  topSubmission(): Promise<Array<string | null>>;
-}
-
-export interface MethodQueries {
-  byFighter(params: { fighterId: any; }): Promise<MethodsByFighter>;
-  topSubmission(): Promise<string | null>;
-}
-
-export interface Fight {
-  id: number;
-  cardId: number;
-  fightOrder: number;
-  blueId: number;
-  redId: number;
-  winnerId: number | null;
-  methodId: number | null;
-  methodDescription: string | null;
-  endRound: number | null;
-  endSeconds: number | null;
-  titleFight: boolean;
-  isInterim: boolean;
-  weightClassId: number | null;
-  oddsBlue: number | null;
-  oddsRed: number | null;
-  catchweightLbs: number | null;
-}
-
-export interface FightsByFighter {
-  opponent: string;
-  win: boolean | null;
-  winnerId: number | null;
-  method: string;
-  methodDescription: string | null;
-  eventName: string;
-  startTime: Date;
-  endRound: number | null;
-  endSeconds: number | null;
-  titleFight: boolean;
-  name: string;
-}
-
-export interface FightsQueries {
-  byFighter(params: { id: any; 1: any; id: any; id: any; }): Promise<Array<FightsByFighter>>;
-}
-
-export interface FightQueries {
-  byFighter(params: { id: any; 1: any; id: any; id: any; }): Promise<FightsByFighter>;
-}
-
-export interface CancelledFight {
-  id: number;
-  cardId: number;
-  cardOrder: number;
-  blueId: number;
-  redId: number;
-  cancelledAt: Date;
-  cancellationReason: string | null;
-}
-
-export interface TitleRemoval {
-  id: number;
-  fighterId: number;
-  weightClassId: number;
-  isInterim: boolean;
-  removedAt: Date;
-  reason: string;
+export class Database {
+  constructor(path: string);
+  initialize(paths: Paths, interfaceName: string): Initialize;
+  registerTypes(customTypes: Array<CustomType>): void;
+  begin(): Promise<void>;
+  commit(): Promise<void>;
+  rollback(): Promise<void>;
+  prepare(sql: string): Statement;
+  run(query: string | Statement, params?: any): Promise<number>;
+  get<T>(query: string | Statement, params?: any, options?: QueryOptions): Promise<T | null>;
+  all<T>(query: string | Statement, params?: any, options?: QueryOptions): Promise<Array<T>>;
 }
 
 export interface Keywords<T> {
@@ -289,6 +103,232 @@ export interface MultipleQueries<T> {
   remove(params?: Params<T>): Promise<number>;
 }
 
+
+export interface WeightClass {
+  id: number;
+  name: string;
+  weightLbs: number;
+  gender: string;
+}
+
+export interface Location {
+  id: number;
+  name: string;
+  address: string;
+  lat: number;
+  long: number;
+}
+
+export interface LocationsByMethod {
+  id: number;
+  name: string;
+  count: number;
+}
+
+export interface LocationsQueries {
+  byMethod(params: { id: any; }): Promise<Array<LocationsByMethod>>;
+}
+
+export interface LocationQueries {
+  byMethod(params: { id: any; }): Promise<LocationsByMethod | undefined>;
+}
+
+export interface Event {
+  id: number;
+  name: string;
+  startTime: Date;
+  locationId: number | null;
+}
+
+export interface EventsGetById {
+  id: number;
+  name: string;
+  cards: Array<{
+    id: number;
+    cardName: string;
+    fights: Array<{
+      id: number;
+      blue: { id: number; name: string; social: any };
+      red: { id: number; name: string; social: any };
+    }>;
+  }>;
+}
+
+export interface EventsQueries {
+  getById(params: { id: any; }): Promise<Array<EventsGetById>>;
+}
+
+export interface EventQueries {
+  getById(params: { id: any; }): Promise<EventsGetById | undefined>;
+}
+
+export interface Card {
+  id: number;
+  eventId: number;
+  cardName: string;
+  cardOrder: number;
+  startTime: Date | null;
+}
+
+export interface Coach {
+  id: number;
+  name: string;
+  city: string;
+}
+
+export interface Fighter {
+  id: number;
+  name: string;
+  nickname: string | null;
+  born: string | null;
+  heightCm: number | null;
+  reachCm: number | null;
+  hometown: string;
+  social: any;
+  isActive: boolean;
+}
+
+export interface FightersCommon {
+  red: { id: number; name: string };
+  blue: { id: number; name: string };
+  winnerId: number | null;
+  method: string;
+  description: string | null;
+  event: { id: number; name: string; date: Date };
+}
+
+export interface FightersLeft {
+  id: number;
+  winner?: { id: number; name: string };
+}
+
+export interface FightersMethods {
+  method: string;
+  count: number;
+}
+
+export interface FightersRight {
+  id: number;
+  winner: { id: number; name: string };
+}
+
+export interface FightersQueries {
+  common(params: { fighter1: any; fighter1: any; fighter2: any; fighter2: any; }): Promise<Array<FightersCommon>>;
+  left(): Promise<Array<FightersLeft>>;
+  methods(params: { id: any; }): Promise<Array<FightersMethods>>;
+  right(): Promise<Array<FightersRight>>;
+}
+
+export interface FighterQueries {
+  common(params: { fighter1: any; fighter1: any; fighter2: any; fighter2: any; }): Promise<FightersCommon | undefined>;
+  left(): Promise<FightersLeft | undefined>;
+  methods(params: { id: any; }): Promise<FightersMethods | undefined>;
+  right(): Promise<FightersRight | undefined>;
+}
+
+export interface OtherName {
+  id: number;
+  fighterId: number;
+  name: string;
+}
+
+export interface FighterCoach {
+  id: number;
+  coachId: number;
+  fighterId: number;
+  startDate: string;
+  endDate: string | null;
+}
+
+export interface Ranking {
+  id: number;
+  fighterId: number;
+  weightClassId: number;
+  rank: number;
+  isInterim: boolean;
+}
+
+export interface Method {
+  id: number;
+  name: string;
+  abbreviation: string;
+}
+
+export interface MethodsByFighter {
+  method: string;
+  count: number;
+}
+
+export interface MethodsQueries {
+  byFighter(params: { fighterId: any; }): Promise<Array<MethodsByFighter>>;
+  topSubmission(): Promise<Array<string | null>>;
+}
+
+export interface MethodQueries {
+  byFighter(params: { fighterId: any; }): Promise<MethodsByFighter | undefined>;
+  topSubmission(): Promise<string | null | undefined>;
+}
+
+export interface Fight {
+  id: number;
+  cardId: number;
+  fightOrder: number;
+  blueId: number;
+  redId: number;
+  winnerId: number | null;
+  methodId: number | null;
+  methodDescription: string | null;
+  endRound: number | null;
+  endSeconds: number | null;
+  titleFight: boolean;
+  isInterim: boolean;
+  weightClassId: number | null;
+  oddsBlue: number | null;
+  oddsRed: number | null;
+  catchweightLbs: number | null;
+}
+
+export interface FightsByFighter {
+  opponent: string;
+  win: boolean | null;
+  winnerId: number | null;
+  method: string;
+  methodDescription: string | null;
+  eventName: string;
+  startTime: Date;
+  endRound: number | null;
+  endSeconds: number | null;
+  titleFight: boolean;
+  name: string;
+}
+
+export interface FightsQueries {
+  byFighter(params: { id: any; 1: any; id: any; id: any; }): Promise<Array<FightsByFighter>>;
+}
+
+export interface FightQueries {
+  byFighter(params: { id: any; 1: any; id: any; id: any; }): Promise<FightsByFighter | undefined>;
+}
+
+export interface CancelledFight {
+  id: number;
+  cardId: number;
+  cardOrder: number;
+  blueId: number;
+  redId: number;
+  cancelledAt: Date;
+  cancellationReason: string | null;
+}
+
+export interface TitleRemoval {
+  id: number;
+  fighterId: number;
+  weightClassId: number;
+  isInterim: boolean;
+  removedAt: Date;
+  reason: string;
+}
+
 export interface TypedDb {
   weightClasses: MultipleQueries<WeightClass>,
   weightClass: SingularQueries<WeightClass>,
@@ -318,6 +358,15 @@ export interface TypedDb {
   titleRemoval: SingularQueries<TitleRemoval>
 }
 
+declare const database: Database;
 declare const db: TypedDb;
 
-export default db;
+export function makeTypes(): Promise<void>;
+export function getTables(): Promise<string>;
+
+export {
+  database,
+  db,
+  makeTypes,
+  getTables
+}

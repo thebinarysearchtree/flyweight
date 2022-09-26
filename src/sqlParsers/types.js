@@ -9,8 +9,7 @@ import { blank } from './utils.js';
 
 const capitalize = (word) => word[0].toUpperCase() + word.substring(1);
 
-const file = await readFile(new URL('../../index.d.ts', import.meta.url), 'utf8');
-const definitions = /(?<definitions>export interface Keywords<T>(.|\s)+?export interface MultipleQueries<T>[^}]+})/.exec(file).groups.definitions;
+const definitions = await readFile(new URL('../../index.d.ts', import.meta.url), 'utf8');
 
 const getTablesFrom = async (createTablePath) => {
   const sql = await readFile(createTablePath, 'utf8');
@@ -213,7 +212,7 @@ const getQueries = async (db, sqlDir, tableName, tables) => {
       params
     } = query;
     const multipleReturnType = interfaceName ? `Promise<Array<${interfaceName}>>` : 'Promise<void>';
-    const singularReturnType = interfaceName ? `Promise<${interfaceName}>` : 'Promise<void>';
+    const singularReturnType = interfaceName ? `Promise<${interfaceName} | undefined>` : 'Promise<void>';
     let paramInterface = '';
     if (params.length > 0) {
       paramInterface += 'params: { ';
@@ -244,10 +243,11 @@ const createTypes = async (options) => {
     db,
     sqlDir,
     createTablePath,
-    destinationPath 
+    destinationPath
   } = options;
   const tables = await getTablesFrom(createTablePath);
-  let types = '';
+  let types = definitions;
+  types += '\n\n';
   const returnTypes = [];
   for (const table of tables) {
     const singular = pluralize.singular(table.name);
@@ -290,13 +290,15 @@ const createTypes = async (options) => {
       types += '\n';
     }
   }
-  types += definitions;
-  types += '\n\n';
-  types += 'export interface TypedDb {\n';
+  const interfaceName = options.interfaceName || 'TypedDb';
+  types += `export interface ${interfaceName} {\n`;
   types += returnTypes.join(',\n');
   types += '\n}\n\n';
-  types += 'declare const db: TypedDb;\n\n';
-  types += 'export default db;\n';
+  types += `declare const database: Database;\n`;
+  types += `declare const db: ${interfaceName};\n\n`;
+  types += 'export function makeTypes(): Promise<void>;\n';
+  types += 'export function getTables(): Promise<string>;\n\n';
+  types += 'export {\n  database,\n  db,\n  makeTypes,\n  getTables\n}\n';
   await writeFile(destinationPath, types, 'utf8');
 }
 

@@ -1,4 +1,4 @@
-import { Statement } from "sqlite3";
+import { Statement } from 'sqlite3';
 
 export interface QueryOptions {
   parse: boolean;
@@ -14,10 +14,23 @@ export interface CustomType {
   dbType: string;
 }
 
+export interface Paths {
+  db: string;
+  sql?: string;
+  tables: string;
+  types?: string;
+  extensions?: string | Array<string>;
+}
+
+export interface Initialize {
+  db: any;
+  makeTypes(): Promise<void>;
+  getTables(): Promise<string>;
+}
+
 export class Database {
   constructor(path: string);
-  enforceForeignKeys(): Promise<void>;
-  setTables(path: string): Promise<void>;
+  initialize(paths: Paths, interfaceName: string): Initialize;
   registerTypes(customTypes: Array<CustomType>): void;
   begin(): Promise<void>;
   commit(): Promise<void>;
@@ -89,13 +102,3 @@ export interface MultipleQueries<T> {
   get<K extends keyof T>(params: Params<T>, keywords: KeywordsWithExclude<K[]>): Promise<Array<Omit<T, K>>>;
   remove(params?: Params<T>): Promise<number>;
 }
-
-export interface TypeOptions {
-  createTablePath: string;
-  sqlDir?: string;
-  interfaceName: string;
-  destinationPath: string;
-}
-
-export function makeClient(database: Database, sqlDir?: string): { [key: string]: BasicQueries<any> };
-export function createTypes(options: TypeOptions): Promise<void>;

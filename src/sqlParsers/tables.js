@@ -1,13 +1,5 @@
 import { blank } from './utils.js';
 
-const typeMap = {
-  integer: 'number',
-  int: 'number',
-  text: 'string',
-  blob: 'Buffer',
-  any: 'number | string | Buffer'
-};
-
 const getFragments = (sql) => {
   const fragments = [];
   let lastEnd = 0;
