@@ -9,7 +9,7 @@ import { blank } from './utils.js';
 
 const capitalize = (word) => word[0].toUpperCase() + word.substring(1);
 
-const definitions = await readFile(new URL('../../index.d.ts', import.meta.url), 'utf8');
+const definitions = await readFile(new URL('../../interfaces.d.ts', import.meta.url), 'utf8');
 
 const getTablesFrom = async (createTablePath) => {
   const sql = await readFile(createTablePath, 'utf8');
@@ -83,11 +83,11 @@ const toTsType = (column, customTypes) => {
 const parseParams = (sql) => {
   const processed = blank(sql, { stringsOnly: true });
   const matches = processed.matchAll(/(\s|,)\$(?<param>[a-z0-9_]+)(\s|,|$)/gmi);
-  const params = [];
+  const params = {};
   for (const match of matches) {
-    params.push(match.groups.param);
+    params[match.groups.param] = true;
   }
-  return params;
+  return Object.keys(params);
 }
 
 const getQueries = async (db, sqlDir, tableName, tables) => {
@@ -294,11 +294,10 @@ const createTypes = async (options) => {
   types += `export interface ${interfaceName} {\n`;
   types += returnTypes.join(',\n');
   types += '\n}\n\n';
-  types += `declare const database: Database;\n`;
-  types += `declare const db: ${interfaceName};\n\n`;
-  types += 'export function makeTypes(): Promise<void>;\n';
-  types += 'export function getTables(): Promise<string>;\n\n';
-  types += 'export {\n  database,\n  db,\n  makeTypes,\n  getTables\n}\n';
+  if (/\.d\.ts/.test(destinationPath)) {
+    types += `declare const db: ${interfaceName};\n\n`;
+    types += 'export {\n  db\n}\n';
+  }
   await writeFile(destinationPath, types, 'utf8');
 }
 

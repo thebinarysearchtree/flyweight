@@ -1,46 +1,3 @@
-import { Statement } from 'sqlite3';
-
-export interface QueryOptions {
-  parse: boolean;
-}
-
-export interface CustomType {
-  name: string;
-  valueTest: (v: any) => boolean;
-  makeConstraint?: (column: string) => string;
-  dbToJs: (v: any) => any;
-  jsToDb: (v: any) => any;
-  tsType: string;
-  dbType: string;
-}
-
-export interface Paths {
-  db: string;
-  sql?: string;
-  tables: string;
-  types?: string;
-  extensions?: string | Array<string>;
-}
-
-export interface Initialize {
-  db: any;
-  makeTypes(): Promise<void>;
-  getTables(): Promise<string>;
-}
-
-export class Database {
-  constructor(path: string);
-  initialize(paths: Paths, interfaceName: string): Initialize;
-  registerTypes(customTypes: Array<CustomType>): void;
-  begin(): Promise<void>;
-  commit(): Promise<void>;
-  rollback(): Promise<void>;
-  prepare(sql: string): Statement;
-  run(query: string | Statement, params?: any): Promise<number>;
-  get<T>(query: string | Statement, params?: any, options?: QueryOptions): Promise<T | null>;
-  all<T>(query: string | Statement, params?: any, options?: QueryOptions): Promise<Array<T>>;
-}
-
 export interface Keywords<T> {
   select: T;
   orderBy?: Array<string> | string;
@@ -102,7 +59,6 @@ export interface MultipleQueries<T> {
   get<K extends keyof T>(params: Params<T>, keywords: KeywordsWithExclude<K[]>): Promise<Array<Omit<T, K>>>;
   remove(params?: Params<T>): Promise<number>;
 }
-
 
 export interface WeightClass {
   id: number;
@@ -213,14 +169,14 @@ export interface FightersRight {
 }
 
 export interface FightersQueries {
-  common(params: { fighter1: any; fighter1: any; fighter2: any; fighter2: any; }): Promise<Array<FightersCommon>>;
+  common(params: { fighter1: any; fighter2: any; }): Promise<Array<FightersCommon>>;
   left(): Promise<Array<FightersLeft>>;
   methods(params: { id: any; }): Promise<Array<FightersMethods>>;
   right(): Promise<Array<FightersRight>>;
 }
 
 export interface FighterQueries {
-  common(params: { fighter1: any; fighter1: any; fighter2: any; fighter2: any; }): Promise<FightersCommon | undefined>;
+  common(params: { fighter1: any; fighter2: any; }): Promise<FightersCommon | undefined>;
   left(): Promise<FightersLeft | undefined>;
   methods(params: { id: any; }): Promise<FightersMethods | undefined>;
   right(): Promise<FightersRight | undefined>;
@@ -303,11 +259,11 @@ export interface FightsByFighter {
 }
 
 export interface FightsQueries {
-  byFighter(params: { id: any; 1: any; id: any; id: any; }): Promise<Array<FightsByFighter>>;
+  byFighter(params: { 1: any; id: any; }): Promise<Array<FightsByFighter>>;
 }
 
 export interface FightQueries {
-  byFighter(params: { id: any; 1: any; id: any; id: any; }): Promise<FightsByFighter | undefined>;
+  byFighter(params: { 1: any; id: any; }): Promise<FightsByFighter | undefined>;
 }
 
 export interface CancelledFight {
@@ -358,15 +314,8 @@ export interface TypedDb {
   titleRemoval: SingularQueries<TitleRemoval>
 }
 
-declare const database: Database;
 declare const db: TypedDb;
 
-export function makeTypes(): Promise<void>;
-export function getTables(): Promise<string>;
-
 export {
-  database,
-  db,
-  makeTypes,
-  getTables
+  db
 }
