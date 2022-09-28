@@ -98,7 +98,7 @@ const makeOptions = (columns, db) => {
   const primaryKeys = [];
   let i = 0;
   let revertMap = {};
-  const primaryKeyCount = columns.filter(c => c.primaryKey).length;
+  const primaryKeyCount = columns.filter(c => c.primaryKey && /[a-z][A-Z]/.test(c.name)).length;
   for (const column of columns) {
     const rename = column.rename && primaryKeyCount > 1 && column.originalName.length < column.name.length;
     const columnName = rename ? column.originalName : column.name;
@@ -110,7 +110,7 @@ const makeOptions = (columns, db) => {
       }
       typeMap[column.name] = converter;
     }
-    if (column.primaryKey) {
+    if (column.primaryKey && /[a-z][A-Z]/.test(column.name)) {
       primaryKeys.push({
         name: column.name,
         index: i
@@ -228,6 +228,10 @@ const makeQueryHandler = (table, db, sqlDir) => {
 const makeClient = (db, sqlDir) => {
   const tableHandler = {
     get: function(target, table, receiver) {
+      if (['begin', 'commit', 'rollback'].includes(table)) {
+        db[table] = db[table].bind(db);
+        return db[table];
+      }
       if (!target[table]) {
         target[table] = new Proxy({}, makeQueryHandler(table, db, sqlDir));
       }

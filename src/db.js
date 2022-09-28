@@ -295,7 +295,7 @@ class Database {
 
   async basicRun(sql) {
     return new Promise((resolve, reject) => {
-      this.db.run(sql, null, function (err) {
+      this.db.run(sql, undefined, function (err) {
         if (err) {
           reject(err);
         }
