@@ -189,7 +189,7 @@ export {
 }
 ```
 
-When you first run this code, remove all of the references to ```TypedDb``` because it does not exist yet. Import ```makeTypes``` into another file and run (it has no arguments) to generate the ```types.ts``` file and then put the ```TypedDb``` references back. Before you do that though, you need to add some ```create table``` statements to the file that you passed into the ```initialize``` method mentioned earlier so that it has some types to generate.
+When you first run this code, remove all of the references to ```TypedDb``` because it does not exist yet. Import ```makeTypes``` into another file and run (it has no arguments) to generate the ```types.ts``` file and then put the ```TypedDb``` references back. Before you do that though, you need to add some ```create table``` statements to the file specified in the ```tables``` argument so that there are some types to generate.
 
 The ```initialize``` method's ```path``` argument takes the following arguments:
 
