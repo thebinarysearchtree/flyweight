@@ -224,11 +224,17 @@ Tables are created the same way as they are in SQL. Flyweight converts the custo
 To add your own types, you can use the ```registerTypes``` method on the ```database``` object mentioned earlier. ```registerTypes``` takes an array of ```CustomType``` objects that have the following properties:
 
 ```name```: the name of the type to be used in ```create table``` statements
+
 ```valueTest```: a function that takes a value and returns ```true``` or ```false``` as to whether they value's type is that of the custom type
+
 ```makeConstraint```: an optional function that takes a column name as an argument, and returns a SQL constraint string
+
 ```dbToJs```: a function that takes a value from the database and returns the JavaScript equivalent of that value
+
 ```jsToDb```: a function that takes a JavaScript value and returns a value suitable for storing in the database
+
 ```tsType```: the TypeScript type that represents this custom type
+
 ```dbType```: the native database type that will be used to store values of this type
 
 For example, the custom type for ```boolean``` is as follows:
