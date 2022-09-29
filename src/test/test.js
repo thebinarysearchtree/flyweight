@@ -51,6 +51,7 @@ const limited = await db.fighters.get(null, { limit: 10 });
 assert.equal(limited.length, 10);
 const left = await db.fighters.left();
 console.log(left);
+console.log(await db.event.get({ id: 100 }));
 
 console.log('All tests passed');
 

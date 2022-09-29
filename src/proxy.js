@@ -209,13 +209,13 @@ const makeQueryHandler = (table, db, sqlDir) => {
               return await run(statement, params, options);
             }
           }
-          catch {
+          catch (e) {
             const makeQuery = isSingular ? singularQueries[query] : multipleQueries[query];
             if (makeQuery) {
               target[query] = makeQuery(db, table);
             }
             else {
-              throw Error(`Query ${query} of table ${table} not found`);
+              throw Error(e);
             }
           }
         }

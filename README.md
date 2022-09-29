@@ -102,6 +102,8 @@ With each fight in the fights array looking like this:
 }
 ```
 
+## How it works
+
 Now let's look at how Flyweight does this without you having to specify any mapping code. It all comes down to the select statement:
 
 ```sql
@@ -125,3 +127,248 @@ If you didn't want to create a cards array but wanted to include the cardId, you
 If you wanted to create a nested object inside an object (such as the red and blue in this example), you select a foreign key (such as blueId) and then give any other columns after blueId the same prefix (blue), and they will be included in the object with the prefix removed.
 
 The social column is an object because in the fighters table, it is defined with the type ```json```, which is automatically parsed into an object.
+
+## Getting started
+
+```
+npm install flyweightjs
+```
+
+For JavaScript, create a file called db.js with the following code:
+
+```js
+import Database from 'flyweightjs';
+
+const database = new Database();
+
+const result = await database.initialize({
+  db: '/path/test.db',
+  sql: '/path/sql',
+  tables: '/path/initial.sql',
+  types: '/path/db.d.ts',
+  extensions: '/path/regexp.dylib'
+});
+
+const db = result.db;
+const makeTypes = result.makeTypes;
+const getTables = result.getTables;
+
+export {
+  database,
+  db,
+  makeTypes,
+  getTables
+}
+```
+
+For TypeScript, create a file with the following code:
+
+```ts
+import Database from 'flyweightjs';
+import { TypedDb } from './types.ts';
+
+const database = new Database();
+
+const result = await database.initialize<TypedDb>({
+  db: '/path/test.db',
+  sql: '/path/sql',
+  tables: '/path/initial.sql',
+  types: '/path/types.ts',
+  extensions: '/path/regexp.dylib'
+});
+
+const db = result.db;
+const makeTypes = result.makeTypes;
+const getTables = result.getTables;
+
+export {
+  database,
+  db,
+  makeTypes,
+  getTables
+}
+```
+
+When you first run this code, remove all of the references to ```TypedDb``` because it does not exist yet. Import ```makeTypes``` into another file and run (it has no arguments) to generate the ```types.ts``` file and then put the ```TypedDb``` references back. Before you do that though, you need to add some ```create table``` statements to the file that you passed into the ```initialize``` method mentioned earlier so that it has some types to generate.
+
+The ```initialize``` method's ```path``` argument takes the following arguments:
+
+```db```: The path to the database.
+
+```sql```: A path to a folder for storing SQL files.
+
+```tables```: A path to a SQL file containing the ```create table``` statements that define your database schema.
+
+```types```: If you are using JavaScript, this should be a path to a file that is in the same location as ```db.js```. If you are using TypeScript, this can be any path. This file should not exist yet. It will be created by the ```makeTypes``` function.
+
+```extensions```: A string or array of strings of SQLite extensions that will be loaded each time a connection is made to the database.
+
+```initialize``` also takes an optional second argument, ```interfaceName```, which is a string that can be used instead of ```TypedDb```. This is useful if you have more than one database.
+
+## Compiling extensions
+
+Flyweight supports regular expressions in some of its methods if you have loaded a regular expression extension. The SQLite website contains instructions for compiling extensions. It is missing some steps though. To compile the regexp.c extension included in the SQLite source code, you should do the following:
+
+1. Download regexp.c from the SQLite repository
+2. Download the SQLite amalgamation file from the SQLite website and unzip it into a folder
+3. Put the regexp.c file into this folder and then run the commands mentioned at https://www.sqlite.org/loadext.html under the heading "Compiling a Loadable Extension" depending on your operating system
+
+## Creating tables
+
+Tables are created the same way as they are in SQL. Flyweight converts the custom types in these tables to native types, and converts the tables to strict mode. The native types available in strict mode are ```integer```, ```real```, ```text```, ```blob```, and ```any```. In addition to these types, four custom types are included by default: ```boolean```, ```date```, ```json```, and ```regexp```. ```boolean``` is a column in which the values are restricted to 1 or 0, ```date``` is a JavaScript ```Date``` in milliseconds, ```json``` is json stored as text, and ```regexp``` is mostly just used for querying.
+
+To add your own types, you can use the ```registerTypes``` method on the ```database``` object mentioned earlier. ```registerTypes``` takes an array of ```CustomType``` objects that have the following properties:
+
+```name```: the name of the type to be used in ```create table``` statements
+```valueTest```: a function that takes a value and returns ```true``` or ```false``` as to whether they value's type is that of the custom type
+```makeConstraint```: an optional function that takes a column name as an argument, and returns a SQL constraint string
+```dbToJs```: a function that takes a value from the database and returns the JavaScript equivalent of that value
+```jsToDb```: a function that takes a JavaScript value and returns a value suitable for storing in the database
+```tsType```: the TypeScript type that represents this custom type
+```dbType```: the native database type that will be used to store values of this type
+
+For example, the custom type for ```boolean``` is as follows:
+
+```js
+{
+  name: 'boolean',
+  valueTest: (v) => typeof v === 'boolean',
+  makeConstraint: (column) => `check (${column} in (0, 1))`,
+  dbToJs: (v) => Boolean(v),
+  jsToDb: (v) => v === true ? 1 : 0,
+  tsType: 'boolean',
+  dbType: 'integer'
+}
+```
+
+Once you have created your tables, you can run the ```getTables``` function mentioned earlier with no arguments to convert the tables into a form that can be run by the database to create the tables. ```getTables``` returns a string of SQL.
+
+## Creating SQL queries
+
+In the SQL folder you supplied to the ```initialize``` method, you should create folders with the same name as your table names, and then put SQL files in thos folders that correspond to the name of the method you want to call to run them. For example, if you wanted a query that was called like this:
+
+```js
+const event = await db.event.getById({ id: 100 });
+```
+
+you would create an ```events``` folder and put a file in it called ```getById.sql```.
+
+When creating SQL queries, make sure you give an alias to any columns in the select statement that don't have a name. For exampe, do not do:
+
+```sql
+select max(startTime) from events;
+```
+
+as there is no name given to ```max(startTime)```.
+
+## The API
+
+Flyweight parses all of your SQL files and generates an API using TypeScript. In the "Getting started" section, you export a variable named ```db```. This is the API, and its properties include both the singular and plural form of every table in your database, as well as ```begin```, ```commit```, and ```rollback``` methods for transactions. Here is an example of a transaction:
+
+```js
+import { db } from './db.js';
+
+try {
+  await db.begin();
+
+  const coachId = await db.coach.insert({
+    name: 'Eugene Bareman',
+    city: 'Auckland'
+  });
+  const fighterId = await db.fighter.get({ name: /Israel/ }, 'id');
+  await db.fighterCoach.insert({
+    fighterId,
+    coachId
+  });
+  
+  await db.commit();
+}
+catch (e) {
+  console.log(e);
+  await db.rollback();
+}
+```
+
+Every table has ```get```, ```update```, ```insert```, and ```remove``` methods available to it, along with any of the custom methods that are created when you add a new SQL file to the corresponding table's folder.
+
+### Insert
+
+```insert``` simply takes one argument - ```params```, with the keys and values corresponding to the column names and values you want to insert. It returns the primary key if none was supplied, otherwise it returns the number of rows affected by the query.
+
+### Update
+
+```update``` takes two arguments - the ```query``` (or null), and the ```params``` you want to update. It returns a number representing the number of rows that were affected by the query. For example:
+
+```js
+await db.coach.update({ id: 100 }, { city: 'Brisbane' });
+```
+
+which corresponds to
+
+```sql
+update coaches set city = 'Brisbane' where id = 100;
+```
+
+### Get
+
+```get``` takes two optional arguments. The first is ```params``` - an object representing the where clause. For example:
+
+```js
+const fights = await db.fights.get({ cardId: 9, titleFight: true });
+```
+
+translates to
+
+```sql
+select * from fights where cardId = 9 and titleFight = 1;
+```
+
+The keys to ```params``` must be the column names of the table. The values can either be of the same type as the column, an array of values that are the same type as the column, null, or a regular expression if the column is text. If an array is passed in, an ```in``` clause is used, such as:
+
+```js
+const fights = await db.fights.get({ cardId: [1, 2, 3] });
+```
+
+which translates to
+
+```sql
+select * from fights where cardId in (1, 2, 3);
+```
+
+If null is passed in as the value, the SQL will use ```is null```. If a regular expression is passed in, the SQL will use ```regexp```.
+
+All of the arguments are passed in as parameters for security reasons. There are no limits to the amount of values used in the ```in``` clause, unlike other ORMs.
+
+The second argument to ```get``` can be one of three possible values:
+
+1. a string representing a column to select. In this case, the result returned is a single value or array of single values, depending on whether a plural or singular table name is used in the query.
+2. an array of strings, representing the columns to select.
+3. An object with one or more of the following properties:
+
+```select``` or ```exclude```: ```select``` can be a string or array representing the columns to select. ```exclude``` can be an array of columns to exclude, with all of the other columns being selected.
+
+```orderBy```: a string representing the column to order the result by, or an array of columns to order the result by.
+
+```desc```: set to true when using ```orderBy``` if you want the results in descending order.
+
+```limit``` and ```offset```: corresponding to the SQL keywords with the same name.
+
+```distinct```: adds the ```distinct``` keywords to the start of the select clause.
+
+For example:
+
+```js
+const fighters = await db.fighters.get({ isActive: true }, {
+  select: ['name', 'hometown'],
+  orderBy: 'reachCm',
+  limit: 10
+});
+```
+
+### Remove
+
+```remove``` takes one argument representing the where clause and returns the number of rows affected by the query.
+
+```js
+const changes = await db.fighters.remove({ id: 100 });
+```
