@@ -161,6 +161,10 @@ export {
 }
 ```
 
+After you have done this:
+1. create the ```initial.sql``` and add some tables.
+2. create a new JavaScript file and import the ```makeTypes``` function, and then run it without any arguments. This should create a `db.d.ts``` file that will type the exported ```db``` variable.
+
 For TypeScript, create a file with the following code:
 
 ```ts
