@@ -163,7 +163,7 @@ export {
 
 After you have done this:
 1. create the ```initial.sql``` and add some tables.
-2. create a new JavaScript file and import the ```makeTypes``` function, and then run it without any arguments. This should create a `db.d.ts``` file that will type the exported ```db``` variable.
+2. create a new JavaScript file and import the ```makeTypes``` function, and then run it without any arguments. This should create a ```db.d.ts``` file that will type the exported ```db``` variable.
 
 For TypeScript, create a file with the following code:
 
@@ -255,7 +255,7 @@ Once you have created your tables, you can run the ```getTables``` function ment
 
 ## Creating SQL queries
 
-In the SQL folder you supplied to the ```initialize``` method, you should create folders with the same name as your table names, and then put SQL files in thos folders that correspond to the name of the method you want to call to run them. For example, if you wanted a query that was called like this:
+In the SQL folder you supplied to the ```initialize``` method, you should create folders with the same name as your table names, and then put SQL files in the folders that correspond to the name of the method you want to call to run them. For example, if you wanted a query that was called like this:
 
 ```js
 const event = await db.event.getById({ id: 100 });
