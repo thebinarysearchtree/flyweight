@@ -120,13 +120,13 @@ Now let's look at how Flyweight does this without you having to specify any mapp
   rf.social as redSocial
 ```
 
-Every time you want to create an array within an object (such as the ```cards``` array in the main object), you include a primary key. Every column including and after the primary key forms the keys of the objects inside the array. Flyweight takes the name of the column (eg cardId), removes the Id part, and then converts the name into its plural form to create the name of the array (eg cards).
+Every time you want to create an array within an object (such as the ```cards``` array in the main object), you include a primary key. Every column including and after the primary key forms the keys of the objects inside the array. Flyweight takes the name of the column (eg ```cardId```), removes the ```Id``` part, and then converts the name into its plural form to create the name of the array (eg ```cards```).
 
-If you didn't want to create a cards array but wanted to include the cardId, you would just select f.cardId, which is a foreign key on the fights table rather than a primary key.
+If you didn't want to create a ```cards``` array but wanted to include the ```cardId```, you would just select ```f.cardId```, which is a foreign key on the ```fights``` table rather than a primary key.
 
-If you wanted to create a nested object inside an object (such as the red and blue in this example), you select a foreign key (such as blueId) and then give any other columns after blueId the same prefix (blue), and they will be included in the object with the prefix removed.
+If you wanted to create a nested object inside an object (such as the ```red``` and ```blue``` in this example), you select a foreign key (such as ```blueId```) and then give any other columns after ```blueId``` the same prefix (```blue```), and they will be included in the object with the prefix removed.
 
-The social column is an object because in the fighters table, it is defined with the type ```json```, which is automatically parsed into an object.
+The ```social``` property is an object because in the ```fighters``` table, it is defined with the type ```json```, which is automatically parsed into an object.
 
 ## Getting started
 
@@ -195,7 +195,7 @@ export {
 
 When you first run this code, remove all of the references to ```TypedDb``` because it does not exist yet. Import ```makeTypes``` into another file and run (it has no arguments) to generate the ```types.ts``` file and then put the ```TypedDb``` references back. Before you do that though, you need to add some ```create table``` statements to the file specified in the ```tables``` argument so that there are some types to generate.
 
-The ```initialize``` method's ```path``` argument takes the following arguments:
+The ```initialize``` method's ```path``` object has the following properties:
 
 ```db```: The path to the database.
 
