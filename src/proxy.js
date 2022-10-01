@@ -188,12 +188,24 @@ const makeQueryHandler = (table, db, sqlDir) => {
         }
         else {
           const path = join(sqlDir, table, `${query}.sql`);
+          let sql;
           try {
-            const sql = readFileSync(path, 'utf8');
+            sql = readFileSync(path, 'utf8');
+          }
+          catch (e) {
+            const makeQuery = isSingular ? singularQueries[query] : multipleQueries[query];
+            if (makeQuery) {
+              target[query] = makeQuery(db, table);
+              return target[query];
+            }
+            else {
+              throw e;
+            }
+          }
+          try {
             const columns = parseQuery(sql, db.tables);
             const options = makeOptions(columns, db);
             options.result = getResultType(columns, isSingular);
-            const statement = db.prepare(sql);
             let run;
             if (options.result === 'none') {
               run = db.run;
@@ -205,17 +217,14 @@ const makeQueryHandler = (table, db, sqlDir) => {
               run = db.all;
             }
             run = run.bind(db);
+            options.cacheName = `${table}.${query}`;
             target[query] = async (params) => {
-              return await run(statement, params, options);
+              return await run(sql, params, options);
             }
           }
-          catch (e) {
-            const makeQuery = isSingular ? singularQueries[query] : multipleQueries[query];
-            if (makeQuery) {
-              target[query] = makeQuery(db, table);
-            }
-            else {
-              throw Error(e);
+          catch {
+            target[query] = async (params) => {
+              return await db.all(sql, params);
             }
           }
         }

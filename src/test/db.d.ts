@@ -110,12 +110,26 @@ export interface EventsGetById {
   }>;
 }
 
+export interface EventsTest {
+  id: number;
+  name: string;
+  nickname: string | null;
+  born: string | null;
+  heightCm: number | null;
+  reachCm: number | null;
+  hometown: string;
+  social: any;
+  isActive: boolean;
+}
+
 export interface EventsQueries {
   getById(params: { id: any; }): Promise<Array<EventsGetById>>;
+  test(): Promise<Array<EventsTest>>;
 }
 
 export interface EventQueries {
   getById(params: { id: any; }): Promise<EventsGetById | undefined>;
+  test(): Promise<EventsTest | undefined>;
 }
 
 export interface Card {

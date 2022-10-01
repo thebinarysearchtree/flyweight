@@ -56,6 +56,7 @@ class Database {
     this.mappers = {};
     this.customTypes = {};
     this.columns = {};
+    this.statements = {};
     this.registerTypes([
       {
         name: 'boolean',
@@ -306,12 +307,22 @@ class Database {
     });
   }
 
-  async run(query, params) {
+  async run(query, params, options) {
     if (params === null) {
       params = undefined;
     }
     if (params !== undefined) {
       params = this.adjust(params);
+    }
+    let setCache;
+    if (options && options.cacheName) {
+      const cached = this.statements[options.cacheName];
+      if (cached) {
+        query = cached;
+      }
+      else {
+        setCache = () => this.statements[options.cacheName] = this.prepare(query);
+      }
     }
     if (typeof query === 'string') {
       const sql = query;
@@ -321,6 +332,9 @@ class Database {
             reject(err);
           }
           else {
+            if (setCache) {
+              setCache();
+            }
             resolve(this.changes);
           }
         });
@@ -345,6 +359,16 @@ class Database {
     if (params !== undefined) {
       params = this.adjust(params);
     }
+    let setCache;
+    if (options && options.cacheName) {
+      const cached = this.statements[options.cacheName];
+      if (cached) {
+        query = cached;
+      }
+      else {
+        setCache = () => this.statements[options.cacheName] = this.prepare(query);
+      }
+    }
     const db = this;
     if (typeof query === 'string') {
       const sql = query;
@@ -354,6 +378,9 @@ class Database {
             reject(err);
           }
           else {
+            if (setCache) {
+              setCache();
+            }
             const result = process(db, row, options);
             resolve(result);
           }
@@ -380,6 +407,16 @@ class Database {
     if (params !== undefined) {
       params = this.adjust(params);
     }
+    let setCache;
+    if (options && options.cacheName) {
+      const cached = this.statements[options.cacheName];
+      if (cached) {
+        query = cached;
+      }
+      else {
+        setCache = () => this.statements[options.cacheName] = this.prepare(query);
+      }
+    }
     const db = this;
     if (typeof query === 'string') {
       const sql = query;
@@ -389,6 +426,9 @@ class Database {
             reject(err);
           }
           else {
+            if (setCache) {
+              setCache();
+            }
             const result = process(db, rows, options);
             resolve(result);
           }
