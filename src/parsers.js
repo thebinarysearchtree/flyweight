@@ -1,35 +1,15 @@
-import { toValue, toValues } from './utils.js';
+import { toValues } from './utils.js';
 
-const parseOne = (row, types) => {
-  if (!row) {
-    return row;
-  }
-  if (!types) {
-    return toValue(row);
-  }
-  const result = {};
-  for (const [key, value] of Object.entries(row)) {
-    const parser = types[key];
-    if (parser) {
-      result[key] = parser(value);
-    }
-    else {
-      result[key] = value;
-    }
-  }
-  return toValue(result);
-}
-
-const parseMany = (rows, types) => {
+const parse = (rows, types) => {
   if (rows.length === 0) {
     return rows;
   }
   if (!types) {
-    return toValues(rows);
+    return rows;
   }
   const needsParsing = Object.values(types).some(t => t !== null);
   if (!needsParsing) {
-    return toValues(rows);
+    return rows;
   }
   const results = [];
   for (const row of rows) {
@@ -49,6 +29,5 @@ const parseMany = (rows, types) => {
 }
 
 export {
-  parseOne,
-  parseMany
+  parse
 }

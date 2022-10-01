@@ -6,9 +6,9 @@ const insert = async (db, table, params) => {
   if (params[primaryKey] !== undefined) {
     return await db.run(sql, params);
   }
-  const result = await db.get(`${sql} returning ${primaryKey}`, params);
-  if (result !== undefined) {
-    return result[primaryKey];
+  const results = await db.all(`${sql} returning ${primaryKey}`, params);
+  if (results.length > 0) {
+    return results[0][primaryKey];
   }
   return null;
 }
@@ -163,8 +163,9 @@ const get = async (db, table, query, columns) => {
     sql += ` where ${where}`;
   }
   sql += toKeywords(keywords);
-  const result = await db.get(sql, query);
-  if (result) {
+  const results = await db.all(sql, query);
+  if (results.length > 0) {
+    const result = results[0];
     const adjusted = {};
     const entries = Object.entries(result);
     for (const [key, value] of entries) {
@@ -175,7 +176,7 @@ const get = async (db, table, query, columns) => {
     }
     return adjusted;
   }
-  return result;
+  return null;
 }
 
 const all = async (db, table, query, columns) => {

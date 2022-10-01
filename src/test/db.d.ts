@@ -36,14 +36,14 @@ export type Params<T> = null | Partial<Record<keyof T, any>>;
 export interface SingularQueries<T> {
   insert(params: T): Promise<any>;
   update(query: Params<T> | null, params: RequiredParams<T>): Promise<number>;
-  get(params?: Params<T>): Promise<T | undefined>;
-  get<K extends keyof T>(params: Params<T>, columns: K[]): Promise<Pick<T, K> | undefined>;
-  get<K extends keyof T>(params: Params<T>, column: K): Promise<T[K] | undefined>;
-  get(params: Params<T>, keywords: KeywordsWithoutSelect): Promise<T | undefined>;
+  get(params?: Params<T>): Promise<T | null>;
+  get<K extends keyof T>(params: Params<T>, columns: K[]): Promise<Pick<T, K> | null>;
+  get<K extends keyof T>(params: Params<T>, column: K): Promise<T[K] | null>;
+  get(params: Params<T>, keywords: KeywordsWithoutSelect): Promise<T | null>;
   get(params: Params<T>, keywords: KeywordsWithCount): Promise<number>;
-  get<K extends keyof T>(params: Params<T>, keywords: Keywords<K>): Promise<T[K] | undefined>;
-  get<K extends keyof T>(params: Params<T>, keywords: Keywords<K[]>): Promise<Pick<T, K> | undefined>;
-  get<K extends keyof T>(params: Params<T>, keywords: KeywordsWithExclude<K[]>): Promise<Omit<T, K> | undefined>;
+  get<K extends keyof T>(params: Params<T>, keywords: Keywords<K>): Promise<T[K] | null>;
+  get<K extends keyof T>(params: Params<T>, keywords: Keywords<K[]>): Promise<Pick<T, K> | null>;
+  get<K extends keyof T>(params: Params<T>, keywords: KeywordsWithExclude<K[]>): Promise<Omit<T, K> | null>;
   remove(params?: Params<T>): Promise<number>;
 }
 
@@ -86,7 +86,7 @@ export interface LocationsQueries {
 }
 
 export interface LocationQueries {
-  byMethod(params: { id: any; }): Promise<LocationsByMethod | undefined>;
+  byMethod(params: { id: any; }): Promise<LocationsByMethod | null>;
 }
 
 export interface Event {
@@ -110,26 +110,12 @@ export interface EventsGetById {
   }>;
 }
 
-export interface EventsTest {
-  id: number;
-  name: string;
-  nickname: string | null;
-  born: string | null;
-  heightCm: number | null;
-  reachCm: number | null;
-  hometown: string;
-  social: any;
-  isActive: boolean;
-}
-
 export interface EventsQueries {
   getById(params: { id: any; }): Promise<Array<EventsGetById>>;
-  test(): Promise<Array<EventsTest>>;
 }
 
 export interface EventQueries {
-  getById(params: { id: any; }): Promise<EventsGetById | undefined>;
-  test(): Promise<EventsTest | undefined>;
+  getById(params: { id: any; }): Promise<EventsGetById | null>;
 }
 
 export interface Card {
@@ -190,10 +176,10 @@ export interface FightersQueries {
 }
 
 export interface FighterQueries {
-  common(params: { fighter1: any; fighter2: any; }): Promise<FightersCommon | undefined>;
-  left(): Promise<FightersLeft | undefined>;
-  methods(params: { id: any; }): Promise<FightersMethods | undefined>;
-  right(): Promise<FightersRight | undefined>;
+  common(params: { fighter1: any; fighter2: any; }): Promise<FightersCommon | null>;
+  left(): Promise<FightersLeft | null>;
+  methods(params: { id: any; }): Promise<FightersMethods | null>;
+  right(): Promise<FightersRight | null>;
 }
 
 export interface OtherName {
@@ -235,8 +221,8 @@ export interface MethodsQueries {
 }
 
 export interface MethodQueries {
-  byFighter(params: { fighterId: any; }): Promise<MethodsByFighter | undefined>;
-  topSubmission(): Promise<string | null | undefined>;
+  byFighter(params: { fighterId: any; }): Promise<MethodsByFighter | null>;
+  topSubmission(): Promise<string | null | null>;
 }
 
 export interface Fight {
@@ -277,7 +263,7 @@ export interface FightsQueries {
 }
 
 export interface FightQueries {
-  byFighter(params: { 1: any; id: any; }): Promise<FightsByFighter | undefined>;
+  byFighter(params: { 1: any; id: any; }): Promise<FightsByFighter | null>;
 }
 
 export interface CancelledFight {

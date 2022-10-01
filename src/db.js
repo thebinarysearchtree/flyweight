@@ -1,6 +1,6 @@
 import sqlite3 from 'sqlite3';
-import { toValue, toValues } from './utils.js';
-import { parseOne, parseMany } from './parsers.js';
+import { toValues } from './utils.js';
+import { parse } from './parsers.js';
 import { mapOne, mapMany } from './map.js';
 import { getTables } from './sqlParsers/tables.js';
 import { readFile } from 'fs/promises';
@@ -13,26 +13,40 @@ const process = (db, result, options) => {
   if (!options) {
     return result;
   }
-  let parser, mapper, value;
+  if (result.length === 0) {
+    if (options.result === 'object' || options.result === 'value') {
+      return null;
+    }
+    return result;
+  }
+  let mapper;
   if (options.result === 'object' || options.result === 'value') {
-    parser = parseOne;
     mapper = mapOne;
-    value = toValue;
   }
   else {
-    parser = parseMany;
     mapper = mapMany;
-    value = toValues;
   }
   if (options.result === 'value' || options.result === 'values') {
     if (options.parse) {
-      const parsed = parser(result, options.types);
-      return value(parsed);
+      const parsed = parse(result, options.types);
+      const values = toValues(parsed);
+      if (options.result === 'value') {
+        return values[0];
+      }
+      return values;
     }
-    return value(result);
+    const values = toValues(result);
+    if (options.result === 'value') {
+      return values[0];
+    }
+    return values;
   }
   if (options.parse && !options.map) {
-    return parser(result, options.types);
+    const parsed = parse(result, options.types);
+    if (options.result === 'object') {
+      return parsed[0];
+    }
+    return parsed;
   }
   if (options.map) {
     return mapper(db, result, options.prefixes, options.columns, options.types, options.primaryKeys);
@@ -347,54 +361,6 @@ class Database {
         }
         else {
           resolve(this.changes);
-        }
-      });
-    });
-  }
-
-  async get(query, params, options) {
-    if (params === null) {
-      params = undefined;
-    }
-    if (params !== undefined) {
-      params = this.adjust(params);
-    }
-    let setCache;
-    if (options && options.cacheName) {
-      const cached = this.statements[options.cacheName];
-      if (cached) {
-        query = cached;
-      }
-      else {
-        setCache = () => this.statements[options.cacheName] = this.prepare(query);
-      }
-    }
-    const db = this;
-    if (typeof query === 'string') {
-      const sql = query;
-      return new Promise((resolve, reject) => {
-        this.db.get(sql, params, function (err, row) {
-          if (err) {
-            reject(err);
-          }
-          else {
-            if (setCache) {
-              setCache();
-            }
-            const result = process(db, row, options);
-            resolve(result);
-          }
-        });
-      });
-    }
-    return new Promise((resolve, reject) => {
-      query.get(params, function (err, row) {
-        if (err) {
-          reject(err);
-        }
-        else {
-          const result = process(db, row, options);
-          resolve(result);
         }
       });
     });

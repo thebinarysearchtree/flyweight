@@ -1,23 +1,5 @@
 import pluralize from 'pluralize';
 
-const toValue = (row) => {
-  let result;
-  if (!row) {
-    result = row;
-  }
-  else {
-    const keys = Object.keys(row);
-    if (keys.length === 1) {
-      const key = keys[0];
-      result = row[key];
-    }
-    else {
-      result = row;
-    }
-  }
-  return result;
-}
-
 const toValues = (rows) => {
   if (!rows || rows.length === 0) {
     return rows;
@@ -53,6 +35,5 @@ const joinMany = (tables) => {
 }
 
 export {
-  toValue,
   toValues
 }

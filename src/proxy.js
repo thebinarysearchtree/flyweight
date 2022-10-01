@@ -210,9 +210,6 @@ const makeQueryHandler = (table, db, sqlDir) => {
             if (options.result === 'none') {
               run = db.run;
             }
-            else if (options.result === 'value') {
-              run = db.get;
-            }
             else {
               run = db.all;
             }
