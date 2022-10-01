@@ -39,14 +39,14 @@ const id = await db.coach.insert({
 });
 assert.equal(id, 1);
 const inserted = await db.coach.get({ id: 1 });
-assert.notEqual(inserted, null);
+assert.notEqual(inserted, undefined);
 assert.equal(inserted.city, 'Auckland');
 await db.coach.update({ id: 1 }, { city: 'Brisbane' });
 const updated = await db.coach.get({ id: 1 });
 assert.equal(updated.city, 'Brisbane');
 await db.coach.remove({ id: 1 });
 const removed = await db.coach.get({ id: 1 });
-assert.equal(removed, null);
+assert.equal(removed, undefined);
 const limited = await db.fighters.get(null, { limit: 10 });
 assert.equal(limited.length, 10);
 

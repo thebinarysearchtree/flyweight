@@ -15,7 +15,7 @@ const process = (db, result, options) => {
   }
   if (result.length === 0) {
     if (options.result === 'object' || options.result === 'value') {
-      return null;
+      return undefined;
     }
     return result;
   }

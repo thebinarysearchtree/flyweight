@@ -212,7 +212,7 @@ const getQueries = async (db, sqlDir, tableName, tables) => {
       params
     } = query;
     const multipleReturnType = interfaceName ? `Promise<Array<${interfaceName}>>` : 'Promise<void>';
-    const singularReturnType = interfaceName ? `Promise<${interfaceName} | null>` : 'Promise<void>';
+    const singularReturnType = interfaceName ? `Promise<${interfaceName} | undefined>` : 'Promise<void>';
     let paramInterface = '';
     if (params.length > 0) {
       paramInterface += 'params: { ';

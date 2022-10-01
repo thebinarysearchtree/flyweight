@@ -10,7 +10,7 @@ const insert = async (db, table, params) => {
   if (results.length > 0) {
     return results[0][primaryKey];
   }
-  return null;
+  return undefined;
 }
 
 const insertMany = async (db, table, items) => {
@@ -176,7 +176,7 @@ const get = async (db, table, query, columns) => {
     }
     return adjusted;
   }
-  return null;
+  return undefined;
 }
 
 const all = async (db, table, query, columns) => {
