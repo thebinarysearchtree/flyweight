@@ -70,7 +70,7 @@ class Database {
     this.mappers = {};
     this.customTypes = {};
     this.columns = {};
-    this.statements = {};
+    this.statements = new Map();
     this.registerTypes([
       {
         name: 'boolean',
@@ -111,6 +111,7 @@ class Database {
   async initialize(paths, interfaceName) {
     const { db, sql, tables, types, extensions } = paths;
     this.db = new sqlite3.Database(db);
+    await this.enforceForeignKeys();
     await this.setTables(tables);
     const client = makeClient(this, sql);
     const makeTypes = () => createTypes({
@@ -142,7 +143,7 @@ class Database {
   }
 
   async enforceForeignKeys() {
-    await this.get('pragma foreign_keys = on');
+    await this.basicAll('pragma foreign_keys = on');
   }
 
   async setTables(path) {
@@ -321,6 +322,19 @@ class Database {
     });
   }
 
+  async basicAll(sql) {
+    return new Promise((resolve, reject) => {
+      this.db.all(sql, undefined, function (err, rows) {
+        if (err) {
+          reject(err);
+        }
+        else {
+          resolve(rows);
+        }
+      });
+    });
+  }
+
   async run(query, params, options) {
     if (params === null) {
       params = undefined;
@@ -329,13 +343,20 @@ class Database {
       params = this.adjust(params);
     }
     let setCache;
-    if (options && options.cacheName) {
-      const cached = this.statements[options.cacheName];
+    if (typeof query === 'string') {
+      let key;
+      if (options && options.cacheName) {
+        key = options.cacheName;
+      }
+      else {
+        key = query;
+      }
+      const cached = this.statements.get(key);
       if (cached) {
         query = cached;
       }
       else {
-        setCache = () => this.statements[options.cacheName] = this.prepare(query);
+        setCache = () => this.statements.set(key, this.prepare(query));
       }
     }
     if (typeof query === 'string') {
@@ -346,9 +367,7 @@ class Database {
             reject(err);
           }
           else {
-            if (setCache) {
-              setCache();
-            }
+            setCache();
             resolve(this.changes);
           }
         });
@@ -374,13 +393,20 @@ class Database {
       params = this.adjust(params);
     }
     let setCache;
-    if (options && options.cacheName) {
-      const cached = this.statements[options.cacheName];
+    if (typeof query === 'string') {
+      let key;
+      if (options && options.cacheName) {
+        key = options.cacheName;
+      }
+      else {
+        key = query;
+      }
+      const cached = this.statements.get(key);
       if (cached) {
         query = cached;
       }
       else {
-        setCache = () => this.statements[options.cacheName] = this.prepare(query);
+        setCache = () => this.statements.set(key, this.prepare(query));
       }
     }
     const db = this;
@@ -392,9 +418,7 @@ class Database {
             reject(err);
           }
           else {
-            if (setCache) {
-              setCache();
-            }
+            setCache();
             const result = process(db, rows, options);
             resolve(result);
           }
@@ -409,6 +433,19 @@ class Database {
         else {
           const result = process(db, rows, options);
           resolve(result);
+        }
+      });
+    });
+  }
+
+  async exec(sql) {
+    return new Promise((resolve, reject) => {
+      this.db.exec(sql, function (err) {
+        if (err) {
+          reject(err);
+        }
+        else {
+          resolve();
         }
       });
     });
