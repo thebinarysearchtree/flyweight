@@ -292,6 +292,7 @@ const createTypes = async (options) => {
   }
   const interfaceName = options.interfaceName || 'TypedDb';
   types += `export interface ${interfaceName} {\n`;
+  types += '  [key: string]: any,\n';
   types += returnTypes.join(',\n');
   types += '\n}\n\n';
   if (/\.d\.ts/.test(destinationPath)) {

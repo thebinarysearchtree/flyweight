@@ -34,6 +34,7 @@ export type RequiredParams<T> = Partial<Record<keyof T, any>>;
 export type Params<T> = null | Partial<Record<keyof T, any>>;
 
 export interface SingularQueries<T> {
+  [key: string]: any;
   insert(params: T): Promise<any>;
   update(query: Params<T> | null, params: RequiredParams<T>): Promise<number>;
   get(params?: Params<T>): Promise<T | undefined>;
@@ -48,6 +49,7 @@ export interface SingularQueries<T> {
 }
 
 export interface MultipleQueries<T> {
+  [key: string]: any;
   insert(params: Array<T>): Promise<void>;
   update(query: Params<T> | null, params: RequiredParams<T>): Promise<number>;
   get(params?: any): Promise<Array<T>>;
