@@ -163,7 +163,19 @@ export {
 
 After you have done this:
 1. create the ```initial.sql``` and add some tables.
-2. create a new JavaScript file and import the ```makeTypes``` function, and then run it without any arguments. This should create a ```db.d.ts``` file that will type the exported ```db``` variable.
+2. create a new JavaScript file and import the ```makeTypes``` function, and then run it without any arguments as:
+
+```js
+await makeTypes();
+```
+
+or as 
+
+```js
+await makeTypes({ watch: true });
+``` 
+
+if you want it to stay open and run every time a SQL file is changed. This should create a ```db.d.ts``` file that will type the exported ```db``` variable.
 
 For TypeScript, create a file with the following code:
 
@@ -193,7 +205,7 @@ export {
 }
 ```
 
-When you first run this code, remove all of the references to ```TypedDb``` because it does not exist yet. Import ```makeTypes``` into another file and run (it has no arguments) to generate the ```types.ts``` file and then put the ```TypedDb``` references back. Before you do that though, you need to add some ```create table``` statements to the file specified in the ```tables``` argument so that there are some types to generate.
+When you first run this code, remove all of the references to ```TypedDb``` because it does not exist yet. Import ```makeTypes``` into another file and run to generate the ```types.ts``` file and then put the ```TypedDb``` references back. Before you do that though, you need to add some ```create table``` statements to the file specified in the ```tables``` argument so that there are some types to generate.
 
 The ```initialize``` method's ```path``` object has the following properties:
 
@@ -201,7 +213,7 @@ The ```initialize``` method's ```path``` object has the following properties:
 
 ```sql```: A path to a folder for storing SQL files.
 
-```tables```: A path to a SQL file containing the ```create table``` statements that define your database schema.
+```tables```: A path to a SQL file containing the ```create table``` statements that define your database schema. This file should be placed in the root of the ```sql``` path.
 
 ```types```: If you are using JavaScript, this should be a path to a file that is in the same location as ```db.js```. If you are using TypeScript, this can be any path. This file should not exist yet. It will be created by the ```makeTypes``` function.
 

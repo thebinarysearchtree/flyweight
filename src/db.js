@@ -8,6 +8,7 @@ import { getFragments } from './sqlParsers/tables.js';
 import { blank } from './sqlParsers/utils.js';
 import { makeClient } from './proxy.js';
 import { createTypes } from './sqlParsers/types.js';
+import { watch } from 'chokidar';
 
 const process = (db, result, options) => {
   if (!options) {
@@ -114,13 +115,34 @@ class Database {
     await this.enforceForeignKeys();
     await this.setTables(tables);
     const client = makeClient(this, sql);
-    const makeTypes = () => createTypes({
-      db: this,
-      sqlDir: sql,
-      createTablePath: tables,
-      destinationPath: types,
-      interfaceName
-    });
+    const makeTypes = async (options) => {
+      const run = async () => {
+        await createTypes({
+          db: this,
+          sqlDir: sql,
+          createTablePath: tables,
+          destinationPath: types,
+          interfaceName
+        });
+      }
+      if (options && options.watch) {
+        const watchRun = async (path) => {
+          try {
+            await run();
+          }
+          catch {
+            console.log(`Error trying to parse ${path}`);
+          }
+        }
+        await watchRun();
+        watch(sql)
+          .on('add', watchRun)
+          .on('change', watchRun);
+      }
+      else {
+        await run();
+      }
+    }
     const getTables = async () => {
       const sql = await readFile(tables, 'utf8');
       return this.convertTables(sql);

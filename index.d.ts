@@ -24,7 +24,7 @@ export interface Paths {
 
 export interface Initialize<T> {
   db: T;
-  makeTypes(): Promise<void>;
+  makeTypes(options?: { watch: boolean }): Promise<void>;
   getTables(): Promise<string>;
 }
 
