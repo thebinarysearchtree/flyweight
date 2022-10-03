@@ -293,7 +293,12 @@ const createTypes = async (options) => {
   const interfaceName = options.interfaceName || 'TypedDb';
   types += `export interface ${interfaceName} {\n`;
   types += '  [key: string]: any,\n';
-  types += returnTypes.join(',\n');
+  for (const returnType of returnTypes) {
+    types += returnType + ',\n';
+  }
+  types += '  begin(): Promise<void>,\n';
+  types += '  commit(): Promise<void>,\n';
+  types += '  rollback(): Promise<void>';
   types += '\n}\n\n';
   if (/\.d\.ts/.test(destinationPath)) {
     types += `declare const db: ${interfaceName};\n\n`;

@@ -472,6 +472,19 @@ class Database {
       });
     });
   }
+
+  async close() {
+    return new Promise((resolve, reject) => {
+      this.db.close(function (err) {
+        if (err) {
+          reject(err);
+        }
+        else {
+          resolve();
+        }
+      });
+    });
+  }
 }
 
 export default Database;

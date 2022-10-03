@@ -314,7 +314,10 @@ export interface TypedDb {
   cancelledFights: MultipleQueries<CancelledFight>,
   cancelledFight: SingularQueries<CancelledFight>,
   titleRemovals: MultipleQueries<TitleRemoval>,
-  titleRemoval: SingularQueries<TitleRemoval>
+  titleRemoval: SingularQueries<TitleRemoval>,
+  begin(): Promise<void>,
+  commit(): Promise<void>,
+  rollback(): Promise<void>
 }
 
 declare const db: TypedDb;
