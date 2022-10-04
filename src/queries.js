@@ -1,5 +1,8 @@
 const insert = async (db, table, params) => {
+  const columnSet = db.columnSets[table];
+  const verify = makeVerify(table, columnSet);
   const columns = Object.keys(params);
+  verify(columns);
   const placeholders = columns.map(c => `$${c}`);
   const sql = `insert into ${table}(${columns.join(', ')}) values(${placeholders.join(', ')})`;
   const primaryKey = db.getPrimaryKey(table);
@@ -17,8 +20,11 @@ const insertMany = async (db, table, items) => {
   if (items.length === 0) {
     return;
   }
+  const columnSet = db.columnSets[table];
+  const verify = makeVerify(table, columnSet);
   const sample = items[0];
   const columns = Object.keys(sample);
+  verify(columns);
   const placeholders = columns.map(c => `$${c}`);
   const sql = `insert into ${table}(${columns.join(', ')}) values(${placeholders.join(', ')})`;
   const statement = db.prepare(sql);
@@ -35,7 +41,7 @@ const insertMany = async (db, table, items) => {
   }
 }
 
-const toClause = (query) => {
+const toClause = (query, verify) => {
   if (!query) {
     return null;
   }
@@ -44,6 +50,7 @@ const toClause = (query) => {
     return null;
   }
   return entries.map(([column, param]) => {
+    verify(column);
     if (Array.isArray(param)) {
       return `${column} in (select json_each.value from json_each($${column}))`;
     }
@@ -71,10 +78,14 @@ const removeNulls = (query) => {
 }
 
 const update = async (db, table, query, params) => {
-  const set = Object.keys(params).map(param => `${param} = $${param}`).join(', ');
+  const columnSet = db.columnSets[table];
+  const verify = makeVerify(table, columnSet);
+  const keys = Object.keys(params);
+  verify(keys);
+  const set = keys.map(param => `${param} = $${param}`).join(', ');
   let sql;
   if (query) {
-    const where = toClause(query);
+    const where = toClause(query, verify);
     query = removeNulls(query);
     sql = `update ${table} set ${set} where ${where}`;
   }
@@ -84,12 +95,32 @@ const update = async (db, table, query, params) => {
   return await db.run(sql, { ...params, ...query });
 }
 
-const toSelect = (columns, keywords, table, db) => {
+const makeVerify = (table, columnSet) => {
+  return (column) => {
+    if (typeof column === 'string') {
+      if (!columnSet.has(column)) {
+        throw Error(`Column ${column} does not exist on table ${table}`);
+      }
+    }
+    else {
+      const columns = column;
+      for (const column of columns) {
+        if (!columnSet.has(column)) {
+          throw Error(`Column ${column} does not exist on table ${table}`);
+        }
+      }
+    }
+  }
+}
+
+const toSelect = (columns, keywords, table, db, verify) => {
   if (columns) {
     if (typeof columns === 'string') {
+      verify(columns);
       return columns;
     }
     if (Array.isArray(columns) && columns.length > 0) {
+      verify(columns);
       return columns.join(', ');
     }
     if (keywords && keywords.count) {
@@ -98,9 +129,11 @@ const toSelect = (columns, keywords, table, db) => {
     if (keywords && keywords.select) {
       const select = keywords.select;
       if (typeof select === 'string') {
+        verify(select);
         return select;
       }
       if (Array.isArray(select) && select.length > 0) {
+        verify(select);
         return select.join(', ');
       }
       return '*';
@@ -121,11 +154,12 @@ const toSelect = (columns, keywords, table, db) => {
   }
 }
 
-const toKeywords = (keywords) => {
+const toKeywords = (keywords, verify) => {
   let sql = '';
   if (keywords) {
     if (keywords.orderBy) {
       let orderBy = keywords.orderBy;
+      verify(orderBy);
       if (Array.isArray(orderBy)) {
         orderBy = orderBy.join(', ');
       }
@@ -149,20 +183,22 @@ const toKeywords = (keywords) => {
 }
 
 const get = async (db, table, query, columns) => {
+  const columnSet = db.columnSets[table];
+  const verify = makeVerify(table, columnSet);
   const keywords = columns && typeof columns !== 'string' && !Array.isArray(columns) ? columns : null;
-  const select = toSelect(columns, keywords, table, db);
+  const select = toSelect(columns, keywords, table, db, verify);
   const returnValue = typeof columns === 'string' || (keywords && typeof keywords.select === 'string') || (keywords && keywords.count);
   let sql = 'select ';
   if (keywords && keywords.distinct) {
     sql += 'distinct ';
   }
   sql += `${select} from ${table}`;
-  const where = toClause(query);
+  const where = toClause(query, verify);
   query = removeNulls(query);
   if (where) {
     sql += ` where ${where}`;
   }
-  sql += toKeywords(keywords);
+  sql += toKeywords(keywords, verify);
   const results = await db.all(sql, query);
   if (results.length > 0) {
     const result = results[0];
@@ -180,20 +216,22 @@ const get = async (db, table, query, columns) => {
 }
 
 const all = async (db, table, query, columns) => {
+  const columnSet = db.columnSets[table];
+  const verify = makeVerify(table, columnSet);
   const keywords = columns && typeof columns !== 'string' && !Array.isArray(columns) ? columns : null;
-  const select = toSelect(columns, keywords, table, db);
+  const select = toSelect(columns, keywords, table, db, verify);
   const returnValue = typeof columns === 'string' || (keywords && typeof keywords.select === 'string') || (keywords && keywords.count);
   let sql = 'select ';
   if (keywords && keywords.distinct) {
     sql += 'distinct ';
   }
   sql += `${select} from ${table}`;
-  const where = toClause(query);
+  const where = toClause(query, verify);
   query = removeNulls(query);
   if (where) {
     sql += ` where ${where}`;
   }
-  sql += toKeywords(keywords);
+  sql += toKeywords(keywords, verify);
   const rows = await db.all(sql, query);
   if (rows.length === 0) {
     return rows;
@@ -223,8 +261,10 @@ const all = async (db, table, query, columns) => {
 }
 
 const remove = async (db, table, query) => {
+  const columnSet = db.columnSets[table];
+  const verify = makeVerify(table, columnSet);
   let sql = `delete from ${table}`;
-  const where = toClause(query);
+  const where = toClause(query, verify);
   query = removeNulls(query);
   if (where) {
     sql += ` where ${where}`;

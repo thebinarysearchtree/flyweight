@@ -12,7 +12,7 @@ select
     l.name
 from
     fights f join
-    fighters o on case when f.redId = $1 then f.blueId = o.id else f.redId = o.id end join
+    fighters o on case when f.redId = $id then f.blueId = o.id else f.redId = o.id end join
     fighters bf on f.blueId = bf.id join
     methods m on f.methodId = m.id join
     cards c on f.cardId = c.id join

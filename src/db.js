@@ -68,6 +68,7 @@ class Database {
   constructor() {
     this.db = null;
     this.tables = {};
+    this.columnSets = {};
     this.mappers = {};
     this.customTypes = {};
     this.columns = {};
@@ -173,6 +174,7 @@ class Database {
     const tables = getTables(sql);
     for (const table of tables) {
       this.tables[table.name] = table.columns;
+      this.columnSets[table.name] = table.columnSet;
       this.columns[table.name] = {};
       for (const column of table.columns) {
         this.columns[table.name][column.name] = column.type;

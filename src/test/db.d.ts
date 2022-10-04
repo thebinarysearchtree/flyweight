@@ -261,11 +261,11 @@ export interface FightsByFighter {
 }
 
 export interface FightsQueries {
-  byFighter(params: { 1: any; id: any; }): Promise<Array<FightsByFighter>>;
+  byFighter(params: { id: any; }): Promise<Array<FightsByFighter>>;
 }
 
 export interface FightQueries {
-  byFighter(params: { 1: any; id: any; }): Promise<FightsByFighter | undefined>;
+  byFighter(params: { id: any; }): Promise<FightsByFighter | undefined>;
 }
 
 export interface CancelledFight {
