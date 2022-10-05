@@ -78,7 +78,7 @@ This returns an object that looks like this:
   id: 100,
   name: 'UFC 78: Validation',
   cards: [
-    { id: 247, cardName: 'Main card (PPV)', fights: [Array] },
+    { id: 247, cardName: 'Main card', fights: [Array] },
     { id: 248, cardName: 'Preliminary card', fights: [Array] }
   ]
 }
@@ -422,3 +422,5 @@ node migrate.js <migrationName>
 ```
 
 replacing ```migrationName``` with the name you want to call your migration. If no name is supplied, it will print the migration to the console. If a name is suppplied and the function created a migration, it will also create or update a file called ```lastTables.sql```, which is used to record the state of the table definitions the last time the migration function was run so that it can compare it with the current table definitions.
+
+The SQL created by the migration may need adjusting, so make sure you check the file before you apply it to the database. If you want to add a new column to a table without needing to drop the table, make sure you put the column at the end of the list of columns. Otherwise, Flyweight will try to maintain the order of the columns by creating a temporary table, dropping the existing table, and then renaming the temporary table.
