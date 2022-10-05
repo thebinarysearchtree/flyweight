@@ -126,7 +126,7 @@ const migrate = async (db, tablesPath, migrationPath, migrationName) => {
     }
     if (!sameName) {
       actionedCurrentTables.push(table.name);
-      migrations.push(table.sql);
+      tableMigrations.push(table.sql);
       continue;
     }
     const currentColumns = table.columns.map(c => c.name);
@@ -199,6 +199,11 @@ const migrate = async (db, tablesPath, migrationPath, migrationName) => {
       migration += `alter table ${tempName} rename to ${table.name};\n`;
       migration += `pragma foreign_key_check;\n`;
       tableMigrations.push(migration);
+    }
+  }
+  for (const table of lastTables) {
+    if (!actionedLastTables.includes(table.name)) {
+      tableMigrations.push(`drop table ${table.name};`);
     }
   }
   for (const tableMigration of tableMigrations) {
