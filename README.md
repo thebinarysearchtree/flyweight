@@ -128,6 +128,8 @@ If you wanted to create a nested object inside an object (such as the ```red``` 
 
 The ```social``` property is an object because in the ```fighters``` table, it is defined with the type ```json```, which is automatically parsed into an object.
 
+In the example above, ```eventName``` is turned into ```name```. This is because the ORM tries to return the column name to the original name if the original name is shorter than the alias and the alias was only created to avoid a clash of names that no longer exists after the mapping has occurred.
+
 ## Getting started
 
 ```

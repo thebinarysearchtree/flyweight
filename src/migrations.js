@@ -30,7 +30,8 @@ const getIndexMigrations = (currentIndexes, lastIndexes) => {
 }
 
 const getTables = (sql) => {
-  const tableMatches = blank(sql, { stringsOnly: true }).matchAll(/^\s*create table (?<tableName>[^\s]+)\s+\((?<columns>[^;]+)\);/gmid);
+  const tables = [];
+  const tableMatches = blank(sql, { stringsOnly: true }).matchAll(/^\s*create table (?<tableName>[^\s]+)\s+\((?<columns>[^;]+)\)\s+strict;/gmid);
   for (const tableMatch of tableMatches) {
     const tableName = tableMatch.groups.tableName;
     const [tableStart, tableEnd] = tableMatch.indices[0];
@@ -44,7 +45,7 @@ const getTables = (sql) => {
     for (const columnMatch of columnMatches) {
       const [start, end] = columnMatch.indices.groups.column;
       const text = columnText.substring(start, end);
-      const adjusted = text.replaceAll(/\s+/, ' ').trim();
+      let adjusted = text.replaceAll(/\s+/gm, ' ').replace(/,$/, '').trim();
       const columnName = adjusted.split(' ')[0];
       const rest = adjusted.replace(columnName, '').trim();
       if (['unique', 'check', 'primary', 'foreign'].includes(columnName)) {
@@ -66,6 +67,7 @@ const getTables = (sql) => {
       constraints
     });
   }
+  return tables;
 }
 
 const migrate = async (db, tablesPath, migrationPath, migrationName) => {
@@ -166,7 +168,7 @@ const migrate = async (db, tablesPath, migrationPath, migrationName) => {
       break;
     }
     if (actionedCurrentColumns.length !== currentColumns.length) {
-      const columns = currentColumns
+      const columns = table.columns
         .map((c, i) => ({ 
           index: i, 
           column: c, 
@@ -179,7 +181,7 @@ const migrate = async (db, tablesPath, migrationPath, migrationName) => {
       }
       else {
         for (const column of columns.map(c => c.column)) {
-          migrations.push(`alter table ${table.name} add column ${column.sql}`);
+          migrations.push(`alter table ${table.name} add column ${column.sql};`);
         }
       }
     }
@@ -188,8 +190,28 @@ const migrate = async (db, tablesPath, migrationPath, migrationName) => {
     }
     else {
       let migration = '';
-      migration += 'pragma foreign_keys = off;\n';
-      migration += 'begin;\n';
+      const tempName = table.name + '_new';
+      migration += table.sql.replace(/(^\s*create\s+table\s+)([a-zA-Z0-9_]+)(\s*\()/gmi, '$1$2_new$3');
+      migration += '\n\n';
+      const columns = sameName.columns.filter(c => currentColumns.includes(c.name)).map(c => `    ${c.name}`);
+      migration += `insert into ${tempName} select\n${columns.join(',\n')}\nfrom ${table.name};\n\n`;
+      migration += `drop table ${table.name};\n`;
+      migration += `alter table ${tempName} rename to ${table.name};\n`;
+      migration += `pragma foreign_key_check;\n`;
+      tableMigrations.push(migration);
     }
   }
+  for (const tableMigration of tableMigrations) {
+    console.log(tableMigration);
+  }
+  for (const columnMigration of columnMigrations) {
+    console.log(columnMigration);
+  }
+  for (const indexMigration of indexMigrations) {
+    console.log(indexMigration);
+  }
+}
+
+export {
+  migrate
 }
