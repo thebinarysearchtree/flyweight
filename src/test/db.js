@@ -10,16 +10,19 @@ const result = await database.initialize({
   sql: `${testPath}/sql`,
   tables: `${testPath}/sql/initial.sql`,
   types: `${testPath}/db.d.ts`,
+  migrations: `${testPath}/migrations`,
   extensions: `${dbPath}/regexp.dylib`
 });
 
 const db = result.db;
 const makeTypes = result.makeTypes;
 const getTables = result.getTables;
+const createMigration = result.createMigration;
 
 export {
   database,
   db,
   makeTypes,
-  getTables
+  getTables,
+  createMigration
 }

@@ -72,21 +72,28 @@ const getTables = (sql) => {
 }
 
 const migrate = async (db, tablesPath, migrationPath, migrationName) => {
-  const outputPath = join(migrationPath, `${new Date().getTime()}_${migrationName}.sql`);
+  const outputPath = join(migrationPath, `${migrationName}.sql`);
+  const lastTablesPath = join(migrationPath, 'lastTables.sql');
   const currentSql = await readFile(tablesPath, 'utf8');
   const current = db.convertTables(currentSql);
   const blankedCurrent = blank(current);
   let last;
   let blankedLast;
   try {
-    const path = join(migrationPath, 'lastTables.sql');
-    const lastSql = await readFile(path, 'utf8');
+    const lastSql = await readFile(lastTablesPath, 'utf8');
     last = db.convertTables(lastSql);
     blankedLast = blank(last);
   }
   catch {
-    await writeFile(outputPath, current, 'utf8');
-    return 'Migration succeeded';
+    if (migrationName) {
+      await writeFile(outputPath, current, 'utf8');
+      await writeFile(lastTablesPath, currentSql, 'utf8');
+      console.log('Migration created.');
+      process.exit();
+    }
+    else {
+      console.log(current);
+    }
   }
   const currentIndexes = getIndexes(current, blankedCurrent);
   const lastIndexes = getIndexes(last, blankedLast);
@@ -187,7 +194,6 @@ const migrate = async (db, tablesPath, migrationPath, migrationName) => {
     }
     actionedLastTables.push(table.name);
     if (!recreate) {
-      //actionedLastTables.push(table.name);
       columnMigrations.push(...migrations);
     }
     else {
@@ -213,14 +219,27 @@ const migrate = async (db, tablesPath, migrationPath, migrationName) => {
       tableMigrations.push(`drop table ${table.name};`);
     }
   }
-  for (const tableMigration of tableMigrations) {
-    console.log(tableMigration);
+  let migrations = '';
+  migrations += tableMigrations.join('\n');
+  migrations += columnMigrations.join('\n');
+  migrations += indexMigrations.join('\n');
+  if (migrations === '') {
+    console.log('No changes were detected.');
+    process.exit();
   }
-  for (const columnMigration of columnMigrations) {
-    console.log(columnMigration);
+  if (migrationName) {
+    try {
+      await readFile(outputPath, 'utf8');
+      console.log(`${outputPath} already exists.`);
+    }
+    catch {
+      await writeFile(outputPath, migrations, 'utf8');
+      await writeFile(lastTablesPath, currentSql, 'utf8');
+      console.log('Migration created.');
+    }
   }
-  for (const indexMigration of indexMigrations) {
-    console.log(indexMigration);
+  else {
+    console.log(migrations);
   }
 }
 

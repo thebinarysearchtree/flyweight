@@ -148,18 +148,21 @@ const result = await database.initialize({
   sql: '/path/sql',
   tables: '/path/initial.sql',
   types: '/path/db.d.ts',
+  migrations: '/path/migrations',
   extensions: '/path/regexp.dylib'
 });
 
 const db = result.db;
 const makeTypes = result.makeTypes;
 const getTables = result.getTables;
+const createMigration = result.createMigration;
 
 export {
   database,
   db,
   makeTypes,
-  getTables
+  getTables,
+  createMigration
 }
 ```
 
@@ -192,18 +195,21 @@ const result = await database.initialize<TypedDb>({
   sql: '/path/sql',
   tables: '/path/initial.sql',
   types: '/path/types.ts',
+  migrations: '/path/migrations',
   extensions: '/path/regexp.dylib'
 });
 
 const db = result.db;
 const makeTypes = result.makeTypes;
 const getTables = result.getTables;
+const createMigration = result.createMigration;
 
 export {
   database,
   db,
   makeTypes,
-  getTables
+  getTables,
+  createMigration
 }
 ```
 
@@ -220,6 +226,8 @@ The ```initialize``` method's ```path``` object has the following properties:
 ```types```: If you are using JavaScript, this should be a path to a file that is in the same location as ```db.js```. If you are using TypeScript, this can be any path. This file should not exist yet. It will be created by the ```makeTypes``` function.
 
 ```extensions```: A string or array of strings of SQLite extensions that will be loaded each time a connection is made to the database.
+
+```migrations```: A path to the migrations folder. When you run ```createMigration```, the SQL files will be created in this folder.
 
 ```initialize``` also takes an optional second argument, ```interfaceName```, which is a string that can be used instead of ```TypedDb```. This is useful if you have more than one database.
 
@@ -396,3 +404,21 @@ const fighters = await db.fighters.get({ isActive: true }, {
 ```js
 const changes = await db.fighters.remove({ id: 100 });
 ```
+
+## Migrations
+
+The ```initialize``` method mentioned earlier returns a function called ```createMigration```. It takes one optional argument: ```name```. If ```name``` is not supplied, it will print the migration to the console instead of writing it to a file. Otherwise, a file will be created in the ```migrations``` directory with the format ```name.sql```. You can import the ```createMigration``` function into a new file like this:
+
+```js
+import { createMigration } from './db.js';
+
+await createMigration(process.argv[2]);
+```
+
+and run it from the command line like this:
+
+```
+node migrate.js <migrationName>
+```
+
+replacing ```migrationName``` with the name you want to call your migration. If no name is supplied, it will print the migration to the console. If a name is suppplied and the function created a migration, it will also create or update a file called ```lastTables.sql```, which is used to record the state of the table definitions the last time the migration function was run so that it can compare it with the current table definitions.

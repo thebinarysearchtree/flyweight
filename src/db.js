@@ -9,6 +9,7 @@ import { blank } from './sqlParsers/utils.js';
 import { makeClient } from './proxy.js';
 import { createTypes } from './sqlParsers/types.js';
 import { watch } from 'chokidar';
+import { migrate } from './migrations.js';
 
 const process = (db, result, options) => {
   if (!options) {
@@ -111,7 +112,7 @@ class Database {
   }
 
   async initialize(paths, interfaceName) {
-    const { db, sql, tables, types, extensions } = paths;
+    const { db, sql, tables, types, migrations, extensions } = paths;
     this.db = new sqlite3.Database(db);
     await this.enforceForeignKeys();
     await this.setTables(tables);
@@ -148,6 +149,9 @@ class Database {
       const sql = await readFile(tables, 'utf8');
       return this.convertTables(sql);
     }
+    const createMigration = async (name) => {
+      await migrate(this, tables, migrations, name);
+    }
     if (extensions) {
       if (typeof extensions === 'string') {
         await this.loadExtension(extensions);
@@ -161,7 +165,8 @@ class Database {
     return {
       db: client,
       makeTypes,
-      getTables
+      getTables,
+      createMigration
     }
   }
 
