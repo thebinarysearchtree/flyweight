@@ -3,13 +3,14 @@ import { join } from 'path';
 import { blank } from './sqlParsers/utils.js';
 
 const getIndexes = (statements, blanked) => {
-  const pattern = /^create (unique )?index (if not exists )?(?<indexName>[a-z0-9_]+) on [^;]+;/gmid;
+  const pattern = /^create (unique )?index (if not exists )?(?<indexName>[a-z0-9_]+) on (?<tableName>[a-z0-9_]+)\([^;]+;/gmid;
   const indexes = [];
   for (const match of blanked.matchAll(pattern)) {
     const [start, end] = match.indices[0];
     const sql = statements.substring(start, end);
     const name = match.groups.indexName;
-    indexes.push({ name, sql });
+    const table = match.groups.tableName;
+    indexes.push({ name, table, sql });
   }
   return indexes;
 }
@@ -93,7 +94,6 @@ const migrate = async (db, tablesPath, migrationPath, migrationName) => {
   const currentTables = getTables(current);
   const currentNames = currentTables.map(t => t.name);
   const lastTables = getTables(last);
-  const lastNames = lastTables.map(l => l.name);
   const tableMigrations = [];
   const columnMigrations = [];
   const actionedCurrentTables = [];
@@ -109,13 +109,13 @@ const migrate = async (db, tablesPath, migrationPath, migrationName) => {
     const sameName = lastTables.find(t => t.name === table.name);
     const sameColumns = lastTables.filter(t => t.columnText === table.columnText);
     if (!sameName && sameColumns.length > 0) {
-      const notCurrent = sameColumns.filter(t => !currentNames.includes(t.name));
-      if (notCurrent.length === 1) {
+      const notCurrent = sameColumns.filter(t => !actionedCurrentTables.includes(t.name) && !currentNames.includes(t.name));
+      if (notCurrent.length > 0) {
         const oldName = notCurrent[0].name;
         const newName = table.name;
         actionedCurrentTables.push(newName);
         actionedLastTables.push(oldName);
-        migrations.push(`alter table ${oldName} rename to ${newName};`);
+        tableMigrations.push(`alter table ${oldName} rename to ${newName};`);
         continue;
       }
       else {
@@ -144,8 +144,8 @@ const migrate = async (db, tablesPath, migrationPath, migrationName) => {
       const sameName = table.columns.find(c => c.name === column.name);
       const sameRest = table.columns.filter(c => c.rest === column.rest);
       if (!sameName && sameRest.length > 0) {
-        const notCurrent = sameRest.filter(c => !currentColumns.includes(c.name));
-        if (notCurrent.length === 1) {
+        const notCurrent = sameRest.filter(c => !actionedCurrentColumns.includes(c.name) && !lastColumns.includes(c.name));
+        if (notCurrent.length > 0) {
           const oldName = column.name;
           const newName = notCurrent[0].name;
           actionedCurrentColumns.push(newName);
@@ -185,10 +185,13 @@ const migrate = async (db, tablesPath, migrationPath, migrationName) => {
         }
       }
     }
+    actionedLastTables.push(table.name);
     if (!recreate) {
+      //actionedLastTables.push(table.name);
       columnMigrations.push(...migrations);
     }
     else {
+      const indexes = currentIndexes.filter(i => i.table === table.name);
       let migration = '';
       const tempName = table.name + '_new';
       migration += table.sql.replace(/(^\s*create\s+table\s+)([a-zA-Z0-9_]+)(\s*\()/gmi, '$1$2_new$3');
@@ -197,6 +200,10 @@ const migrate = async (db, tablesPath, migrationPath, migrationName) => {
       migration += `insert into ${tempName} select\n${columns.join(',\n')}\nfrom ${table.name};\n\n`;
       migration += `drop table ${table.name};\n`;
       migration += `alter table ${tempName} rename to ${table.name};\n`;
+      for (const index of indexes) {
+        migration += index.sql;
+        migration += '\n';
+      }
       migration += `pragma foreign_key_check;\n`;
       tableMigrations.push(migration);
     }
