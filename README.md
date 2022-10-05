@@ -45,7 +45,7 @@ By using conventions, Flyweight is able to automatically map SQL statements into
 
 ```sql
 select
-    e.id as eventId,
+    e.id,
     e.name as eventName,
     c.id as cardId,
     c.cardName,
@@ -107,7 +107,7 @@ With each fight in the fights array looking like this:
 Now let's look at how Flyweight does this without you having to specify any mapping code. It all comes down to the select statement:
 
 ```sql
-  e.id as eventId,          // primary key
+  e.id,                     // primary key
   e.name as eventName,
   c.id as cardId,           // primary key
   c.cardName,
