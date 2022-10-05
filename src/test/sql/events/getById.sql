@@ -1,5 +1,5 @@
 select
-    e.id as eventId,
+    e.id,
     e.name as eventName,
     c.id as cardId,
     c.cardName,

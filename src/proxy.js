@@ -98,7 +98,8 @@ const makeOptions = (columns, db) => {
   const primaryKeys = [];
   let i = 0;
   let revertMap = {};
-  const primaryKeyCount = columns.filter(c => c.primaryKey && /[a-z][A-Z]/.test(c.name)).length;
+  const primaryKeyCount = new Set(columns.filter(c => c.primaryKey).map(c => c.tableName)).size;
+  let lastPrimaryKey;
   for (const column of columns) {
     const rename = column.rename && primaryKeyCount > 1 && column.originalName.length < column.name.length;
     const columnName = rename ? column.originalName : column.name;
@@ -110,7 +111,18 @@ const makeOptions = (columns, db) => {
       }
       typeMap[column.name] = converter;
     }
-    if (column.primaryKey && /[a-z][A-Z]/.test(column.name)) {
+    if (column.primaryKey) {
+      if (lastPrimaryKey) {
+        if (lastPrimaryKey.index === i - 1 && lastPrimaryKey.tableName === column.tableName) {
+          lastPrimaryKey.index = i;
+          i++;
+          continue;
+        }
+      }
+      lastPrimaryKey = {
+        tableName: column.tableName,
+        index: i
+      };
       primaryKeys.push({
         name: column.name,
         index: i
