@@ -18,6 +18,7 @@ export interface Paths {
   db: string;
   sql?: string;
   tables: string;
+  views?: string;
   types?: string;
   migrations?: string;
   extensions?: string | Array<string>;
