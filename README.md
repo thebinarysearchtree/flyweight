@@ -194,7 +194,8 @@ const database = new Database();
 const result = await database.initialize<TypedDb>({
   db: '/path/test.db',
   sql: '/path/sql',
-  tables: '/path/initial.sql',
+  tables: '/path/tables.sql',
+  views: '/path/views',
   types: '/path/types.ts',
   migrations: '/path/migrations',
   extensions: '/path/regexp.dylib'
