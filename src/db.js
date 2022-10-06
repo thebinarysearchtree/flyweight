@@ -1,5 +1,5 @@
 import sqlite3 from 'sqlite3';
-import { toValues } from './utils.js';
+import { toValues, readSql } from './utils.js';
 import { parse } from './parsers.js';
 import { mapOne, mapMany } from './map.js';
 import { getTables } from './sqlParsers/tables.js';
@@ -10,6 +10,7 @@ import { makeClient } from './proxy.js';
 import { createTypes } from './sqlParsers/types.js';
 import { watch } from 'chokidar';
 import { migrate } from './migrations.js';
+import { getViews } from './sqlParsers/views.js';
 
 const process = (db, result, options) => {
   if (!options) {
@@ -74,6 +75,7 @@ class Database {
     this.customTypes = {};
     this.columns = {};
     this.statements = new Map();
+    this.views = {};
     this.registerTypes([
       {
         name: 'boolean',
@@ -112,17 +114,19 @@ class Database {
   }
 
   async initialize(paths, interfaceName) {
-    const { db, sql, tables, types, migrations, extensions } = paths;
+    const { db, sql, tables, views, types, migrations, extensions } = paths;
     this.db = new sqlite3.Database(db);
     await this.enforceForeignKeys();
     await this.setTables(tables);
+    if (views) {
+      await this.setViews(views);
+    }
     const client = makeClient(this, sql);
     const makeTypes = async (options) => {
       const run = async () => {
         await createTypes({
           db: this,
           sqlDir: sql,
-          createTablePath: tables,
           destinationPath: types,
           interfaceName
         });
@@ -137,7 +141,11 @@ class Database {
           }
         }
         await watchRun();
-        watch(sql)
+        const files = [sql, tables];
+        if (views) {
+          files.push(views);
+        }
+        watch(files)
           .on('add', watchRun)
           .on('change', watchRun);
       }
@@ -150,7 +158,7 @@ class Database {
       return this.convertTables(sql);
     }
     const createMigration = async (name) => {
-      await migrate(this, tables, migrations, name);
+      await migrate(this, tables, views, migrations, name);
     }
     if (extensions) {
       if (typeof extensions === 'string') {
@@ -175,7 +183,7 @@ class Database {
   }
 
   async setTables(path) {
-    const sql = await readFile(path, 'utf8');
+    const sql = await readSql(path);
     const tables = getTables(sql);
     for (const table of tables) {
       this.tables[table.name] = table.columns;
@@ -183,6 +191,19 @@ class Database {
       this.columns[table.name] = {};
       for (const column of table.columns) {
         this.columns[table.name][column.name] = column.type;
+      }
+    }
+  }
+
+  async setViews(path) {
+    const sql = await readSql(path);
+    const views = getViews(sql, this);
+    for (const view of views) {
+      this.tables[view.name] = view.columns;
+      this.columnSets[view.name] = view.columnSet;
+      this.columns[view.name] = {};
+      for (const column of view.columns) {
+        this.columns[view.name][column.name] = column.type;
       }
     }
   }

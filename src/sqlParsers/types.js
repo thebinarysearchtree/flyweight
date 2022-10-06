@@ -1,4 +1,3 @@
-import { getTables } from './tables.js';
 import { readFile, writeFile, readdir } from 'fs/promises';
 import pluralize from 'pluralize';
 import { join } from 'path';
@@ -10,12 +9,6 @@ import { blank } from './utils.js';
 const capitalize = (word) => word[0].toUpperCase() + word.substring(1);
 
 const definitions = await readFile(new URL('../../interfaces.d.ts', import.meta.url), 'utf8');
-
-const getTablesFrom = async (createTablePath) => {
-  const sql = await readFile(createTablePath, 'utf8');
-  const tables = getTables(sql);
-  return tables;
-}
 
 const typeMap = {
   integer: 'number',
@@ -90,11 +83,7 @@ const parseParams = (sql) => {
   return Object.keys(params);
 }
 
-const getQueries = async (db, sqlDir, tableName, tables) => {
-  let tablesMap = {};
-  for (const table of tables) {
-    tablesMap[table.name] = table.columns;
-  }
+const getQueries = async (db, sqlDir, tableName) => {
   const path = join(sqlDir, tableName);
   let fileNames;
   try {
@@ -111,7 +100,7 @@ const getQueries = async (db, sqlDir, tableName, tables) => {
     const queryName = fileName.substring(0, fileName.length - 4);
     const queryPath = join(path, fileName);
     const sql = await readFile(queryPath, 'utf8');
-    const columns = parseQuery(sql, tablesMap);
+    const columns = parseQuery(sql, db.tables);
     const params = parseParams(sql);
     if (columns.length === 0) {
       parsedQueries.push({
@@ -242,10 +231,9 @@ const createTypes = async (options) => {
   const {
     db,
     sqlDir,
-    createTablePath,
     destinationPath
   } = options;
-  const tables = await getTablesFrom(createTablePath);
+  const tables = Object.entries(db.tables).map(([key, value]) => ({ name: key, columns: value }));
   let types = definitions;
   types += '\n\n';
   const returnTypes = [];
@@ -258,7 +246,7 @@ const createTypes = async (options) => {
     let singularReturnType = `  ${singularTableName}: SingularQueries<${interfaceName}>`;
     let queries;
     if (sqlDir) {
-      queries = await getQueries(db, sqlDir, table.name, tables);
+      queries = await getQueries(db, sqlDir, table.name);
       if (queries) {
         multipleReturnType += ` & ${queries.multipleInterfaceName}`;
         singularReturnType += ` & ${queries.singularInterfaceName}`;

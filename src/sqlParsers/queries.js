@@ -51,6 +51,7 @@ const getQueryType = (query) => {
 }
 
 const parseQuery = (sql, tables) => {
+  tables = {...tables };
   sql = sql.replaceAll(/\s+/gm, ' ');
   const queryType = getQueryType(sql);
   if (queryType === 'select' || queryType === 'cte') {
@@ -325,6 +326,11 @@ const parseSelect = (query, tables) => {
     }
     query = query.substring(lastIndex);
     processed = processed.substring(lastIndex);
+  }
+  const unionMatch = /\s+union\s+.+$/gmi.exec(query);
+  if (unionMatch) {
+    query = query.substring(0, unionMatch.index);
+    processed = processed.substring(0, unionMatch.index);
   }
   const [start, end] = /^\s*select\s(distinct\s)?(?<select>.+?)\sfrom\s.+$/mdi
     .exec(processed)

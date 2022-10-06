@@ -9,6 +9,7 @@ const result = await database.initialize({
   db: `${dbPath}/test.db`,
   sql: `${testPath}/sql`,
   tables: `${testPath}/sql/initial.sql`,
+  views: `${testPath}/sql/views.sql`,
   types: `${testPath}/db.d.ts`,
   migrations: `${testPath}/migrations`,
   extensions: `${dbPath}/regexp.dylib`

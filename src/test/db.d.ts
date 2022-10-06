@@ -165,6 +165,11 @@ export interface FightersMethods {
   count: number;
 }
 
+export interface FightersOpponents {
+  opponentId: number;
+  name: string;
+}
+
 export interface FightersRight {
   id: number;
   winner: { id: number; name: string };
@@ -174,6 +179,7 @@ export interface FightersQueries {
   common(params: { fighter1: any; fighter2: any; }): Promise<Array<FightersCommon>>;
   left(): Promise<Array<FightersLeft>>;
   methods(params: { id: any; }): Promise<Array<FightersMethods>>;
+  opponents(): Promise<Array<FightersOpponents>>;
   right(): Promise<Array<FightersRight>>;
 }
 
@@ -181,6 +187,7 @@ export interface FighterQueries {
   common(params: { fighter1: any; fighter2: any; }): Promise<FightersCommon | undefined>;
   left(): Promise<FightersLeft | undefined>;
   methods(params: { id: any; }): Promise<FightersMethods | undefined>;
+  opponents(): Promise<FightersOpponents | undefined>;
   right(): Promise<FightersRight | undefined>;
 }
 
@@ -287,6 +294,11 @@ export interface TitleRemoval {
   reason: string;
 }
 
+export interface Opponent {
+  fighterId: number;
+  opponentId: number;
+}
+
 export interface TypedDb {
   [key: string]: any,
   weightClasses: MultipleQueries<WeightClass>,
@@ -315,6 +327,8 @@ export interface TypedDb {
   cancelledFight: SingularQueries<CancelledFight>,
   titleRemovals: MultipleQueries<TitleRemoval>,
   titleRemoval: SingularQueries<TitleRemoval>,
+  opponents: MultipleQueries<Opponent>,
+  opponent: SingularQueries<Opponent>,
   begin(): Promise<void>,
   commit(): Promise<void>,
   rollback(): Promise<void>

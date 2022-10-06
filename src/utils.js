@@ -1,4 +1,4 @@
-import pluralize from 'pluralize';
+import { readFile, readdir } from 'fs/promises';
 
 const toValues = (rows) => {
   if (!rows || rows.length === 0) {
@@ -13,27 +13,24 @@ const toValues = (rows) => {
   return rows;
 }
 
-const joinOne = (t1, t2, columns) => {
-  for (const item of t1) {
-    for (const column of columns) {
-      const name = column.substring(0, column.length - 2);
-      item[name] = t2.find(r => r.id === item[column]);
-      delete item[column];
+const readSql = async (path) => {
+  let sql;
+  if (path.endsWith('.sql')) {
+    sql = await readFile(path, 'utf8');
+  }
+  else {
+    const names = await readdir(path);
+    for (const name of names) {
+      if (name.endsWith('.sql')) {
+        sql += await readFile(join(path, name), 'utf8');
+        sql += '\n';
+      }
     }
   }
-}
-
-const joinMany = (tables) => {
-  const [left, right] = Object.keys(tables);
-  const foreignKey = pluralize.singular(left) + 'Id';
-  for (const item of tables[left]) {
-    item[right] = tables[right].filter(r => r[foreignKey] === item.id);
-  }
-  for (const item of tables[right]) {
-    delete item[foreignKey];
-  }
+  return sql;
 }
 
 export {
-  toValues
+  toValues,
+  readSql
 }

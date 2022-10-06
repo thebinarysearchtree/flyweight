@@ -146,7 +146,8 @@ const database = new Database();
 const result = await database.initialize({
   db: '/path/test.db',
   sql: '/path/sql',
-  tables: '/path/initial.sql',
+  tables: '/path/tables.sql',
+  views: '/path/views',
   types: '/path/db.d.ts',
   migrations: '/path/migrations',
   extensions: '/path/regexp.dylib'
@@ -221,7 +222,9 @@ The ```initialize``` method's ```path``` object has the following properties:
 
 ```sql```: A path to a folder for storing SQL files.
 
-```tables```: A path to a SQL file containing the ```create table``` statements that define your database schema. This file should be placed in the root of the ```sql``` path.
+```tables```: A path to a SQL file or folder of files containing the ```create table``` statements that define your database schema.
+
+```views```: A path to a SQL file or folder of files containing any ```create view``` statements that you have. This is optional.
 
 ```types```: If you are using JavaScript, this should be a path to a file that is in the same location as ```db.js```. If you are using TypeScript, this can be any path. This file should not exist yet. It will be created by the ```makeTypes``` function.
 

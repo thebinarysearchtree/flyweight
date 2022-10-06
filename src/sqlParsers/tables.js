@@ -63,6 +63,7 @@ const getTables = (sql) => {
       const { name, type } = match.groups;
       const primaryKey = / primary key/mi.test(column);
       const notNull = / not null/mi.test(column);
+      const hasDefault = / default /mi.test(column);
       const foreignMatch = / references (?<foreign>[a-z0-9_]+)(\s|$)/mi.exec(column);
       const foreign = foreignMatch ? foreignMatch.groups.foreign : undefined;
       if (/(unique)|(check)|(primary)|(foreign)/mi.test(name)) {
@@ -77,6 +78,7 @@ const getTables = (sql) => {
         type,
         primaryKey,
         notNull,
+        hasDefault,
         foreign
       });
     }

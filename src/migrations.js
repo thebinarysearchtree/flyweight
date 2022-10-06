@@ -1,6 +1,7 @@
 import { readFile, writeFile } from 'fs/promises';
 import { join } from 'path';
 import { blank } from './sqlParsers/utils.js';
+import { readSql } from './utils.js';
 
 const getIndexes = (statements, blanked) => {
   const pattern = /^create (unique )?index (if not exists )?(?<indexName>[a-z0-9_]+) on (?<tableName>[a-z0-9_]+)\([^;]+;/gmid;
@@ -71,16 +72,52 @@ const getTables = (sql) => {
   return tables;
 }
 
-const migrate = async (db, tablesPath, migrationPath, migrationName) => {
+const getViews = (sql) => {
+  const matches = blank(sql, { stringsOnly: true }).matchAll(/^\s*create\s+view\s+(?<viewName>[a-z0-9_]+)\s+([^;]+);/gmi);
+  return Array.from(matches).map(m => {
+    return {
+      name: m.groups.viewName,
+      sql: m[0]
+    }
+  });
+}
+
+const migrate = async (db, tablesPath, viewsPath, migrationPath, migrationName) => {
   const outputPath = join(migrationPath, `${migrationName}.sql`);
   const lastTablesPath = join(migrationPath, 'lastTables.sql');
-  const currentSql = await readFile(tablesPath, 'utf8');
+  const lastViewsPath = join(migrationPath, 'lastViews.sql');
+  const currentSql = await readSql(tablesPath);
   const current = db.convertTables(currentSql);
   const blankedCurrent = blank(current);
   let last;
   let blankedLast;
+  const viewMigrations = [];
+  if (viewsPath) {
+    const currentViewsText = await readSql(viewsPath);
+    let lastViewsText;
+    try {
+      lastViewsText = await readSql(lastViewsPath);
+      const currentViews = getViews(currentViewsText);
+      const lastViews = getViews(lastViewsText);
+      const currentViewNames = new Set(currentViews.map(v => v.name));
+      const lastViewNames = new Set(lastViews.map(v => v.name));
+      for (const view of currentViews) {
+        if (!lastViewNames.has(view.name)) {
+          viewMigrations.push(view.sql);
+        }
+      }
+      for (const view of lastViews) {
+        if (!currentViewNames.has(view.name)) {
+          viewMigrations.push(`drop view ${view.name};`);
+        }
+      }
+    }
+    catch {
+      viewMigrations.push(currentViewsText);
+    }
+  }
   try {
-    const lastSql = await readFile(lastTablesPath, 'utf8');
+    const lastSql = await readSql(lastTablesPath);
     last = db.convertTables(lastSql);
     blankedLast = blank(last);
   }
@@ -223,6 +260,7 @@ const migrate = async (db, tablesPath, migrationPath, migrationName) => {
   migrations += tableMigrations.join('\n');
   migrations += columnMigrations.join('\n');
   migrations += indexMigrations.join('\n');
+  migrations += viewMigrations.join('\n');
   if (migrations === '') {
     console.log('No changes were detected.');
     process.exit();
