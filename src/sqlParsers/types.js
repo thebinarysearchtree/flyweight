@@ -100,7 +100,13 @@ const getQueries = async (db, sqlDir, tableName) => {
     const queryName = fileName.substring(0, fileName.length - 4);
     const queryPath = join(path, fileName);
     const sql = await readFile(queryPath, 'utf8');
-    const columns = parseQuery(sql, db.tables);
+    let columns;
+    try {
+      columns = parseQuery(sql, db.tables);
+    }
+    catch {
+      throw Error(`Error trying to parse ${queryPath}.`);
+    }
     const params = parseParams(sql);
     if (columns.length === 0) {
       parsedQueries.push({
@@ -242,8 +248,8 @@ const createTypes = async (options) => {
     const interfaceName = capitalize(singular);
     const multipleTableName = table.name;
     const singularTableName = singular;
-    let multipleReturnType = `  ${multipleTableName}: MultipleQueries<${interfaceName}>`;
-    let singularReturnType = `  ${singularTableName}: SingularQueries<${interfaceName}>`;
+    let multipleReturnType = `  ${multipleTableName}: MultipleQueries<${interfaceName}, Insert${interfaceName}>`;
+    let singularReturnType = `  ${singularTableName}: SingularQueries<${interfaceName}, Insert${interfaceName}>`;
     let queries;
     if (sqlDir) {
       queries = await getQueries(db, sqlDir, table.name);
@@ -262,6 +268,25 @@ const createTypes = async (options) => {
       }, db.customTypes);
       let property = `  ${name}`;
       property += ': ';
+      property += tsType;
+      property += ';\n';
+      types += property;
+    }
+    types += '}\n\n';
+    types += `export interface Insert${interfaceName} {\n`;
+    for (const column of table.columns) {
+      const { name, type, primaryKey, notNull, hasDefault } = column;
+      const tsType = toTsType({
+        type,
+        notNull: true
+      }, db.customTypes);
+      let property = `  ${name}`;
+      if (primaryKey || !notNull || hasDefault) {
+        property += '?: ';
+      }
+      else {
+        property += ': ';
+      }
       property += tsType;
       property += ';\n';
       types += property;

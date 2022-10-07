@@ -223,7 +223,7 @@ The ```initialize``` method's ```path``` object has the following properties:
 
 ```sql```: A path to a folder for storing SQL files.
 
-```tables```: A path to a SQL file or folder of files containing the ```create table``` statements that define your database schema.
+```tables```: A path to a SQL file or folder of files containing the ```create table``` and ```create index``` statements that define your database schema.
 
 ```views```: A path to a SQL file or folder of files containing any ```create view``` statements that you have. This is optional.
 
@@ -249,19 +249,19 @@ Tables are created the same way as they are in SQL. Flyweight converts the custo
 
 To add your own types, you can use the ```registerTypes``` method on the ```database``` object mentioned earlier. ```registerTypes``` takes an array of ```CustomType``` objects that have the following properties:
 
-```name```: the name of the type to be used in ```create table``` statements
+```name```: the name of the type to be used in ```create table``` statements.
 
-```valueTest```: a function that takes a value and returns ```true``` or ```false``` as to whether they value's type is that of the custom type
+```valueTest```: a function that takes a value and returns ```true``` or ```false``` as to whether they value's type is that of the custom type.
 
-```makeConstraint```: a function that takes a column name as an argument, and returns a SQL constraint string
+```makeConstraint```: a function that takes a column name as an argument, and returns a SQL constraint string.
 
-```dbToJs```: a function that takes a value from the database and returns the JavaScript equivalent of that value
+```dbToJs```: a function that takes a value from the database and returns the JavaScript equivalent of that value. The null case does not need to be handled as it is passed through unchanged.
 
-```jsToDb```: a function that takes a JavaScript value and returns a value suitable for storing in the database
+```jsToDb```: a function that takes a JavaScript value and returns a value suitable for storing in the database. The null case does not need to be handled as it is passed through unchanged.
 
-```tsType```: the TypeScript type that represents this custom type
+```tsType```: the TypeScript type that represents this custom type.
 
-```dbType```: the native database type that will be used to store values of this type
+```dbType```: the native database type that will be used to store values of this type.
 
 For example, the custom type for ```boolean``` is as follows:
 

@@ -66,6 +66,25 @@ const dbTypes = {
   any: true
 }
 
+const validateCustomType = (customType) => {
+  const error = `Error trying to register type '${customType.name}':`;
+  if (!customType.name || !customType.tsType || !customType.dbType) {
+    throw Error(error + 'missing required fields.');
+  }
+  if (!/^[a-z0-9_]+$/gmi.test(customType.name)) {
+    throw Error(error + `invalid name.`);
+  }
+  if (!dbTypes[customType.dbType]) {
+    throw Error(error + `${customType.dbType} is not a valid database type.`);
+  }
+  if (customType.jsToDb && !customType.valueTest) {
+    throw Error(error + 'missing valueTest function.');
+  }
+  if (!customType.jsToDb && customType.valueTest) {
+    throw Error(error + 'missing jsToDb function.');
+  }
+}
+
 class Database {
   constructor() {
     this.db = null;
@@ -137,20 +156,24 @@ class Database {
             await run();
           }
           catch {
-            console.log(`Error trying to parse ${path}`);
+            if (path) {
+              console.log(`Error trying to parse ${path}`);
+            }
           }
         }
         await watchRun();
-        const files = [sql, tables];
-        if (views) {
-          files.push(views);
-        }
-        watch(files)
+        const paths = [sql, tables, views].filter(p => p !== undefined);
+        watch(paths)
           .on('add', watchRun)
           .on('change', watchRun);
       }
       else {
-        await run();
+        try {
+          await run();
+        }
+        catch (e) {
+          console.log(e.message);
+        }
       }
     }
     const getTables = async () => {
@@ -208,6 +231,8 @@ class Database {
   registerTypes(customTypes) {
     for (const customType of customTypes) {
       const { name, ...options } = customType;
+      validateCustomType(customType);
+
       this.customTypes[name] = options;
     }
   }

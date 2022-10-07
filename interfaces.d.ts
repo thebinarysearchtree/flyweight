@@ -33,9 +33,9 @@ export type RequiredParams<T> = Partial<Record<keyof T, any>>;
 
 export type Params<T> = null | Partial<Record<keyof T, any>>;
 
-export interface SingularQueries<T> {
+export interface SingularQueries<T, I> {
   [key: string]: any;
-  insert(params: T): Promise<any>;
+  insert(params: I): Promise<any>;
   update(query: Params<T> | null, params: RequiredParams<T>): Promise<number>;
   get(params?: Params<T>): Promise<T | undefined>;
   get<K extends keyof T>(params: Params<T>, columns: K[]): Promise<Pick<T, K> | undefined>;
@@ -48,9 +48,9 @@ export interface SingularQueries<T> {
   remove(params?: Params<T>): Promise<number>;
 }
 
-export interface MultipleQueries<T> {
+export interface MultipleQueries<T, I> {
   [key: string]: any;
-  insert(params: Array<T>): Promise<void>;
+  insert(params: Array<I>): Promise<void>;
   update(query: Params<T> | null, params: RequiredParams<T>): Promise<number>;
   get(params?: any): Promise<Array<T>>;
   get<K extends keyof T>(params: Params<T>, columns: K[]): Promise<Array<Pick<T, K>>>;

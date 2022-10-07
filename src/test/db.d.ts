@@ -33,9 +33,9 @@ export type RequiredParams<T> = Partial<Record<keyof T, any>>;
 
 export type Params<T> = null | Partial<Record<keyof T, any>>;
 
-export interface SingularQueries<T> {
+export interface SingularQueries<T, I> {
   [key: string]: any;
-  insert(params: T): Promise<any>;
+  insert(params: I): Promise<any>;
   update(query: Params<T> | null, params: RequiredParams<T>): Promise<number>;
   get(params?: Params<T>): Promise<T | undefined>;
   get<K extends keyof T>(params: Params<T>, columns: K[]): Promise<Pick<T, K> | undefined>;
@@ -48,9 +48,9 @@ export interface SingularQueries<T> {
   remove(params?: Params<T>): Promise<number>;
 }
 
-export interface MultipleQueries<T> {
+export interface MultipleQueries<T, I> {
   [key: string]: any;
-  insert(params: Array<T>): Promise<void>;
+  insert(params: Array<I>): Promise<void>;
   update(query: Params<T> | null, params: RequiredParams<T>): Promise<number>;
   get(params?: any): Promise<Array<T>>;
   get<K extends keyof T>(params: Params<T>, columns: K[]): Promise<Array<Pick<T, K>>>;
@@ -69,8 +69,23 @@ export interface WeightClass {
   gender: string;
 }
 
+export interface InsertWeightClass {
+  id?: number;
+  name: string;
+  weightLbs: number;
+  gender: string;
+}
+
 export interface Location {
   id: number;
+  name: string;
+  address: string;
+  lat: number;
+  long: number;
+}
+
+export interface InsertLocation {
+  id?: number;
   name: string;
   address: string;
   lat: number;
@@ -96,6 +111,13 @@ export interface Event {
   name: string;
   startTime: Date;
   locationId: number | null;
+}
+
+export interface InsertEvent {
+  id?: number;
+  name: string;
+  startTime: Date;
+  locationId?: number;
 }
 
 export interface EventsGetById {
@@ -128,8 +150,22 @@ export interface Card {
   startTime: Date | null;
 }
 
+export interface InsertCard {
+  id?: number;
+  eventId: number;
+  cardName: string;
+  cardOrder: number;
+  startTime?: Date;
+}
+
 export interface Coach {
   id: number;
+  name: string;
+  city: string;
+}
+
+export interface InsertCoach {
+  id?: number;
   name: string;
   city: string;
 }
@@ -143,6 +179,18 @@ export interface Fighter {
   reachCm: number | null;
   hometown: string;
   social: any;
+  isActive: boolean;
+}
+
+export interface InsertFighter {
+  id?: number;
+  name: string;
+  nickname?: string;
+  born?: string;
+  heightCm?: number;
+  reachCm?: number;
+  hometown: string;
+  social?: any;
   isActive: boolean;
 }
 
@@ -197,12 +245,26 @@ export interface OtherName {
   name: string;
 }
 
+export interface InsertOtherName {
+  id?: number;
+  fighterId: number;
+  name: string;
+}
+
 export interface FighterCoach {
   id: number;
   coachId: number;
   fighterId: number;
   startDate: string;
   endDate: string | null;
+}
+
+export interface InsertFighterCoach {
+  id?: number;
+  coachId: number;
+  fighterId: number;
+  startDate: string;
+  endDate?: string;
 }
 
 export interface Ranking {
@@ -213,8 +275,22 @@ export interface Ranking {
   isInterim: boolean;
 }
 
+export interface InsertRanking {
+  id?: number;
+  fighterId: number;
+  weightClassId: number;
+  rank: number;
+  isInterim: boolean;
+}
+
 export interface Method {
   id: number;
+  name: string;
+  abbreviation: string;
+}
+
+export interface InsertMethod {
+  id?: number;
   name: string;
   abbreviation: string;
 }
@@ -253,6 +329,25 @@ export interface Fight {
   catchweightLbs: number | null;
 }
 
+export interface InsertFight {
+  id?: number;
+  cardId: number;
+  fightOrder: number;
+  blueId: number;
+  redId: number;
+  winnerId?: number;
+  methodId?: number;
+  methodDescription?: string;
+  endRound?: number;
+  endSeconds?: number;
+  titleFight: boolean;
+  isInterim: boolean;
+  weightClassId?: number;
+  oddsBlue?: number;
+  oddsRed?: number;
+  catchweightLbs?: number;
+}
+
 export interface FightsByFighter {
   opponent: string;
   win: boolean | null;
@@ -285,8 +380,27 @@ export interface CancelledFight {
   cancellationReason: string | null;
 }
 
+export interface InsertCancelledFight {
+  id?: number;
+  cardId: number;
+  cardOrder: number;
+  blueId: number;
+  redId: number;
+  cancelledAt: Date;
+  cancellationReason?: string;
+}
+
 export interface TitleRemoval {
   id: number;
+  fighterId: number;
+  weightClassId: number;
+  isInterim: boolean;
+  removedAt: Date;
+  reason: string;
+}
+
+export interface InsertTitleRemoval {
+  id?: number;
   fighterId: number;
   weightClassId: number;
   isInterim: boolean;
@@ -299,36 +413,41 @@ export interface Opponent {
   opponentId: number;
 }
 
+export interface InsertOpponent {
+  fighterId: number;
+  opponentId: number;
+}
+
 export interface TypedDb {
   [key: string]: any,
-  weightClasses: MultipleQueries<WeightClass>,
-  weightClass: SingularQueries<WeightClass>,
-  locations: MultipleQueries<Location> & LocationsQueries,
-  location: SingularQueries<Location> & LocationQueries,
-  events: MultipleQueries<Event> & EventsQueries,
-  event: SingularQueries<Event> & EventQueries,
-  cards: MultipleQueries<Card>,
-  card: SingularQueries<Card>,
-  coaches: MultipleQueries<Coach>,
-  coach: SingularQueries<Coach>,
-  fighters: MultipleQueries<Fighter> & FightersQueries,
-  fighter: SingularQueries<Fighter> & FighterQueries,
-  otherNames: MultipleQueries<OtherName>,
-  otherName: SingularQueries<OtherName>,
-  fighterCoaches: MultipleQueries<FighterCoach>,
-  fighterCoach: SingularQueries<FighterCoach>,
-  rankings: MultipleQueries<Ranking>,
-  ranking: SingularQueries<Ranking>,
-  methods: MultipleQueries<Method> & MethodsQueries,
-  method: SingularQueries<Method> & MethodQueries,
-  fights: MultipleQueries<Fight> & FightsQueries,
-  fight: SingularQueries<Fight> & FightQueries,
-  cancelledFights: MultipleQueries<CancelledFight>,
-  cancelledFight: SingularQueries<CancelledFight>,
-  titleRemovals: MultipleQueries<TitleRemoval>,
-  titleRemoval: SingularQueries<TitleRemoval>,
-  opponents: MultipleQueries<Opponent>,
-  opponent: SingularQueries<Opponent>,
+  weightClasses: MultipleQueries<WeightClass, InsertWeightClass>,
+  weightClass: SingularQueries<WeightClass, InsertWeightClass>,
+  locations: MultipleQueries<Location, InsertLocation> & LocationsQueries,
+  location: SingularQueries<Location, InsertLocation> & LocationQueries,
+  events: MultipleQueries<Event, InsertEvent> & EventsQueries,
+  event: SingularQueries<Event, InsertEvent> & EventQueries,
+  cards: MultipleQueries<Card, InsertCard>,
+  card: SingularQueries<Card, InsertCard>,
+  coaches: MultipleQueries<Coach, InsertCoach>,
+  coach: SingularQueries<Coach, InsertCoach>,
+  fighters: MultipleQueries<Fighter, InsertFighter> & FightersQueries,
+  fighter: SingularQueries<Fighter, InsertFighter> & FighterQueries,
+  otherNames: MultipleQueries<OtherName, InsertOtherName>,
+  otherName: SingularQueries<OtherName, InsertOtherName>,
+  fighterCoaches: MultipleQueries<FighterCoach, InsertFighterCoach>,
+  fighterCoach: SingularQueries<FighterCoach, InsertFighterCoach>,
+  rankings: MultipleQueries<Ranking, InsertRanking>,
+  ranking: SingularQueries<Ranking, InsertRanking>,
+  methods: MultipleQueries<Method, InsertMethod> & MethodsQueries,
+  method: SingularQueries<Method, InsertMethod> & MethodQueries,
+  fights: MultipleQueries<Fight, InsertFight> & FightsQueries,
+  fight: SingularQueries<Fight, InsertFight> & FightQueries,
+  cancelledFights: MultipleQueries<CancelledFight, InsertCancelledFight>,
+  cancelledFight: SingularQueries<CancelledFight, InsertCancelledFight>,
+  titleRemovals: MultipleQueries<TitleRemoval, InsertTitleRemoval>,
+  titleRemoval: SingularQueries<TitleRemoval, InsertTitleRemoval>,
+  opponents: MultipleQueries<Opponent, InsertOpponent>,
+  opponent: SingularQueries<Opponent, InsertOpponent>,
   begin(): Promise<void>,
   commit(): Promise<void>,
   rollback(): Promise<void>
