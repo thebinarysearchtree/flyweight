@@ -171,7 +171,7 @@ const getSelectColumns = (select, tables) => {
     },
     {
       name: 'Operator pattern',
-      pattern: /^.+\s((?<logical>=|(!=)|(==)|(<>)|(>=)|(<=)|>|<)|(?<maths>\*|\/|%|\+|-))\s.+\s(as)\s(?<columnAlias>[a-z0-9_]+)$/mi,
+      pattern: /^(?!(case )).+\s((?<logical>=|(!=)|(==)|(<>)|(>=)|(<=)|>|<)|(?<maths>\*|\/|%|\+|-))\s.+\s(as)\s(?<columnAlias>[a-z0-9_]+)$/mi,
       extractor: (groups) => {
         const { columnAlias, logical } = groups;
         let type;
@@ -322,7 +322,7 @@ const parseSelect = (query, tables) => {
       lastIndex = end + 1;
       const actual = query.substring(start, end);
       const columns = parseQuery(actual, tables);
-      tables[tableName] = columns.map(c => ({ name: c.column, type: c.type }));
+      tables[tableName] = columns.map(c => ({ name: c.name, type: c.type }));
     }
     query = query.substring(lastIndex);
     processed = processed.substring(lastIndex);
