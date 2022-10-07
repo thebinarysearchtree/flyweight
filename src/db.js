@@ -182,9 +182,7 @@ class Database {
     await this.basicAll('pragma foreign_keys = on');
   }
 
-  async setTables(path) {
-    const sql = await readSql(path);
-    const tables = getTables(sql);
+  addTables(tables) {
     for (const table of tables) {
       this.tables[table.name] = table.columns;
       this.columnSets[table.name] = table.columnSet;
@@ -195,17 +193,16 @@ class Database {
     }
   }
 
+  async setTables(path) {
+    const sql = await readSql(path);
+    const tables = getTables(sql);
+    this.addTables(tables);
+  }
+
   async setViews(path) {
     const sql = await readSql(path);
     const views = getViews(sql, this);
-    for (const view of views) {
-      this.tables[view.name] = view.columns;
-      this.columnSets[view.name] = view.columnSet;
-      this.columns[view.name] = {};
-      for (const column of view.columns) {
-        this.columns[view.name][column.name] = column.type;
-      }
-    }
+    this.addTables(views);
   }
 
   registerTypes(customTypes) {

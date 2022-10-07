@@ -6,10 +6,10 @@ export interface QueryOptions {
 
 export interface CustomType {
   name: string;
-  valueTest: (v: any) => boolean;
+  valueTest?: (v: any) => boolean;
   makeConstraint?: (column: string) => string;
-  dbToJs: (v: any) => any;
-  jsToDb: (v: any) => any;
+  dbToJs?: (v: any) => any;
+  jsToDb?: (v: any) => any;
   tsType: string;
   dbType: string;
 }

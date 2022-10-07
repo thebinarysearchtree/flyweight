@@ -253,7 +253,7 @@ To add your own types, you can use the ```registerTypes``` method on the ```data
 
 ```valueTest```: a function that takes a value and returns ```true``` or ```false``` as to whether they value's type is that of the custom type
 
-```makeConstraint```: an optional function that takes a column name as an argument, and returns a SQL constraint string
+```makeConstraint```: a function that takes a column name as an argument, and returns a SQL constraint string
 
 ```dbToJs```: a function that takes a value from the database and returns the JavaScript equivalent of that value
 
@@ -274,6 +274,17 @@ For example, the custom type for ```boolean``` is as follows:
   jsToDb: (v) => v === true ? 1 : 0,
   tsType: 'boolean',
   dbType: 'integer'
+}
+```
+
+```valueTest``` and ```jsToDb``` are only necessary if a conversion is required from a JavaScript type to a native database type. ```dbToJs``` is only required if a conversion is necessary when taking data out of the database. If no conversion is necessary either way, your custom type will look something like this:
+
+```js
+{
+  name: 'medal',
+  makeConstraint: (column) => `check (${column} in ('gold', 'silver', 'bronze'))`,
+  tsType: 'string',
+  dbType: 'text'
 }
 ```
 
