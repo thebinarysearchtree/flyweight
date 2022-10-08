@@ -29,37 +29,33 @@ export interface KeywordsWithCount {
   count: true;
 }
 
-export type RequiredParams<T> = Partial<Record<keyof T, any>>;
-
-export type Params<T> = null | Partial<Record<keyof T, any>>;
-
-export interface SingularQueries<T, I> {
+export interface SingularQueries<T, I, W> {
   [key: string]: any;
   insert(params: I): Promise<any>;
-  update(query: Params<T> | null, params: RequiredParams<T>): Promise<number>;
-  get(params?: Params<T>): Promise<T | undefined>;
-  get<K extends keyof T>(params: Params<T>, columns: K[]): Promise<Pick<T, K> | undefined>;
-  get<K extends keyof T>(params: Params<T>, column: K): Promise<T[K] | undefined>;
-  get(params: Params<T>, keywords: KeywordsWithoutSelect): Promise<T | undefined>;
-  get(params: Params<T>, keywords: KeywordsWithCount): Promise<number>;
-  get<K extends keyof T>(params: Params<T>, keywords: Keywords<K>): Promise<T[K] | undefined>;
-  get<K extends keyof T>(params: Params<T>, keywords: Keywords<K[]>): Promise<Pick<T, K> | undefined>;
-  get<K extends keyof T>(params: Params<T>, keywords: KeywordsWithExclude<K[]>): Promise<Omit<T, K> | undefined>;
-  remove(params?: Params<T>): Promise<number>;
+  update(query: W | null, params: Partial<T>): Promise<number>;
+  get(params?: W | null): Promise<T | undefined>;
+  get<K extends keyof T>(params: W | null, columns: K[]): Promise<Pick<T, K> | undefined>;
+  get<K extends keyof T>(params: W | null, column: K): Promise<T[K] | undefined>;
+  get(params: W | null, keywords: KeywordsWithoutSelect): Promise<T | undefined>;
+  get(params: W | null, keywords: KeywordsWithCount): Promise<number>;
+  get<K extends keyof T>(params: W | null, keywords: Keywords<K>): Promise<T[K] | undefined>;
+  get<K extends keyof T>(params: W | null, keywords: Keywords<K[]>): Promise<Pick<T, K> | undefined>;
+  get<K extends keyof T>(params: W | null, keywords: KeywordsWithExclude<K[]>): Promise<Omit<T, K> | undefined>;
+  remove(params?: W): Promise<number>;
 }
 
-export interface MultipleQueries<T, I> {
+export interface MultipleQueries<T, I, W> {
   [key: string]: any;
   insert(params: Array<I>): Promise<void>;
-  update(query: Params<T> | null, params: RequiredParams<T>): Promise<number>;
-  get(params?: any): Promise<Array<T>>;
-  get<K extends keyof T>(params: Params<T>, columns: K[]): Promise<Array<Pick<T, K>>>;
-  get<K extends keyof T>(params: Params<T>, column: K): Promise<Array<T[K]>>;
-  get(params: Params<T>, keywords: KeywordsWithoutSelect): Promise<Array<T>>;
-  get<K extends keyof T>(params: Params<T>, keywords: Keywords<K>): Promise<Array<T[K]>>;
-  get<K extends keyof T>(params: Params<T>, keywords: Keywords<K[]>): Promise<Array<Pick<T, K>>>;
-  get<K extends keyof T>(params: Params<T>, keywords: KeywordsWithExclude<K[]>): Promise<Array<Omit<T, K>>>;
-  remove(params?: Params<T>): Promise<number>;
+  update(query: W | null, params: Partial<T>): Promise<number>;
+  get(params?: W): Promise<Array<T>>;
+  get<K extends keyof T>(params: W | null, columns: K[]): Promise<Array<Pick<T, K>>>;
+  get<K extends keyof T>(params: W | null, column: K): Promise<Array<T[K]>>;
+  get(params: W | null, keywords: KeywordsWithoutSelect): Promise<Array<T>>;
+  get<K extends keyof T>(params: W | null, keywords: Keywords<K>): Promise<Array<T[K]>>;
+  get<K extends keyof T>(params: W | null, keywords: Keywords<K[]>): Promise<Array<Pick<T, K>>>;
+  get<K extends keyof T>(params: W | null, keywords: KeywordsWithExclude<K[]>): Promise<Array<Omit<T, K>>>;
+  remove(params?: W): Promise<number>;
 }
 
 export interface WeightClass {
@@ -76,6 +72,13 @@ export interface InsertWeightClass {
   gender: string;
 }
 
+export interface WhereWeightClass {
+  id?: number | Array<number>;
+  name?: string | Array<string> | RegExp;
+  weightLbs?: number | Array<number>;
+  gender?: string | Array<string> | RegExp;
+}
+
 export interface Location {
   id: number;
   name: string;
@@ -90,6 +93,14 @@ export interface InsertLocation {
   address: string;
   lat: number;
   long: number;
+}
+
+export interface WhereLocation {
+  id?: number | Array<number>;
+  name?: string | Array<string> | RegExp;
+  address?: string | Array<string> | RegExp;
+  lat?: number | Array<number>;
+  long?: number | Array<number>;
 }
 
 export interface LocationsByMethod {
@@ -118,6 +129,13 @@ export interface InsertEvent {
   name: string;
   startTime: Date;
   locationId?: number;
+}
+
+export interface WhereEvent {
+  id?: number | Array<number>;
+  name?: string | Array<string> | RegExp;
+  startTime?: Date | Array<Date>;
+  locationId?: number | Array<number> | null;
 }
 
 export interface EventsGetById {
@@ -158,6 +176,14 @@ export interface InsertCard {
   startTime?: Date;
 }
 
+export interface WhereCard {
+  id?: number | Array<number>;
+  eventId?: number | Array<number>;
+  cardName?: string | Array<string> | RegExp;
+  cardOrder?: number | Array<number>;
+  startTime?: Date | Array<Date> | null;
+}
+
 export interface Coach {
   id: number;
   name: string;
@@ -168,6 +194,12 @@ export interface InsertCoach {
   id?: number;
   name: string;
   city: string;
+}
+
+export interface WhereCoach {
+  id?: number | Array<number>;
+  name?: string | Array<string> | RegExp;
+  city?: string | Array<string> | RegExp;
 }
 
 export interface Fighter {
@@ -192,6 +224,18 @@ export interface InsertFighter {
   hometown: string;
   social?: any;
   isActive: boolean;
+}
+
+export interface WhereFighter {
+  id?: number | Array<number>;
+  name?: string | Array<string> | RegExp;
+  nickname?: string | Array<string> | RegExp | null;
+  born?: string | Array<string> | RegExp | null;
+  heightCm?: number | Array<number> | null;
+  reachCm?: number | Array<number> | null;
+  hometown?: string | Array<string> | RegExp;
+  social?: any | Array<any> | RegExp | null;
+  isActive?: boolean | Array<boolean>;
 }
 
 export interface FightersCommon {
@@ -251,6 +295,12 @@ export interface InsertOtherName {
   name: string;
 }
 
+export interface WhereOtherName {
+  id?: number | Array<number>;
+  fighterId?: number | Array<number>;
+  name?: string | Array<string> | RegExp;
+}
+
 export interface FighterCoach {
   id: number;
   coachId: number;
@@ -265,6 +315,14 @@ export interface InsertFighterCoach {
   fighterId: number;
   startDate: string;
   endDate?: string;
+}
+
+export interface WhereFighterCoach {
+  id?: number | Array<number>;
+  coachId?: number | Array<number>;
+  fighterId?: number | Array<number>;
+  startDate?: string | Array<string> | RegExp;
+  endDate?: string | Array<string> | RegExp | null;
 }
 
 export interface Ranking {
@@ -283,6 +341,14 @@ export interface InsertRanking {
   isInterim: boolean;
 }
 
+export interface WhereRanking {
+  id?: number | Array<number>;
+  fighterId?: number | Array<number>;
+  weightClassId?: number | Array<number>;
+  rank?: number | Array<number>;
+  isInterim?: boolean | Array<boolean>;
+}
+
 export interface Method {
   id: number;
   name: string;
@@ -293,6 +359,12 @@ export interface InsertMethod {
   id?: number;
   name: string;
   abbreviation: string;
+}
+
+export interface WhereMethod {
+  id?: number | Array<number>;
+  name?: string | Array<string> | RegExp;
+  abbreviation?: string | Array<string> | RegExp;
 }
 
 export interface MethodsByFighter {
@@ -348,6 +420,25 @@ export interface InsertFight {
   catchweightLbs?: number;
 }
 
+export interface WhereFight {
+  id?: number | Array<number>;
+  cardId?: number | Array<number>;
+  fightOrder?: number | Array<number>;
+  blueId?: number | Array<number>;
+  redId?: number | Array<number>;
+  winnerId?: number | Array<number> | null;
+  methodId?: number | Array<number> | null;
+  methodDescription?: string | Array<string> | RegExp | null;
+  endRound?: number | Array<number> | null;
+  endSeconds?: number | Array<number> | null;
+  titleFight?: boolean | Array<boolean>;
+  isInterim?: boolean | Array<boolean>;
+  weightClassId?: number | Array<number> | null;
+  oddsBlue?: number | Array<number> | null;
+  oddsRed?: number | Array<number> | null;
+  catchweightLbs?: number | Array<number> | null;
+}
+
 export interface FightsByFighter {
   opponent: string;
   win: boolean | null;
@@ -390,6 +481,16 @@ export interface InsertCancelledFight {
   cancellationReason?: string;
 }
 
+export interface WhereCancelledFight {
+  id?: number | Array<number>;
+  cardId?: number | Array<number>;
+  cardOrder?: number | Array<number>;
+  blueId?: number | Array<number>;
+  redId?: number | Array<number>;
+  cancelledAt?: Date | Array<Date>;
+  cancellationReason?: string | Array<string> | RegExp | null;
+}
+
 export interface TitleRemoval {
   id: number;
   fighterId: number;
@@ -408,6 +509,15 @@ export interface InsertTitleRemoval {
   reason: string;
 }
 
+export interface WhereTitleRemoval {
+  id?: number | Array<number>;
+  fighterId?: number | Array<number>;
+  weightClassId?: number | Array<number>;
+  isInterim?: boolean | Array<boolean>;
+  removedAt?: Date | Array<Date>;
+  reason?: string | Array<string> | RegExp;
+}
+
 export interface Opponent {
   fighterId: number;
   opponentId: number;
@@ -418,36 +528,41 @@ export interface InsertOpponent {
   opponentId: number;
 }
 
+export interface WhereOpponent {
+  fighterId?: number | Array<number>;
+  opponentId?: number | Array<number>;
+}
+
 export interface TypedDb {
   [key: string]: any,
-  weightClasses: MultipleQueries<WeightClass, InsertWeightClass>,
-  weightClass: SingularQueries<WeightClass, InsertWeightClass>,
-  locations: MultipleQueries<Location, InsertLocation> & LocationsQueries,
-  location: SingularQueries<Location, InsertLocation> & LocationQueries,
-  events: MultipleQueries<Event, InsertEvent> & EventsQueries,
-  event: SingularQueries<Event, InsertEvent> & EventQueries,
-  cards: MultipleQueries<Card, InsertCard>,
-  card: SingularQueries<Card, InsertCard>,
-  coaches: MultipleQueries<Coach, InsertCoach>,
-  coach: SingularQueries<Coach, InsertCoach>,
-  fighters: MultipleQueries<Fighter, InsertFighter> & FightersQueries,
-  fighter: SingularQueries<Fighter, InsertFighter> & FighterQueries,
-  otherNames: MultipleQueries<OtherName, InsertOtherName>,
-  otherName: SingularQueries<OtherName, InsertOtherName>,
-  fighterCoaches: MultipleQueries<FighterCoach, InsertFighterCoach>,
-  fighterCoach: SingularQueries<FighterCoach, InsertFighterCoach>,
-  rankings: MultipleQueries<Ranking, InsertRanking>,
-  ranking: SingularQueries<Ranking, InsertRanking>,
-  methods: MultipleQueries<Method, InsertMethod> & MethodsQueries,
-  method: SingularQueries<Method, InsertMethod> & MethodQueries,
-  fights: MultipleQueries<Fight, InsertFight> & FightsQueries,
-  fight: SingularQueries<Fight, InsertFight> & FightQueries,
-  cancelledFights: MultipleQueries<CancelledFight, InsertCancelledFight>,
-  cancelledFight: SingularQueries<CancelledFight, InsertCancelledFight>,
-  titleRemovals: MultipleQueries<TitleRemoval, InsertTitleRemoval>,
-  titleRemoval: SingularQueries<TitleRemoval, InsertTitleRemoval>,
-  opponents: MultipleQueries<Opponent, InsertOpponent>,
-  opponent: SingularQueries<Opponent, InsertOpponent>,
+  weightClasses: MultipleQueries<WeightClass, InsertWeightClass, WhereWeightClass>,
+  weightClass: SingularQueries<WeightClass, InsertWeightClass, WhereWeightClass>,
+  locations: MultipleQueries<Location, InsertLocation, WhereLocation> & LocationsQueries,
+  location: SingularQueries<Location, InsertLocation, WhereLocation> & LocationQueries,
+  events: MultipleQueries<Event, InsertEvent, WhereEvent> & EventsQueries,
+  event: SingularQueries<Event, InsertEvent, WhereEvent> & EventQueries,
+  cards: MultipleQueries<Card, InsertCard, WhereCard>,
+  card: SingularQueries<Card, InsertCard, WhereCard>,
+  coaches: MultipleQueries<Coach, InsertCoach, WhereCoach>,
+  coach: SingularQueries<Coach, InsertCoach, WhereCoach>,
+  fighters: MultipleQueries<Fighter, InsertFighter, WhereFighter> & FightersQueries,
+  fighter: SingularQueries<Fighter, InsertFighter, WhereFighter> & FighterQueries,
+  otherNames: MultipleQueries<OtherName, InsertOtherName, WhereOtherName>,
+  otherName: SingularQueries<OtherName, InsertOtherName, WhereOtherName>,
+  fighterCoaches: MultipleQueries<FighterCoach, InsertFighterCoach, WhereFighterCoach>,
+  fighterCoach: SingularQueries<FighterCoach, InsertFighterCoach, WhereFighterCoach>,
+  rankings: MultipleQueries<Ranking, InsertRanking, WhereRanking>,
+  ranking: SingularQueries<Ranking, InsertRanking, WhereRanking>,
+  methods: MultipleQueries<Method, InsertMethod, WhereMethod> & MethodsQueries,
+  method: SingularQueries<Method, InsertMethod, WhereMethod> & MethodQueries,
+  fights: MultipleQueries<Fight, InsertFight, WhereFight> & FightsQueries,
+  fight: SingularQueries<Fight, InsertFight, WhereFight> & FightQueries,
+  cancelledFights: MultipleQueries<CancelledFight, InsertCancelledFight, WhereCancelledFight>,
+  cancelledFight: SingularQueries<CancelledFight, InsertCancelledFight, WhereCancelledFight>,
+  titleRemovals: MultipleQueries<TitleRemoval, InsertTitleRemoval, WhereTitleRemoval>,
+  titleRemoval: SingularQueries<TitleRemoval, InsertTitleRemoval, WhereTitleRemoval>,
+  opponents: Pick<MultipleQueries<Opponent, InsertOpponent, WhereOpponent>, "get">,
+  opponent: Pick<SingularQueries<Opponent, InsertOpponent, WhereOpponent>, "get">,
   begin(): Promise<void>,
   commit(): Promise<void>,
   rollback(): Promise<void>

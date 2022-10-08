@@ -67,7 +67,7 @@ const dbTypes = {
 }
 
 const validateCustomType = (customType) => {
-  const error = `Error trying to register type '${customType.name}':`;
+  const error = `Error trying to register type '${customType.name}': `;
   if (!customType.name || !customType.tsType || !customType.dbType) {
     throw Error(error + 'missing required fields.');
   }
@@ -94,7 +94,7 @@ class Database {
     this.customTypes = {};
     this.columns = {};
     this.statements = new Map();
-    this.views = {};
+    this.viewSet = new Set();
     this.registerTypes([
       {
         name: 'boolean',
@@ -225,6 +225,9 @@ class Database {
   async setViews(path) {
     const sql = await readSql(path);
     const views = getViews(sql, this);
+    for (const view of views) {
+      this.viewSet.add(view.name);
+    }
     this.addTables(views);
   }
 

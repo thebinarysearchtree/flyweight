@@ -248,8 +248,16 @@ const createTypes = async (options) => {
     const interfaceName = capitalize(singular);
     const multipleTableName = table.name;
     const singularTableName = singular;
-    let multipleReturnType = `  ${multipleTableName}: MultipleQueries<${interfaceName}, Insert${interfaceName}>`;
-    let singularReturnType = `  ${singularTableName}: SingularQueries<${interfaceName}, Insert${interfaceName}>`;
+    let multipleReturnType;
+    let singularReturnType;
+    if (db.viewSet.has(table.name)) {
+      multipleReturnType = `  ${multipleTableName}: Pick<MultipleQueries<${interfaceName}, Insert${interfaceName}, Where${interfaceName}>, "get">`;
+      singularReturnType = `  ${singularTableName}: Pick<SingularQueries<${interfaceName}, Insert${interfaceName}, Where${interfaceName}>, "get">`;
+    }
+    else {
+      multipleReturnType = `  ${multipleTableName}: MultipleQueries<${interfaceName}, Insert${interfaceName}, Where${interfaceName}>`;
+      singularReturnType = `  ${singularTableName}: SingularQueries<${interfaceName}, Insert${interfaceName}, Where${interfaceName}>`;
+    }
     let queries;
     if (sqlDir) {
       queries = await getQueries(db, sqlDir, table.name);
@@ -288,6 +296,29 @@ const createTypes = async (options) => {
         property += ': ';
       }
       property += tsType;
+      property += ';\n';
+      types += property;
+    }
+    types += '}\n\n';
+    types += `export interface Where${interfaceName} {\n`;
+    for (const column of table.columns) {
+      const { name, type, primaryKey, notNull } = column;
+      const tsType = toTsType({
+        type,
+        notNull: true
+      }, db.customTypes);
+      const customType = db.customTypes[type];
+      const dbType = customType ? customType.dbType : type;
+      let property = `  ${name}`;
+      property += '?: ';
+      property += tsType;
+      property += ` | Array<${tsType}>`;
+      if (dbType === 'text') {
+        property += ' | RegExp';
+      }
+      if (!primaryKey && !notNull) {
+        property += ' | null';
+      }
       property += ';\n';
       types += property;
     }
