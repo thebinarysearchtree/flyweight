@@ -336,11 +336,11 @@ catch (e) {
 }
 ```
 
-Every table has ```get```, ```update```, ```insert```, and ```remove``` methods available to it, along with any of the custom methods that are created when you add a new SQL file to the corresponding table's folder.
+Every table has ```get```, ```update```, ```insert```, and ```remove``` methods available to it, along with any of the custom methods that are created when you add a new SQL file to the corresponding table's folder. Views only have the ```get``` method available to them.
 
 ### Insert
 
-```insert``` simply takes one argument - ```params```, with the keys and values corresponding to the column names and values you want to insert. It returns the primary key if none was supplied, otherwise it returns the number of rows affected by the query.
+```insert``` simply takes one argument - ```params```, with the keys and values corresponding to the column names and values you want to insert. It returns the primary key, or part of the primary key if the table has a composite primary key. The plural version of ```insert``` is for batch inserts and takes an array of ```params```. It doesn't return anything.
 
 ### Update
 

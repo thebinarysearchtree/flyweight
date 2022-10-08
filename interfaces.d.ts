@@ -29,9 +29,9 @@ export interface KeywordsWithCount {
   count: true;
 }
 
-export interface SingularQueries<T, I, W> {
+export interface SingularQueries<T, I, W, R> {
   [key: string]: any;
-  insert(params: I): Promise<any>;
+  insert(params: I): Promise<R>;
   update(query: W | null, params: Partial<T>): Promise<number>;
   get(params?: W | null): Promise<T | undefined>;
   get<K extends keyof T>(params: W | null, columns: K[]): Promise<Pick<T, K> | undefined>;

@@ -250,13 +250,18 @@ const createTypes = async (options) => {
     const singularTableName = singular;
     let multipleReturnType;
     let singularReturnType;
+    const primaryKey = table.columns.find(c => c.primaryKey !== undefined);
+    const tsType = toTsType({
+      type: primaryKey.type,
+      notNull: true
+    }, db.customTypes);
     if (db.viewSet.has(table.name)) {
       multipleReturnType = `  ${multipleTableName}: Pick<MultipleQueries<${interfaceName}, Insert${interfaceName}, Where${interfaceName}>, "get">`;
-      singularReturnType = `  ${singularTableName}: Pick<SingularQueries<${interfaceName}, Insert${interfaceName}, Where${interfaceName}>, "get">`;
+      singularReturnType = `  ${singularTableName}: Pick<SingularQueries<${interfaceName}, Insert${interfaceName}, Where${interfaceName}, ${tsType}>, "get">`;
     }
     else {
       multipleReturnType = `  ${multipleTableName}: MultipleQueries<${interfaceName}, Insert${interfaceName}, Where${interfaceName}>`;
-      singularReturnType = `  ${singularTableName}: SingularQueries<${interfaceName}, Insert${interfaceName}, Where${interfaceName}>`;
+      singularReturnType = `  ${singularTableName}: SingularQueries<${interfaceName}, Insert${interfaceName}, Where${interfaceName}, ${tsType}>`;
     }
     let queries;
     if (sqlDir) {

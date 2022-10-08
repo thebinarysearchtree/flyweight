@@ -6,14 +6,8 @@ const insert = async (db, table, params) => {
   const placeholders = columns.map(c => `$${c}`);
   const sql = `insert into ${table}(${columns.join(', ')}) values(${placeholders.join(', ')})`;
   const primaryKey = db.getPrimaryKey(table);
-  if (params[primaryKey] !== undefined) {
-    return await db.run(sql, params);
-  }
-  const results = await db.all(`${sql} returning ${primaryKey}`, params);
-  if (results.length > 0) {
-    return results[0][primaryKey];
-  }
-  return undefined;
+  const result = await db.all(`${sql} returning ${primaryKey}`, params);
+  return result[0][primaryKey];
 }
 
 const insertMany = async (db, table, items) => {

@@ -29,9 +29,9 @@ export interface KeywordsWithCount {
   count: true;
 }
 
-export interface SingularQueries<T, I, W> {
+export interface SingularQueries<T, I, W, R> {
   [key: string]: any;
-  insert(params: I): Promise<any>;
+  insert(params: I): Promise<R>;
   update(query: W | null, params: Partial<T>): Promise<number>;
   get(params?: W | null): Promise<T | undefined>;
   get<K extends keyof T>(params: W | null, columns: K[]): Promise<Pick<T, K> | undefined>;
@@ -536,33 +536,33 @@ export interface WhereOpponent {
 export interface TypedDb {
   [key: string]: any,
   weightClasses: MultipleQueries<WeightClass, InsertWeightClass, WhereWeightClass>,
-  weightClass: SingularQueries<WeightClass, InsertWeightClass, WhereWeightClass>,
+  weightClass: SingularQueries<WeightClass, InsertWeightClass, WhereWeightClass, number>,
   locations: MultipleQueries<Location, InsertLocation, WhereLocation> & LocationsQueries,
-  location: SingularQueries<Location, InsertLocation, WhereLocation> & LocationQueries,
+  location: SingularQueries<Location, InsertLocation, WhereLocation, number> & LocationQueries,
   events: MultipleQueries<Event, InsertEvent, WhereEvent> & EventsQueries,
-  event: SingularQueries<Event, InsertEvent, WhereEvent> & EventQueries,
+  event: SingularQueries<Event, InsertEvent, WhereEvent, number> & EventQueries,
   cards: MultipleQueries<Card, InsertCard, WhereCard>,
-  card: SingularQueries<Card, InsertCard, WhereCard>,
+  card: SingularQueries<Card, InsertCard, WhereCard, number>,
   coaches: MultipleQueries<Coach, InsertCoach, WhereCoach>,
-  coach: SingularQueries<Coach, InsertCoach, WhereCoach>,
+  coach: SingularQueries<Coach, InsertCoach, WhereCoach, number>,
   fighters: MultipleQueries<Fighter, InsertFighter, WhereFighter> & FightersQueries,
-  fighter: SingularQueries<Fighter, InsertFighter, WhereFighter> & FighterQueries,
+  fighter: SingularQueries<Fighter, InsertFighter, WhereFighter, number> & FighterQueries,
   otherNames: MultipleQueries<OtherName, InsertOtherName, WhereOtherName>,
-  otherName: SingularQueries<OtherName, InsertOtherName, WhereOtherName>,
+  otherName: SingularQueries<OtherName, InsertOtherName, WhereOtherName, number>,
   fighterCoaches: MultipleQueries<FighterCoach, InsertFighterCoach, WhereFighterCoach>,
-  fighterCoach: SingularQueries<FighterCoach, InsertFighterCoach, WhereFighterCoach>,
+  fighterCoach: SingularQueries<FighterCoach, InsertFighterCoach, WhereFighterCoach, number>,
   rankings: MultipleQueries<Ranking, InsertRanking, WhereRanking>,
-  ranking: SingularQueries<Ranking, InsertRanking, WhereRanking>,
+  ranking: SingularQueries<Ranking, InsertRanking, WhereRanking, number>,
   methods: MultipleQueries<Method, InsertMethod, WhereMethod> & MethodsQueries,
-  method: SingularQueries<Method, InsertMethod, WhereMethod> & MethodQueries,
+  method: SingularQueries<Method, InsertMethod, WhereMethod, number> & MethodQueries,
   fights: MultipleQueries<Fight, InsertFight, WhereFight> & FightsQueries,
-  fight: SingularQueries<Fight, InsertFight, WhereFight> & FightQueries,
+  fight: SingularQueries<Fight, InsertFight, WhereFight, number> & FightQueries,
   cancelledFights: MultipleQueries<CancelledFight, InsertCancelledFight, WhereCancelledFight>,
-  cancelledFight: SingularQueries<CancelledFight, InsertCancelledFight, WhereCancelledFight>,
+  cancelledFight: SingularQueries<CancelledFight, InsertCancelledFight, WhereCancelledFight, number>,
   titleRemovals: MultipleQueries<TitleRemoval, InsertTitleRemoval, WhereTitleRemoval>,
-  titleRemoval: SingularQueries<TitleRemoval, InsertTitleRemoval, WhereTitleRemoval>,
+  titleRemoval: SingularQueries<TitleRemoval, InsertTitleRemoval, WhereTitleRemoval, number>,
   opponents: Pick<MultipleQueries<Opponent, InsertOpponent, WhereOpponent>, "get">,
-  opponent: Pick<SingularQueries<Opponent, InsertOpponent, WhereOpponent>, "get">,
+  opponent: Pick<SingularQueries<Opponent, InsertOpponent, WhereOpponent, number>, "get">,
   begin(): Promise<void>,
   commit(): Promise<void>,
   rollback(): Promise<void>
