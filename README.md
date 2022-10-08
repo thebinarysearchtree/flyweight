@@ -384,7 +384,7 @@ select * from fights where cardId in (1, 2, 3);
 
 If null is passed in as the value, the SQL will use ```is null```. If a regular expression is passed in, the SQL will use ```regexp```.
 
-All of the arguments are passed in as parameters for security reasons. There are no limits to the amount of values used in the ```in``` clause, unlike other ORMs.
+All of the arguments are passed in as parameters for security reasons.
 
 The second argument to ```get``` can be one of three possible values:
 
