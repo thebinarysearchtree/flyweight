@@ -245,7 +245,7 @@ Flyweight supports regular expressions in some of its methods if you have loaded
 
 ## Creating tables
 
-Tables are created the same way as they are in SQL. Flyweight converts the custom types in these tables to native types, and converts the tables to strict mode. The native types available in strict mode are ```integer```, ```real```, ```text```, ```blob```, and ```any```. In addition to these types, four custom types are included by default: ```boolean```, ```date```, ```json```, and ```regexp```. ```boolean``` is a column in which the values are restricted to 1 or 0, ```date``` is a JavaScript ```Date``` in milliseconds, ```json``` is json stored as text, and ```regexp``` is mostly just used for querying.
+Tables are created the same way as they are in SQL. Flyweight converts the custom types in these tables to native types, and converts the tables to strict mode. The native types available in strict mode are ```integer```, ```real```, ```text```, ```blob```, and ```any```. In addition to these types, four custom types are included by default: ```boolean```, ```date```, ```json```, and ```regexp```. ```boolean``` is a column in which the values are restricted to 1 or 0, ```date``` is a JavaScript ```Date``` stored as an ISO8601 string, ```json``` is json stored as text, and ```regexp``` is mostly just used for querying.
 
 To add your own types, you can use the ```registerTypes``` method on the ```database``` object mentioned earlier. ```registerTypes``` takes an array of ```CustomType``` objects that have the following properties:
 

@@ -109,9 +109,9 @@ class Database {
         name: 'date',
         valueTest: (v) => v instanceof Date,
         dbToJs: (v) => new Date(v),
-        jsToDb: (v) => v.getTime(),
+        jsToDb: (v) => v.toISOString(),
         tsType: 'Date',
-        dbType: 'integer'
+        dbType: 'text'
       },
       {
         name: 'json',

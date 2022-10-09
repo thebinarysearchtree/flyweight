@@ -134,7 +134,7 @@ export interface InsertEvent {
 export interface WhereEvent {
   id?: number | Array<number>;
   name?: string | Array<string> | RegExp;
-  startTime?: Date | Array<Date>;
+  startTime?: Date | Array<Date> | RegExp;
   locationId?: number | Array<number> | null;
 }
 
@@ -181,7 +181,7 @@ export interface WhereCard {
   eventId?: number | Array<number>;
   cardName?: string | Array<string> | RegExp;
   cardOrder?: number | Array<number>;
-  startTime?: Date | Array<Date> | null;
+  startTime?: Date | Array<Date> | RegExp | null;
 }
 
 export interface Coach {
@@ -487,7 +487,7 @@ export interface WhereCancelledFight {
   cardOrder?: number | Array<number>;
   blueId?: number | Array<number>;
   redId?: number | Array<number>;
-  cancelledAt?: Date | Array<Date>;
+  cancelledAt?: Date | Array<Date> | RegExp;
   cancellationReason?: string | Array<string> | RegExp | null;
 }
 
@@ -514,7 +514,7 @@ export interface WhereTitleRemoval {
   fighterId?: number | Array<number>;
   weightClassId?: number | Array<number>;
   isInterim?: boolean | Array<boolean>;
-  removedAt?: Date | Array<Date>;
+  removedAt?: Date | Array<Date> | RegExp;
   reason?: string | Array<string> | RegExp;
 }
 

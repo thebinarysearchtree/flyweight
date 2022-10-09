@@ -1,6 +1,6 @@
 {
   "name": "flyweightjs",
-  "version": "0.7.8",
+  "version": "0.7.9",
   "description": "An ORM for SQLite",
   "main": "index.js",
   "types": "index.d.ts",
@@ -11,8 +11,8 @@
   "author": "Andrew Jones",
   "license": "MIT",
   "dependencies": {
-    "chokidar": "^3.5.3",
-    "pluralize": "^8.0.0",
-    "sqlite3": "^5.1.1"
+    "chokidar": "3.5.3",
+    "pluralize": "8.0.0",
+    "sqlite3": "5.1.2"
   }
 }
