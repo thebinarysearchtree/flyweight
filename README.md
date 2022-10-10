@@ -422,7 +422,7 @@ const changes = await db.fighters.remove({ id: 100 });
 
 ## Migrations
 
-The ```initialize``` method mentioned earlier returns a function called ```createMigration```. It takes one optional argument: ```name```. If ```name``` is not supplied, it will print the migration to the console instead of writing it to a file. Otherwise, a file will be created in the ```migrations``` directory with the format ```name.sql```. You can import the ```createMigration``` function into a new file like this:
+The ```initialize``` method mentioned earlier returns a function called ```createMigration```. It takes one argument: ```name```. When it is run, it will create a file in the ```migrations``` directory with the format ```name.sql```. You can import the ```createMigration``` function into a new file like this:
 
 ```js
 import { createMigration } from './db.js';
@@ -436,6 +436,6 @@ and run it from the command line like this:
 node migrate.js <migrationName>
 ```
 
-replacing ```migrationName``` with the name you want to call your migration. If no name is supplied, it will print the migration to the console. If a name is suppplied and the function created a migration, it will also create or update a file called ```lastTables.sql```, which is used to record the state of the table definitions the last time the migration function was run so that it can compare it with the current table definitions.
+replacing ```migrationName``` with the name you want to call your migration.
 
-The SQL created by the migration may need adjusting, so make sure you check the file before you apply it to the database. If you want to add a new column to a table without needing to drop the table, make sure you put the column at the end of the list of columns. Otherwise, Flyweight will try to maintain the order of the columns by creating a temporary table, dropping the existing table, and then renaming the temporary table.
+The SQL created by the migration may need adjusting, so make sure you check the file before you apply it to the database. If you want to add a new column to a table without needing to drop the table, make sure you put the column at the end of the list of columns.

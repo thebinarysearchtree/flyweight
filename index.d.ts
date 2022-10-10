@@ -28,7 +28,7 @@ export interface Initialize<T> {
   db: T;
   makeTypes(options?: { watch: boolean }): Promise<void>;
   getTables(): Promise<string>;
-  createMigration(name?: string): Promise<void>;
+  createMigration(name: string): Promise<void>;
 }
 
 export class Database {

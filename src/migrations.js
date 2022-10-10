@@ -114,6 +114,7 @@ const migrate = async (db, tablesPath, viewsPath, migrationPath, migrationName) 
     }
     catch {
       viewMigrations.push(currentViewsText);
+      await writeFile(lastViewsPath, currentViewsText, 'utf8');
     }
   }
   try {
@@ -122,15 +123,10 @@ const migrate = async (db, tablesPath, viewsPath, migrationPath, migrationName) 
     blankedLast = blank(last);
   }
   catch {
-    if (migrationName) {
-      await writeFile(outputPath, current, 'utf8');
-      await writeFile(lastTablesPath, currentSql, 'utf8');
-      console.log('Migration created.');
-      process.exit();
-    }
-    else {
-      console.log(current);
-    }
+    await writeFile(outputPath, current, 'utf8');
+    await writeFile(lastTablesPath, currentSql, 'utf8');
+    console.log('Migration created.');
+    process.exit();
   }
   const currentIndexes = getIndexes(current, blankedCurrent);
   const lastIndexes = getIndexes(last, blankedLast);
@@ -256,28 +252,25 @@ const migrate = async (db, tablesPath, viewsPath, migrationPath, migrationName) 
       tableMigrations.push(`drop table ${table.name};`);
     }
   }
-  let migrations = '';
-  migrations += tableMigrations.join('\n');
-  migrations += columnMigrations.join('\n');
-  migrations += indexMigrations.join('\n');
-  migrations += viewMigrations.join('\n');
-  if (migrations === '') {
+  const migrations = [...tableMigrations, ...columnMigrations, ...indexMigrations, ...viewMigrations];
+  if (migrations.length === 0) {
     console.log('No changes were detected.');
     process.exit();
   }
-  if (migrationName) {
-    try {
-      await readFile(outputPath, 'utf8');
-      console.log(`${outputPath} already exists.`);
-    }
-    catch {
-      await writeFile(outputPath, migrations, 'utf8');
-      await writeFile(lastTablesPath, currentSql, 'utf8');
-      console.log('Migration created.');
-    }
+  let sql = '';
+  sql += 'pragma foreign_keys=off;\n';
+  sql += 'begin;\n';
+  sql += migrations.join('\n');
+  sql += '\ncommit;\n';
+  sql += 'pragma foreign_keys=on;\n';
+  try {
+    await readFile(outputPath, 'utf8');
+    console.log(`${outputPath} already exists.`);
   }
-  else {
-    console.log(migrations);
+  catch {
+    await writeFile(outputPath, sql, 'utf8');
+    await writeFile(lastTablesPath, currentSql, 'utf8');
+    console.log('Migration created.');
   }
 }
 
