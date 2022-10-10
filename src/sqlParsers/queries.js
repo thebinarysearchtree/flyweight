@@ -311,12 +311,11 @@ const parseSelect = (query, tables) => {
   const isCte = /^\s*with\s/mi.test(processed);
   if (isCte) {
     let lastIndex;
-    const matches = processed.matchAll(/(\s|,)(?<tableName>[a-z0-9_]+)\s(as)\s(?<material>(not\s)?(materialized\s))?\((?<query>[^)]+)\)/gmi);
+    const matches = processed.matchAll(/(\s|,)(?<tableName>[a-z0-9_]+)\s(as)\s\((?<query>[^)]+)\)/gmi);
     for (const match of matches) {
       const tableName = match.groups.tableName;
-      const material = match.groups.material ? match.groups.material : '';
       const processed = match.groups.query;
-      const offset = tableName.length + material.length + 6;
+      const offset = tableName.length + 6;
       const start = match.index + offset;
       const end = start + processed.length;
       lastIndex = end + 1;

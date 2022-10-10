@@ -1,3 +1,5 @@
+import Database from '../db.js';
+
 export interface Keywords<T> {
   select: T;
   orderBy?: Array<string> | string;
@@ -519,18 +521,24 @@ export interface WhereTitleRemoval {
 }
 
 export interface Opponent {
-  fighterId: number;
-  opponentId: number;
+  fightId: number | null;
+  startTime: Date | null;
+  fighterId: number | null;
+  opponentId: number | null;
 }
 
 export interface InsertOpponent {
-  fighterId: number;
-  opponentId: number;
+  fightId?: number;
+  startTime?: Date;
+  fighterId?: number;
+  opponentId?: number;
 }
 
 export interface WhereOpponent {
-  fighterId?: number | Array<number>;
-  opponentId?: number | Array<number>;
+  fightId?: number | Array<number> | null;
+  startTime?: Date | Array<Date> | RegExp | null;
+  fighterId?: number | Array<number> | null;
+  opponentId?: number | Array<number> | null;
 }
 
 export interface TypedDb {
@@ -562,14 +570,22 @@ export interface TypedDb {
   titleRemovals: MultipleQueries<TitleRemoval, InsertTitleRemoval, WhereTitleRemoval>,
   titleRemoval: SingularQueries<TitleRemoval, InsertTitleRemoval, WhereTitleRemoval, number>,
   opponents: Pick<MultipleQueries<Opponent, InsertOpponent, WhereOpponent>, "get">,
-  opponent: Pick<SingularQueries<Opponent, InsertOpponent, WhereOpponent, number>, "get">,
+  opponent: Pick<SingularQueries<Opponent, InsertOpponent, WhereOpponent, undefined>, "get">,
   begin(): Promise<void>,
   commit(): Promise<void>,
   rollback(): Promise<void>
 }
 
+declare const database: Database;
 declare const db: TypedDb;
+export function getTables(): Promise<string>;
+export function createMigration(name: string): Promise<void>;
+export function runMigration(name: string): Promise<void>;
 
 export {
-  db
+  database,
+  db,
+  getTables,
+  createMigration,
+  runMigration
 }

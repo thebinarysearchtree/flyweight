@@ -24,15 +24,20 @@ const result = await database.initialize({
   extensions: `${dbPath}/regexp.dylib`
 });
 
-const db = result.db;
-const makeTypes = result.makeTypes;
-const getTables = result.getTables;
-const createMigration = result.createMigration;
+const {
+  db,
+  makeTypes,
+  getTables,
+  createMigration,
+  runMigration
+} = result;
+
 
 export {
   database,
   db,
   makeTypes,
   getTables,
-  createMigration
+  createMigration,
+  runMigration
 }

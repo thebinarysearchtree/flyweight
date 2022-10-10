@@ -91,18 +91,23 @@ const migrate = async (db, tablesPath, viewsPath, migrationPath, migrationName) 
   const blankedCurrent = blank(current);
   let last;
   let blankedLast;
+  let currentViewsText = '';
   const viewMigrations = [];
   if (viewsPath) {
-    const currentViewsText = await readSql(viewsPath);
+    currentViewsText = await readSql(viewsPath);
     let lastViewsText;
     try {
       lastViewsText = await readSql(lastViewsPath);
       const currentViews = getViews(currentViewsText);
       const lastViews = getViews(lastViewsText);
       const currentViewNames = new Set(currentViews.map(v => v.name));
-      const lastViewNames = new Set(lastViews.map(v => v.name));
       for (const view of currentViews) {
-        if (!lastViewNames.has(view.name)) {
+        const lastView = lastViews.find(v => v.name === view.name);
+        if (!lastView) {
+          viewMigrations.push(view.sql);
+        }
+        if (lastView && lastView.sql !== view.sql) {
+          viewMigrations.push(`drop view ${view.name};`);
           viewMigrations.push(view.sql);
         }
       }
@@ -123,7 +128,13 @@ const migrate = async (db, tablesPath, viewsPath, migrationPath, migrationName) 
     blankedLast = blank(last);
   }
   catch {
-    await writeFile(outputPath, current, 'utf8');
+    let sql = current;
+    if (viewMigrations.length > 0) {
+      sql += '\n';
+      sql += viewMigrations.join('\n');
+      sql += '\n';
+    }
+    await writeFile(outputPath, sql, 'utf8');
     await writeFile(lastTablesPath, currentSql, 'utf8');
     console.log('Migration created.');
     process.exit();
@@ -257,12 +268,7 @@ const migrate = async (db, tablesPath, viewsPath, migrationPath, migrationName) 
     console.log('No changes were detected.');
     process.exit();
   }
-  let sql = '';
-  sql += 'pragma foreign_keys=off;\n';
-  sql += 'begin;\n';
-  sql += migrations.join('\n');
-  sql += '\ncommit;\n';
-  sql += 'pragma foreign_keys=on;\n';
+  const sql = migrations.join('\n');
   try {
     await readFile(outputPath, 'utf8');
     console.log(`${outputPath} already exists.`);
@@ -270,6 +276,7 @@ const migrate = async (db, tablesPath, viewsPath, migrationPath, migrationName) 
   catch {
     await writeFile(outputPath, sql, 'utf8');
     await writeFile(lastTablesPath, currentSql, 'utf8');
+    await writeFile(lastViewsPath, currentViewsText, 'utf8');
     console.log('Migration created.');
   }
 }

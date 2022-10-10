@@ -14,7 +14,7 @@ const toValues = (rows) => {
 }
 
 const readSql = async (path) => {
-  let sql;
+  let sql = '';
   if (path.endsWith('.sql')) {
     sql = await readFile(path, 'utf8');
   }

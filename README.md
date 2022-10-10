@@ -153,17 +153,21 @@ const result = await database.initialize({
   extensions: '/path/regexp.dylib'
 });
 
-const db = result.db;
-const makeTypes = result.makeTypes;
-const getTables = result.getTables;
-const createMigration = result.createMigration;
+const {
+  db,
+  makeTypes,
+  getTables,
+  createMigration,
+  runMigration
+} = result;
 
 export {
   database,
   db,
   makeTypes,
   getTables,
-  createMigration
+  createMigration,
+  runMigration
 }
 ```
 
@@ -201,17 +205,21 @@ const result = await database.initialize<TypedDb>({
   extensions: '/path/regexp.dylib'
 });
 
-const db = result.db;
-const makeTypes = result.makeTypes;
-const getTables = result.getTables;
-const createMigration = result.createMigration;
+const {
+  db,
+  makeTypes,
+  getTables,
+  createMigration,
+  runMigration
+} = result;
 
 export {
   database,
   db,
   makeTypes,
   getTables,
-  createMigration
+  createMigration,
+  runMigration
 }
 ```
 
@@ -422,7 +430,7 @@ const changes = await db.fighters.remove({ id: 100 });
 
 ## Migrations
 
-The ```initialize``` method mentioned earlier returns a function called ```createMigration```. It takes one argument: ```name```. When it is run, it will create a file in the ```migrations``` directory with the format ```name.sql```. You can import the ```createMigration``` function into a new file like this:
+The ```initialize``` method mentioned earlier returns two functions related to performing migrations: ```createMigration``` and ```runMigration```. They both take one argument: ```name```. When ```createMigration``` is run, it will create a file in the ```migrations``` directory with the format ```name.sql```. You can import the ```createMigration``` function into a new file like this:
 
 ```js
 import { createMigration } from './db.js';
@@ -439,3 +447,5 @@ node migrate.js <migrationName>
 replacing ```migrationName``` with the name you want to call your migration.
 
 The SQL created by the migration may need adjusting, so make sure you check the file before you apply it to the database. If you want to add a new column to a table without needing to drop the table, make sure you put the column at the end of the list of columns.
+
+```runMigration``` can be used the same way. It reads the migration file created by ```createMigration```, turns off foreign keys, begins a transaction, runs the migration, and then turns foreign keys back on.

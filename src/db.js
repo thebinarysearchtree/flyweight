@@ -11,6 +11,7 @@ import { createTypes } from './sqlParsers/types.js';
 import { watch } from 'chokidar';
 import { migrate } from './migrations.js';
 import { getViews } from './sqlParsers/views.js';
+import { join } from 'path';
 
 const process = (db, result, options) => {
   if (!options) {
@@ -135,7 +136,7 @@ class Database {
   async initialize(paths, interfaceName) {
     const { db, sql, tables, views, types, migrations, extensions } = paths;
     this.db = new sqlite3.Database(db);
-    await this.enforceForeignKeys();
+    await this.enableForeignKeys();
     await this.setTables(tables);
     if (views) {
       await this.setViews(views);
@@ -183,6 +184,22 @@ class Database {
     const createMigration = async (name) => {
       await migrate(this, tables, views, migrations, name);
     }
+    const runMigration = async (name) => {
+      const path = join(migrations, `${name}.sql`);
+      const sql = await readFile(path, 'utf8');
+      this.disableForeignKeys();
+      try {
+        await this.begin();
+        await this.exec(sql);
+        await this.commit();
+        console.log('Migration ran successfully.');
+      }
+      catch (e) {
+        console.log(e);
+        await this.rollback();
+      }
+      this.enableForeignKeys();
+    }
     if (extensions) {
       if (typeof extensions === 'string') {
         await this.loadExtension(extensions);
@@ -197,12 +214,17 @@ class Database {
       db: client,
       makeTypes,
       getTables,
-      createMigration
+      createMigration,
+      runMigration
     }
   }
 
-  async enforceForeignKeys() {
+  async enableForeignKeys() {
     await this.basicAll('pragma foreign_keys = on');
+  }
+
+  async disableForeignKeys() {
+    await this.basicAll('pragma foreign_keys = off');
   }
 
   addTables(tables) {

@@ -240,7 +240,11 @@ const createTypes = async (options) => {
     destinationPath
   } = options;
   const tables = Object.entries(db.tables).map(([key, value]) => ({ name: key, columns: value }));
-  let types = definitions;
+  let types = '';
+  if (/\.d\.ts/.test(destinationPath)) {
+    types += `import Database from 'flyweightjs';\n\n`;
+  }
+  types += definitions;
   types += '\n\n';
   const returnTypes = [];
   for (const table of tables) {
@@ -251,10 +255,16 @@ const createTypes = async (options) => {
     let multipleReturnType;
     let singularReturnType;
     const primaryKey = table.columns.find(c => c.primaryKey !== undefined);
-    const tsType = toTsType({
-      type: primaryKey.type,
-      notNull: true
-    }, db.customTypes);
+    let tsType;
+    if (primaryKey) {
+      tsType = toTsType({
+        type: primaryKey.type,
+        notNull: true
+      }, db.customTypes);
+    }
+    else {
+      tsType = 'undefined';
+    }
     if (db.viewSet.has(table.name)) {
       multipleReturnType = `  ${multipleTableName}: Pick<MultipleQueries<${interfaceName}, Insert${interfaceName}, Where${interfaceName}>, "get">`;
       singularReturnType = `  ${singularTableName}: Pick<SingularQueries<${interfaceName}, Insert${interfaceName}, Where${interfaceName}, ${tsType}>, "get">`;
@@ -350,8 +360,12 @@ const createTypes = async (options) => {
   types += '  rollback(): Promise<void>';
   types += '\n}\n\n';
   if (/\.d\.ts/.test(destinationPath)) {
-    types += `declare const db: ${interfaceName};\n\n`;
-    types += 'export {\n  db\n}\n';
+    types += `declare const database: Database;\n`;
+    types += `declare const db: ${interfaceName};\n`;
+    types += 'export function getTables(): Promise<string>;\n';
+    types += 'export function createMigration(name: string): Promise<void>;\n';
+    types += 'export function runMigration(name: string): Promise<void>;\n\n';
+    types += 'export {\n  database,\n  db,\n  getTables,\n  createMigration,\n  runMigration\n}\n';
   }
   await writeFile(destinationPath, types, 'utf8');
 }
