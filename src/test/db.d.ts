@@ -249,6 +249,11 @@ export interface FightersCommon {
   event: { id: number; name: string; date: Date };
 }
 
+export interface FightersLastFights {
+  name: string;
+  dates: Array<Date>;
+}
+
 export interface FightersLeft {
   id: number;
   winner?: { id: number; name: string };
@@ -271,6 +276,7 @@ export interface FightersRight {
 
 export interface FightersQueries {
   common(params: { fighter1: any; fighter2: any; }): Promise<Array<FightersCommon>>;
+  lastFights(params: { id: any; }): Promise<Array<FightersLastFights>>;
   left(): Promise<Array<FightersLeft>>;
   methods(params: { id: any; }): Promise<Array<FightersMethods>>;
   opponents(): Promise<Array<FightersOpponents>>;
@@ -279,6 +285,7 @@ export interface FightersQueries {
 
 export interface FighterQueries {
   common(params: { fighter1: any; fighter2: any; }): Promise<FightersCommon | undefined>;
+  lastFights(params: { id: any; }): Promise<FightersLastFights | undefined>;
   left(): Promise<FightersLeft | undefined>;
   methods(params: { id: any; }): Promise<FightersMethods | undefined>;
   opponents(): Promise<FightersOpponents | undefined>;
@@ -521,24 +528,24 @@ export interface WhereTitleRemoval {
 }
 
 export interface Opponent {
-  fightId: number | null;
-  startTime: Date | null;
-  fighterId: number | null;
-  opponentId: number | null;
+  fightId: number;
+  startTime: Date;
+  fighterId: number;
+  opponentId: number;
 }
 
 export interface InsertOpponent {
-  fightId?: number;
-  startTime?: Date;
-  fighterId?: number;
-  opponentId?: number;
+  fightId: number;
+  startTime: Date;
+  fighterId: number;
+  opponentId: number;
 }
 
 export interface WhereOpponent {
-  fightId?: number | Array<number> | null;
-  startTime?: Date | Array<Date> | RegExp | null;
-  fighterId?: number | Array<number> | null;
-  opponentId?: number | Array<number> | null;
+  fightId?: number | Array<number>;
+  startTime?: Date | Array<Date> | RegExp;
+  fighterId?: number | Array<number>;
+  opponentId?: number | Array<number>;
 }
 
 export interface TypedDb {

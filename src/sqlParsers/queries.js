@@ -18,7 +18,7 @@ const getTempTables = (query, fromPattern, tables) => {
     const parsedTable = parseSelect(processed, tables);
     const tableName = `temp${i}`;
     processedQuery = processedQuery.replace(from.substring(match.index, match.index + subQuery.length), tableName);
-    const columns = parsedTable.map(c => ({ name: c.column, type: c.type }));
+    const columns = parsedTable.map(c => ({ name: c.column, type: c.type, notNull: c.notNull, isOptional: c.isOptional, structuredType: c.structuredType }));
     tempTables[tableName] = columns;
     i++;
   }
@@ -133,10 +133,10 @@ const getSelectColumns = (select, tables) => {
     },
     {
       name: 'Function pattern',
-      pattern: /^(?<functionName>[a-z0-9_]+)\((((?<tableAlias>[a-z0-9_]+)\.)?(?<columnName>[a-z0-9_]+)|([^)]+))\)(.*\s(as)\s(?<columnAlias>[a-z0-9_]+))?$/mi,
+      pattern: /^(?<functionName>[a-z0-9_]+)\((?<functionContent>((?<tableAlias>[a-z0-9_]+)\.)?(?<columnName>[a-z0-9_]+)|([^)]+))\)(.*\s(as)\s(?<columnAlias>[a-z0-9_]+))?$/mi,
       pre: (statement) => blank(statement, { stringsOnly: true }),
       extractor: (groups) => {
-        const { functionName, tableAlias, columnName, columnAlias } = groups;
+        const { functionName, functionContent, tableAlias, columnName, columnAlias } = groups;
         const type = returnTypes[functionName] || null;
         if (columnName !== undefined && isNumber(columnName)) {
           return {
@@ -150,7 +150,8 @@ const getSelectColumns = (select, tables) => {
           columnName,
           columnAlias,
           type,
-          functionName
+          functionName,
+          functionContent
         };
       }
     },
@@ -321,7 +322,7 @@ const parseSelect = (query, tables) => {
       lastIndex = end + 1;
       const actual = query.substring(start, end);
       const columns = parseQuery(actual, tables);
-      tables[tableName] = columns.map(c => ({ name: c.name, type: c.type }));
+      tables[tableName] = columns.map(c => ({ name: c.name, type: c.type, notNull: c.notNull, isOptional: c.isOptional, structuredType: c.structuredType }));
     }
     query = query.substring(lastIndex);
     processed = processed.substring(lastIndex);
@@ -405,6 +406,7 @@ const parseSelect = (query, tables) => {
     let foreign;
     let notNull = false;
     let isOptional = false;
+    let structuredType = null;
     if (column.functionName) {
       if (notNullFunctions.has(column.functionName)) {
         notNull = true;
@@ -431,6 +433,22 @@ const parseSelect = (query, tables) => {
       }
       else {
         type = column.type;
+        if (column.functionName === 'json_group_array') {
+          if (column.columnName) {
+            const fromTable = fromTables.find(t => t.tableAlias === column.tableAlias);
+            tableName = fromTable.tableName;
+            const tableColumn = tables[fromTable.tableName].find(c => c.name === column.columnName);
+            const joinColumn = joinColumns.find(c => c.tableAlias === column.tableAlias && c.columnName === column.columnName);
+            const whereColumn = whereColumns.find(c => c.tableAlias === column.tableAlias && c.columnName === column.columnName);
+            const notNull = tableColumn.notNull === true || tableColumn.primaryKey || joinColumn || whereColumn;
+            const isOptional = fromTable.isOptional;
+            structuredType = [{ 
+              type: tableColumn.type,
+              notNull,
+              isOptional
+            }];
+          }
+        }
       }
     }
     else if (column.columnName) {
@@ -451,7 +469,8 @@ const parseSelect = (query, tables) => {
             primaryKey: column.primaryKey,
             foreign: column.foreign,
             notNull,
-            isOptional: fromTable.isOptional
+            isOptional: fromTable.isOptional,
+            structuredType: column.structuredType
           });
         }
         continue;
@@ -465,6 +484,7 @@ const parseSelect = (query, tables) => {
         type = tableColumn.type;
         notNull = tableColumn.notNull === true || tableColumn.primaryKey || joinColumn || whereColumn;
         isOptional = fromTable.isOptional;
+        structuredType = tableColumn.structuredType;
       }
     }
     results.push({
@@ -476,7 +496,8 @@ const parseSelect = (query, tables) => {
       foreign,
       notNull,
       isOptional,
-      rename: column.rename
+      rename: column.rename,
+      structuredType
     });
   }
   return results;

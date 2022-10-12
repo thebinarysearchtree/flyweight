@@ -47,7 +47,28 @@ const convertOptional = (tsType) => {
 }
 
 const toTsType = (column, customTypes) => {
-  const { type, functionName, notNull, isOptional } = column;
+  const { type, functionName, notNull, isOptional, structuredType } = column;
+  if (structuredType) {
+    if (Array.isArray(structuredType)) {
+      const structured = structuredType[0];
+      if (structured.type !== 'json') {
+        let tsType;
+        if (typeMap[structured.type]) {
+          tsType = typeMap[structured.type];
+        }
+        else {
+          tsType = customTypes[structured.type].tsType;
+        }
+        if (!structured.notNull && !hasNull(tsType) && tsType !== 'any') {
+          tsType += ' | null';
+        }
+        if (structured.isOptional) {
+          tsType += ' | optional';
+        }
+        return `Array<${tsType}>`;
+      }
+    }
+  }
   let tsType;
   if (typeMap[type]) {
     tsType = typeMap[type];

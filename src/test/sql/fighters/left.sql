@@ -6,4 +6,4 @@ from
     fights f left join
     fighters w on f.winnerId = w.id
 where f.winnerId is null
-limit 5;
+limit 5

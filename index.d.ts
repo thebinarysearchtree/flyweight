@@ -15,13 +15,13 @@ export interface CustomType {
 }
 
 export interface Paths {
-  db: string;
-  sql?: string;
-  tables: string;
-  views?: string;
-  types?: string;
-  migrations?: string;
-  extensions?: string | Array<string>;
+  db: string | URL;
+  sql?: string | URL;
+  tables: string | URL;
+  views?: string | URL;
+  types?: string | URL;
+  migrations?: string | URL;
+  extensions?: string | URL | Array<string | URL>;
 }
 
 export interface Initialize<T> {

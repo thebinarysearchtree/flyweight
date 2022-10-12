@@ -4,7 +4,8 @@ with eventFights as (
         f.id as fightId,
         e.startTime as startTime,
         f.redId,
-        f.blueId
+        f.blueId,
+        f.methodId
     from
         fights f join
         cards c on f.cardId = c.id join
@@ -14,12 +15,14 @@ select
     fightId,
     startTime,
     redId as fighterId,
-    blueId as opponentId
+    blueId as opponentId,
+    methodId
 from eventFights
 union all
 select
     fightId,
     startTime,
     blueId as fighterId,
-    redId as opponentId
+    redId as opponentId,
+    methodId
 from eventFights;

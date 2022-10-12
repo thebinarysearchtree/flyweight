@@ -1,9 +1,9 @@
-with opponents as (
-    select case when blueId = $fighter1 then redId else blueId end as id
-    from fights where $fighter1 in (redId, blueId) and methodId not null
+with common as (
+    select opponentId from opponents 
+    where fighterId = $fighter1 and methodId is not null
     intersect
-    select case when blueId = $fighter2 then redId else blueId end as id
-    from fights where $fighter2 in (redId, blueId) and methodId not null
+    select opponentId from opponents 
+    where fighterId = $fighter2 and methodId is not null
 )
 select
     f.redId,
@@ -17,14 +17,15 @@ select
     e.name as eventName,
     e.startTime as eventDate
 from 
-    fights f join
+    opponents o join
+    fights f on o.fightId = f.id join
     fighters rf on f.redId = rf.id join
     fighters bf on f.blueId = bf.id join
     methods m on f.methodId = m.id join
     cards c on f.cardId = c.id join
     events e on c.eventId = e.id 
 where 
-    (blueId in ($fighter1, $fighter2) or redId in ($fighter1, $fighter2)) and
-    (blueId in (select id from opponents) or redId in (select id from opponents))
-order by case when redId in ($fighter1, $fighter2) then blueId else redId end
+    o.fighterId in ($fighter1, $fighter2) and 
+    o.opponentId in (select opponentId from common)
+order by o.opponentId
 

@@ -105,11 +105,26 @@ const makeOptions = (columns, db) => {
     const columnName = rename ? column.originalName : column.name;
     columnMap[column.name] = rename ? column.originalName : column.name;
     const converter = db.getDbToJsConverter(column.type);
+    let actualConverter = converter;
     if (converter) {
       if (!typeMap) {
         typeMap = {};
       }
-      typeMap[column.name] = converter;
+      const structured = column.structuredType;
+      if (structured) {
+        if (Array.isArray(structured)) {
+          const structuredType = structured[0].type;
+          if (typeof structuredType === 'string') {
+            const structuredConverter = db.getDbToJsConverter(structuredType);
+            if (structuredConverter) {
+              actualConverter = (v) => {
+                return converter(v).map(i => structuredConverter(i));
+              }
+            }
+          }
+        }
+      }
+      typeMap[column.name] = actualConverter;
     }
     if (column.primaryKey) {
       if (lastPrimaryKey) {

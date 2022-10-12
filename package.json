@@ -1,12 +1,12 @@
 {
   "name": "flyweightjs",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "description": "An ORM for SQLite",
   "main": "index.js",
   "types": "index.d.ts",
   "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node ./src/test/test.js"
   },
   "author": "Andrew Jones",
   "license": "MIT",

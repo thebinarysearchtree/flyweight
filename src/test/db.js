@@ -1,7 +1,9 @@
 import Database from '../db.js';
 
-const dbPath = '/Users/andrew/Projects/databases';
-const testPath = '/Users/andrew/Projects/flyweight/src/test';
+const path = (subPath) => {
+  const url = new URL(subPath, import.meta.url);
+  return url.pathname;
+}
 
 const database = new Database();
 
@@ -15,13 +17,13 @@ database.registerTypes([
 ]);
 
 const result = await database.initialize({
-  db: `${dbPath}/test.db`,
-  sql: `${testPath}/sql`,
-  tables: `${testPath}/sql/initial.sql`,
-  views: `${testPath}/sql/views.sql`,
-  types: `${testPath}/db.d.ts`,
-  migrations: `${testPath}/migrations`,
-  extensions: `${dbPath}/regexp.dylib`
+  db: path('databases/test.db'),
+  sql: path('sql'),
+  tables: path('sql/initial.sql'),
+  views: path('sql/views.sql'),
+  types: path('db.d.ts'),
+  migrations: path('migrations'),
+  extensions: path('databases/regexp.dylib')
 });
 
 const {

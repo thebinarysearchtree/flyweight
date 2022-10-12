@@ -5,4 +5,4 @@ select
 from
     fights f join
     fighters w on f.winnerId = w.id
-limit 5;
+limit 5
