@@ -116,10 +116,35 @@ const makeOptions = (columns, db) => {
           const structuredType = structured[0].type;
           if (typeof structuredType === 'string') {
             const structuredConverter = db.getDbToJsConverter(structuredType);
-            if (structuredConverter) {
-              actualConverter = (v) => {
-                return converter(v).map(i => structuredConverter(i));
+            const makeSorter = (sorter) => {
+              return (a, b) => {
+                if (a === null) {
+                  return 1;
+                }
+                if (b === null) {
+                  return -1;
+                }
+                return sorter(a, b);
               }
+            }
+            actualConverter = (v) => {
+              let converted = converter(v);
+              if (structuredType === 'text') {
+                const sorter = makeSorter((a, b) => a.localeCompare(b));
+                converted.sort(sorter);
+              }
+              if (structuredType === 'integer' || structuredType === 'real') {
+                const sorter = makeSorter((a, b) => a - b);
+                converted.sort(sorter);
+              }
+              if (structuredConverter) {
+                converted = converted.map(i => i !== null ? structuredConverter(i) : i);
+                if (structuredType === 'date') {
+                  const sorter = makeSorter((a, b) => b.getTime() - a.getTime());
+                  converted.sort(sorter);
+                }
+              }
+              return converted;
             }
           }
         }

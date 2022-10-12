@@ -51,6 +51,8 @@ const limited = await db.fighters.get(null, { limit: 10 });
 assert.equal(limited.length, 10);
 const lastFights = await db.fighter.lastFights({ id: 17 });
 console.log(lastFights);
+const weightClasses = await db.fighter.weightClasses({ fighterId: 17 });
+console.log(weightClasses);
 
 console.log('All tests passed');
 
