@@ -13,7 +13,8 @@ weightsObjects as (
         json_group_array(
             json_object(
                 'id', weightClassId, 
-                'name', name
+                'name', name,
+                'test', true
             )) as weightClasses
     from weights
     group by fighterId

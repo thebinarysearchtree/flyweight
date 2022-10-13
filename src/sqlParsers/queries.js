@@ -124,10 +124,10 @@ const parsers = [
   },
   {
     name: 'Function pattern',
-    pattern: /^(?<functionName>[a-z0-9_]+)\((?<functionContent>((?<tableAlias>[a-z0-9_]+)\.)?(?<columnName>[a-z0-9_]+)|([^)]+))\)(.*\s(as)\s(?<columnAlias>[a-z0-9_]+))?$/mi,
+    pattern: /^(?<functionName>[a-z0-9_]+)\((?<functionContent>((?<tableAlias>[a-z0-9_]+)\.)?(?<columnName>[a-z0-9_]+)|(.+?))\)( as (?<columnAlias>[a-z0-9_]+))?$/mid,
     pre: (statement) => blank(statement, { stringsOnly: true }),
-    extractor: (groups) => {
-      const { functionName, functionContent, tableAlias, columnName, columnAlias } = groups;
+    extractor: (groups, tables, indices, statement) => {
+      const { functionName, tableAlias, columnName, columnAlias } = groups;
       const type = returnTypes[functionName] || null;
       if (columnName !== undefined && isNumber(columnName)) {
         return {
@@ -136,6 +136,8 @@ const parsers = [
           functionName
         }
       }
+      const [start, end] = indices.groups.functionContent;
+      const functionContent = statement.substring(start, end);
       return {
         tableAlias,
         columnName,
@@ -226,7 +228,7 @@ const parseColumn = (statement, tables) => {
     }
     const result = pattern.exec(processed);
     if (result) {
-      return extractor(result.groups, tables);
+      return extractor(result.groups, tables, result.indices, statement);
     }
   }
   return null;
@@ -305,6 +307,140 @@ const parseWrite = (query, tables) => {
       notNull: tableColumn.notNull || tableColumn.primaryKey
     }
   });
+}
+
+const processColumn = (column, tables, fromTables, whereColumns, joinColumns) => {
+  if (column.column) {
+    return column.column;
+  }
+  let type = null;
+  let tableName;
+  let primaryKey;
+  let foreign;
+  let notNull = false;
+  let isOptional = false;
+  let structuredType = null;
+  if (column.functionName) {
+    if (notNullFunctions.has(column.functionName)) {
+      notNull = true;
+    }
+  }
+  if (column.type) {
+    if ((column.functionName === 'min' || column.functionName === 'max') && column.columnName) {
+      const fromTable = fromTables.find(t => t.tableAlias === column.tableAlias);
+      tableName = fromTable.tableName;
+      const tableColumn = tables[fromTable.tableName].find(c => c.name === column.columnName);
+      notNull = tableColumn.notNull;
+      if (tableColumn.type === 'date') {
+        type = 'date';
+      }
+      else if (tableColumn.type === 'boolean') {
+        type = 'boolean';
+      }
+      else if (tableColumn.type === 'text') {
+        type = 'text';
+      }
+      else {
+        type = column.type;
+      }
+    }
+    else {
+      type = column.type;
+      if (column.functionName === 'json_group_array') {
+        if (column.columnName) {
+          const fromTable = fromTables.find(t => t.tableAlias === column.tableAlias);
+          tableName = fromTable.tableName;
+          const tableColumn = tables[fromTable.tableName].find(c => c.name === column.columnName);
+          const joinColumn = joinColumns.find(c => c.tableAlias === column.tableAlias && c.columnName === column.columnName);
+          const whereColumn = whereColumns.find(c => c.tableAlias === column.tableAlias && c.columnName === column.columnName);
+          const notNull = tableColumn.notNull === true || tableColumn.primaryKey || joinColumn || whereColumn;
+          const isOptional = fromTable.isOptional;
+          structuredType = [{ 
+            type: tableColumn.type,
+            notNull,
+            isOptional
+          }];
+        }
+        else {
+          const match = /^\s*json_object\((?<functionContent>[^)]+)\)\s*$/gmid.exec(blank(column.functionContent));
+          if (match) {
+            const [start, end] = match.indices.groups.functionContent;
+            const content = column.functionContent.substring(start, end);
+            const matches = blank(content).matchAll(/(?<item>[^,]+)(,|$)/gmid);
+            let i = 0;
+            const structured = {};
+            let key;
+            for (const match of matches) {
+              const [start, end] = match.indices.groups.item;
+              const item = content.substring(start, end).trim();
+              if (i % 2 === 0) {
+                key = item.replaceAll('\'', '');
+              }
+              else {
+                const column = parseColumn(item + ` as ${key}`);
+                const processed = processColumn(column, tables, fromTables, whereColumns, joinColumns);
+                if (processed.structuredType) {
+                  processed.type = processed.structuredType;
+                }
+                structured[key] = processed;
+              }
+              i++;
+            }
+            structuredType = [{ type: structured }];
+          }
+        }
+      }
+    }
+  }
+  else if (column.columnName) {
+    const fromTable = fromTables.find(t => t.tableAlias === column.tableAlias);
+    tableName = fromTable.tableName;
+    const tableAlias = column.tableAlias;
+    if (column.columnName === '*') {
+      const results = [];
+      for (const column of tables[fromTable.tableName]) {
+        let type = column.type;
+        const joinColumn = joinColumns.find(c => c.tableAlias === tableAlias && c.columnName === column.name);
+        const whereColumn = whereColumns.find(c => c.tableAlias === tableAlias && c.columnName === column.name);
+        const notNull = column.notNull === true || column.primaryKey || joinColumn || whereColumn;
+        results.push({
+          name: column.name,
+          type,
+          originalName: column.name,
+          tableName,
+          primaryKey: column.primaryKey,
+          foreign: column.foreign,
+          notNull,
+          isOptional: fromTable.isOptional,
+          structuredType: column.structuredType
+        });
+      }
+      return results;
+    }
+    else {
+      const tableColumn = tables[fromTable.tableName].find(c => c.name === column.columnName);
+      const joinColumn = joinColumns.find(c => c.tableAlias === column.tableAlias && c.columnName === column.columnName);
+      const whereColumn = whereColumns.find(c => c.tableAlias === column.tableAlias && c.columnName === column.columnName);
+      primaryKey = tableColumn.primaryKey;
+      foreign = tableColumn.foreign;
+      type = tableColumn.type;
+      notNull = tableColumn.notNull === true || tableColumn.primaryKey || joinColumn || whereColumn;
+      isOptional = fromTable.isOptional;
+      structuredType = tableColumn.structuredType;
+    }
+  }
+  return {
+    name: column.columnAlias || column.columnName,
+    type,
+    originalName: column.columnName,
+    tableName,
+    primaryKey,
+    foreign,
+    notNull,
+    isOptional,
+    rename: column.rename,
+    structuredType
+  }
 }
 
 const parseSelect = (query, tables) => {
@@ -396,111 +532,10 @@ const parseSelect = (query, tables) => {
   }
   const results = [];
   for (const column of selectColumns) {
-    if (column.column) {
-      results.push(column.column);
-      continue;
-    }
-    let type = null;
-    let tableName;
-    let primaryKey;
-    let foreign;
-    let notNull = false;
-    let isOptional = false;
-    let structuredType = null;
-    if (column.functionName) {
-      if (notNullFunctions.has(column.functionName)) {
-        notNull = true;
-      }
-    }
-    if (column.type) {
-      if ((column.functionName === 'min' || column.functionName === 'max') && column.columnName) {
-        const fromTable = fromTables.find(t => t.tableAlias === column.tableAlias);
-        tableName = fromTable.tableName;
-        const tableColumn = tables[fromTable.tableName].find(c => c.name === column.columnName);
-        notNull = tableColumn.notNull;
-        if (tableColumn.type === 'date') {
-          type = 'date';
-        }
-        else if (tableColumn.type === 'boolean') {
-          type = 'boolean';
-        }
-        else if (tableColumn.type === 'text') {
-          type = 'text';
-        }
-        else {
-          type = column.type;
-        }
-      }
-      else {
-        type = column.type;
-        if (column.functionName === 'json_group_array') {
-          if (column.columnName) {
-            const fromTable = fromTables.find(t => t.tableAlias === column.tableAlias);
-            tableName = fromTable.tableName;
-            const tableColumn = tables[fromTable.tableName].find(c => c.name === column.columnName);
-            const joinColumn = joinColumns.find(c => c.tableAlias === column.tableAlias && c.columnName === column.columnName);
-            const whereColumn = whereColumns.find(c => c.tableAlias === column.tableAlias && c.columnName === column.columnName);
-            const notNull = tableColumn.notNull === true || tableColumn.primaryKey || joinColumn || whereColumn;
-            const isOptional = fromTable.isOptional;
-            structuredType = [{ 
-              type: tableColumn.type,
-              notNull,
-              isOptional
-            }];
-          }
-        }
-      }
-    }
-    else if (column.columnName) {
-      const fromTable = fromTables.find(t => t.tableAlias === column.tableAlias);
-      tableName = fromTable.tableName;
-      const tableAlias = column.tableAlias;
-      if (column.columnName === '*') {
-        for (const column of tables[fromTable.tableName]) {
-          let type = column.type;
-          const joinColumn = joinColumns.find(c => c.tableAlias === tableAlias && c.columnName === column.name);
-          const whereColumn = whereColumns.find(c => c.tableAlias === tableAlias && c.columnName === column.name);
-          const notNull = column.notNull === true || column.primaryKey || joinColumn || whereColumn;
-          results.push({
-            name: column.name,
-            type,
-            originalName: column.name,
-            tableName,
-            primaryKey: column.primaryKey,
-            foreign: column.foreign,
-            notNull,
-            isOptional: fromTable.isOptional,
-            structuredType: column.structuredType
-          });
-        }
-        continue;
-      }
-      else {
-        const tableColumn = tables[fromTable.tableName].find(c => c.name === column.columnName);
-        const joinColumn = joinColumns.find(c => c.tableAlias === column.tableAlias && c.columnName === column.columnName);
-        const whereColumn = whereColumns.find(c => c.tableAlias === column.tableAlias && c.columnName === column.columnName);
-        primaryKey = tableColumn.primaryKey;
-        foreign = tableColumn.foreign;
-        type = tableColumn.type;
-        notNull = tableColumn.notNull === true || tableColumn.primaryKey || joinColumn || whereColumn;
-        isOptional = fromTable.isOptional;
-        structuredType = tableColumn.structuredType;
-      }
-    }
-    results.push({
-      name: column.columnAlias || column.columnName,
-      type,
-      originalName: column.columnName,
-      tableName,
-      primaryKey,
-      foreign,
-      notNull,
-      isOptional,
-      rename: column.rename,
-      structuredType
-    });
+    const processed = processColumn(column, tables, fromTables, whereColumns, joinColumns);
+    results.push(processed);
   }
-  return results;
+  return results.flat();
 }
 
 export {

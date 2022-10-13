@@ -147,6 +147,32 @@ const makeOptions = (columns, db) => {
               return converted;
             }
           }
+          else {
+            const converters = [];
+            for (const [key, value] of Object.entries(structuredType)) {
+              if (typeof value.type === 'string') {
+                const converter = db.getDbToJsConverter(value.type);
+                if (converter) {
+                  converters.push({ keys: [key], converter });
+                }
+              }
+            }
+            if (converters.length > 0) {
+              actualConverter = (v) => {
+                const converted = converter(v);
+                for (const converter of converters) {
+                  const keys = converter.keys;
+                  const count = keys.length;
+                  if (count === 1) {
+                    for (const item of converted) {
+                      item[keys[0]] = converter.converter(item[keys[0]])
+                    }
+                  }
+                }
+                return converted;
+              }
+            }
+          }
         }
       }
       typeMap[column.name] = actualConverter;
