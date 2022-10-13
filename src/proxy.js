@@ -137,7 +137,7 @@ const makeOptions = (columns, db) => {
                 const sorter = makeSorter((a, b) => a - b);
                 converted.sort(sorter);
               }
-              if (structuredConverter) {
+              if (structuredConverter && structuredType !== 'json') {
                 converted = converted.map(i => i !== null ? structuredConverter(i) : i);
                 if (structuredType === 'date') {
                   const sorter = makeSorter((a, b) => b.getTime() - a.getTime());
@@ -149,13 +149,33 @@ const makeOptions = (columns, db) => {
           }
           else {
             const converters = [];
-            for (const [key, value] of Object.entries(structuredType)) {
+            const getConverters = (key, value, keys = []) => {
+              const results = [];
+              keys.push(key);
               if (typeof value.type === 'string') {
+                if (value.type === 'json') {
+                  return [];
+                }
                 const converter = db.getDbToJsConverter(value.type);
                 if (converter) {
-                  converters.push({ keys: [key], converter });
+                  converters.push({
+                    keys: [...keys],
+                    converter
+                  });
+                }
+                return [];
+              }
+              else {
+                for (const [k, v] of Object.entries(value.type)) {
+                  const converters = getConverters(k, v, [...keys]);
+                  results.push(...converters);
                 }
               }
+              return results;
+            }
+            for (const [key, value] of Object.entries(structuredType)) {
+              const results = getConverters(key, value);
+              converters.push(...results);
             }
             if (converters.length > 0) {
               actualConverter = (v) => {
@@ -172,7 +192,7 @@ const makeOptions = (columns, db) => {
                           actual[key] = converter.converter(actual[key]);
                         }
                       }
-                      actual = item[key];
+                      actual = actual[key];
                       i++;
                     }
                   }

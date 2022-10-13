@@ -309,6 +309,30 @@ const parseWrite = (query, tables) => {
   });
 }
 
+const getStructuredType = (content, tables, fromTables, whereColumns, joinColumns) => {
+  const matches = blank(content).matchAll(/(?<item>[^,]+)(,|$)/gmid);
+  let i = 0;
+  const structured = {};
+  let key;
+  for (const match of matches) {
+    const [start, end] = match.indices.groups.item;
+    const item = content.substring(start, end).trim();
+    if (i % 2 === 0) {
+      key = item.replaceAll('\'', '');
+    }
+    else {
+      const column = parseColumn(item + ` as ${key}`);
+      const processed = processColumn(column, tables, fromTables, whereColumns, joinColumns);
+      if (processed.structuredType) {
+        processed.type = processed.structuredType.type;
+      }
+      structured[key] = processed;
+    }
+    i++;
+  }
+  return { type: structured };
+}
+
 const processColumn = (column, tables, fromTables, whereColumns, joinColumns) => {
   if (column.column) {
     return column.column;
@@ -366,29 +390,13 @@ const processColumn = (column, tables, fromTables, whereColumns, joinColumns) =>
           if (match) {
             const [start, end] = match.indices.groups.functionContent;
             const content = column.functionContent.substring(start, end);
-            const matches = blank(content).matchAll(/(?<item>[^,]+)(,|$)/gmid);
-            let i = 0;
-            const structured = {};
-            let key;
-            for (const match of matches) {
-              const [start, end] = match.indices.groups.item;
-              const item = content.substring(start, end).trim();
-              if (i % 2 === 0) {
-                key = item.replaceAll('\'', '');
-              }
-              else {
-                const column = parseColumn(item + ` as ${key}`);
-                const processed = processColumn(column, tables, fromTables, whereColumns, joinColumns);
-                if (processed.structuredType) {
-                  processed.type = processed.structuredType;
-                }
-                structured[key] = processed;
-              }
-              i++;
-            }
-            structuredType = [{ type: structured }];
+            const structured = getStructuredType(content, tables, fromTables, whereColumns, joinColumns);
+            structuredType = [structured];
           }
         }
+      }
+      else if (column.functionName === 'json_object') {
+        structuredType = getStructuredType(column.functionContent, tables, fromTables, whereColumns, joinColumns);
       }
     }
   }
