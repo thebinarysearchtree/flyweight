@@ -171,6 +171,7 @@ const makeOptions = (columns, db) => {
                           item[key] = converter.converter(item[key]);
                         }
                       }
+                      i++;
                     }
                   }
                 }
