@@ -163,9 +163,14 @@ const makeOptions = (columns, db) => {
                 for (const converter of converters) {
                   const keys = converter.keys;
                   const count = keys.length;
-                  if (count === 1) {
-                    for (const item of converted) {
-                      item[keys[0]] = converter.converter(item[keys[0]])
+                  for (const item of converted) {
+                    let i = 0;
+                    for (const key of keys) {
+                      if (i + 1 === count) {
+                        if (item[key] !== null) {
+                          item[key] = converter.converter(item[key]);
+                        }
+                      }
                     }
                   }
                 }
