@@ -186,7 +186,7 @@ const parsers = [
       const { then, columnAlias } = groups;
       const columnName = then.split(/\s(else)|(when)/)[0];
       const statement = `${columnName} as ${columnAlias}`;
-      return parseColumn(statement);
+      return parseColumn(statement, tables);
     }
   },
   {
