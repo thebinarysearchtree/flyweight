@@ -274,6 +274,11 @@ export interface FightersRight {
   winner: { id: number; name: string };
 }
 
+export interface FightersWeightClasses {
+  name: string;
+  weightClasses: any;
+}
+
 export interface FightersQueries {
   common(params: { fighter1: any; fighter2: any; }): Promise<Array<FightersCommon>>;
   lastFights(params: { id: any; }): Promise<Array<FightersLastFights>>;
@@ -281,6 +286,7 @@ export interface FightersQueries {
   methods(params: { id: any; }): Promise<Array<FightersMethods>>;
   opponents(): Promise<Array<FightersOpponents>>;
   right(): Promise<Array<FightersRight>>;
+  weightClasses(params: { fighterId: any; }): Promise<Array<FightersWeightClasses>>;
 }
 
 export interface FighterQueries {
@@ -290,6 +296,7 @@ export interface FighterQueries {
   methods(params: { id: any; }): Promise<FightersMethods | undefined>;
   opponents(): Promise<FightersOpponents | undefined>;
   right(): Promise<FightersRight | undefined>;
+  weightClasses(params: { fighterId: any; }): Promise<FightersWeightClasses | undefined>;
 }
 
 export interface OtherName {
@@ -532,6 +539,7 @@ export interface Opponent {
   startTime: Date;
   fighterId: number;
   opponentId: number;
+  methodId: number | null;
 }
 
 export interface InsertOpponent {
@@ -539,6 +547,7 @@ export interface InsertOpponent {
   startTime: Date;
   fighterId: number;
   opponentId: number;
+  methodId?: number;
 }
 
 export interface WhereOpponent {
@@ -546,6 +555,7 @@ export interface WhereOpponent {
   startTime?: Date | Array<Date> | RegExp;
   fighterId?: number | Array<number>;
   opponentId?: number | Array<number>;
+  methodId?: number | Array<number> | null;
 }
 
 export interface TypedDb {

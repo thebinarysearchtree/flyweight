@@ -60,6 +60,178 @@ const parseQuery = (sql, tables) => {
   return parseWrite(sql, tables);
 }
 
+const parsers = [
+  {
+    name: 'Literal pattern',
+    pattern: /^((?<isString>'.+')|(?<isNumber>((-|\+)?(0x)?\d+)(\.\d+)?(e\d)?)|(?<isBoolean>(true)|(false)))\s(as)\s(?<columnAlias>[a-z0-9_]+)$/mi,
+    extractor: (groups) => {
+      const { isString, isNumber, isBoolean, columnAlias } = groups;
+      let type;
+      if (isString !== undefined) {
+        type = 'text';
+      }
+      else if (isNumber !== undefined) {
+        if (isNumber.includes('.')) {
+          type = 'real';
+        }
+        else {
+          type = 'integer';
+        }
+      }
+      else if (isBoolean !== undefined) {
+        type = 'boolean';
+      }
+      return {
+        columnAlias,
+        type
+      };
+    }
+  },
+  {
+    name: 'Column pattern',
+    pattern: /^((?<tableAlias>[a-z0-9_]+)\.)?(?<columnName>([a-z0-9_]+)|\*)(\s(as)\s(?<columnAlias>[a-z0-9_]+))?$/mi,
+    extractor: (groups) => {
+      const { tableAlias, columnName, columnAlias } = groups;
+      return {
+        tableAlias,
+        columnName,
+        columnAlias,
+        rename: true
+      };
+    }
+  },
+  {
+    name: 'Cast pattern',
+    pattern: /^cast\(.+? as (?<type>[a-z0-9_]+)\) as (?<columnAlias>[a-z0-9_]+)$/mi,
+    pre: (statement) => blank(statement, { stringsOnly: true }),
+    extractor: (groups) => {
+      const { type, columnAlias } = groups;
+      let dbType;
+      if (type === 'none') {
+        dbType = 'blob';
+      }
+      else if (type === 'numeric') {
+        dbType = 'integer';
+      }
+      else {
+        dbType = type;
+      }
+      return {
+        columnAlias,
+        type: dbType
+      }
+    }
+  },
+  {
+    name: 'Function pattern',
+    pattern: /^(?<functionName>[a-z0-9_]+)\((?<functionContent>((?<tableAlias>[a-z0-9_]+)\.)?(?<columnName>[a-z0-9_]+)|([^)]+))\)(.*\s(as)\s(?<columnAlias>[a-z0-9_]+))?$/mi,
+    pre: (statement) => blank(statement, { stringsOnly: true }),
+    extractor: (groups) => {
+      const { functionName, functionContent, tableAlias, columnName, columnAlias } = groups;
+      const type = returnTypes[functionName] || null;
+      if (columnName !== undefined && isNumber(columnName)) {
+        return {
+          tableAlias,
+          type,
+          functionName
+        }
+      }
+      return {
+        tableAlias,
+        columnName,
+        columnAlias,
+        type,
+        functionName,
+        functionContent
+      };
+    }
+  },
+  {
+    name: 'Select pattern',
+    pattern: /^\s*\(\s*(?<select>select\s.+)\)\s(as)\s(?<columnAlias>[a-z0-9_]+)$/mi,
+    pre: (statement) => blank(statement, { stringsOnly: true }),
+    extractor: (groups, tables) => {
+      const { select, columnAlias } = groups;
+      const columns = parseQuery(select, tables);
+      const column = columns[0];
+      column.column = columnAlias;
+      column.rename = false;
+      column.primaryKey = false;
+      column.foreign = false;
+      return { column };
+    }
+  },
+  {
+    name: 'Operator pattern',
+    pattern: /^(?!(case )).+\s((?<logical>=|(!=)|(==)|(<>)|(>=)|(<=)|>|<)|(?<maths>\*|\/|%|\+|-))\s.+\s(as)\s(?<columnAlias>[a-z0-9_]+)$/mi,
+    extractor: (groups) => {
+      const { columnAlias, logical } = groups;
+      let type;
+      if (logical !== undefined) {
+        type = 'boolean';
+      }
+      else {
+        type = 'integer';
+      }
+      return {
+        columnAlias,
+        type
+      };
+    }
+  },
+  {
+    name: 'Case pattern',
+    pattern: /^case when .+ then (?<then>.+(?!else)(?!when)) end as (?<columnAlias>[a-z0-9_]+)$/mi,
+    extractor: (groups) => {
+      const { then, columnAlias } = groups;
+      const columnName = then.split(/\s(else)|(when)/)[0];
+      const statement = `${columnName} as ${columnAlias}`;
+      return parseColumn(statement);
+    }
+  },
+  {
+    name: 'Expression pattern',
+    pattern: /^.+ (not )?((in \([^)]+\))|(like)|(regexp)|(exists \([^)]+\))|(is null)|(is not null)|(is true)|(is false)) as (?<columnAlias>[a-z0-9_]+)$/mi,
+    extractor: (groups) => {
+      const { columnAlias } = groups;
+      return {
+        tableAlias: null,
+        columnName: null,
+        columnAlias,
+        type: 'boolean'
+      };
+    }
+  },
+  {
+    name: 'Alias pattern',
+    pattern: /.+\s(as)\s(?<columnAlias>[a-z0-9_]+)$/mi,
+    extractor: (groups) => {
+      const { columnAlias } = groups;
+      return {
+        columnAlias
+      };
+    }
+  }
+];
+
+const parseColumn = (statement, tables) => {
+  for (const parser of parsers) {
+    const { pattern, extractor, pre } = parser;
+    let processed;
+    if (pre) {
+      processed = pre(statement);
+    }
+    else {
+      processed = blank(statement);
+    }
+    const result = pattern.exec(processed);
+    if (result) {
+      return extractor(result.groups, tables);
+    }
+  }
+  return null;
+}
+
 const getSelectColumns = (select, tables) => {
   const matches = blank(select).matchAll(/(?<statement>[^,]+)(,|$)/gmd);
   const statements = [];
@@ -69,180 +241,8 @@ const getSelectColumns = (select, tables) => {
     statements.push(statement);
   }
   const selectColumns = [];
-  const parsers = [
-    {
-      name: 'Literal pattern',
-      pattern: /^((?<isString>'.+')|(?<isNumber>((-|\+)?(0x)?\d+)(\.\d+)?(e\d)?)|(?<isBoolean>(true)|(false)))\s(as)\s(?<columnAlias>[a-z0-9_]+)$/mi,
-      extractor: (groups) => {
-        const { isString, isNumber, isBoolean, columnAlias } = groups;
-        let type;
-        if (isString !== undefined) {
-          type = 'text';
-        }
-        else if (isNumber !== undefined) {
-          if (isNumber.includes('.')) {
-            type = 'real';
-          }
-          else {
-            type = 'integer';
-          }
-        }
-        else if (isBoolean !== undefined) {
-          type = 'boolean';
-        }
-        return {
-          columnAlias,
-          type
-        };
-      }
-    },
-    {
-      name: 'Column pattern',
-      pattern: /^((?<tableAlias>[a-z0-9_]+)\.)?(?<columnName>([a-z0-9_]+)|\*)(\s(as)\s(?<columnAlias>[a-z0-9_]+))?$/mi,
-      extractor: (groups) => {
-        const { tableAlias, columnName, columnAlias } = groups;
-        return {
-          tableAlias,
-          columnName,
-          columnAlias,
-          rename: true
-        };
-      }
-    },
-    {
-      name: 'Cast pattern',
-      pattern: /^cast\(.+? as (?<type>[a-z0-9_]+)\) as (?<columnAlias>[a-z0-9_]+)$/mi,
-      pre: (statement) => blank(statement, { stringsOnly: true }),
-      extractor: (groups) => {
-        const { type, columnAlias } = groups;
-        let dbType;
-        if (type === 'none') {
-          dbType = 'blob';
-        }
-        else if (type === 'numeric') {
-          dbType = 'integer';
-        }
-        else {
-          dbType = type;
-        }
-        return {
-          columnAlias,
-          type: dbType
-        }
-      }
-    },
-    {
-      name: 'Function pattern',
-      pattern: /^(?<functionName>[a-z0-9_]+)\((?<functionContent>((?<tableAlias>[a-z0-9_]+)\.)?(?<columnName>[a-z0-9_]+)|([^)]+))\)(.*\s(as)\s(?<columnAlias>[a-z0-9_]+))?$/mi,
-      pre: (statement) => blank(statement, { stringsOnly: true }),
-      extractor: (groups) => {
-        const { functionName, functionContent, tableAlias, columnName, columnAlias } = groups;
-        const type = returnTypes[functionName] || null;
-        if (columnName !== undefined && isNumber(columnName)) {
-          return {
-            tableAlias,
-            type,
-            functionName
-          }
-        }
-        return {
-          tableAlias,
-          columnName,
-          columnAlias,
-          type,
-          functionName,
-          functionContent
-        };
-      }
-    },
-    {
-      name: 'Select pattern',
-      pattern: /^\s*\(\s*(?<select>select\s.+)\)\s(as)\s(?<columnAlias>[a-z0-9_]+)$/mi,
-      pre: (statement) => blank(statement, { stringsOnly: true }),
-      extractor: (groups) => {
-        const { select, columnAlias } = groups;
-        const columns = parseQuery(select, tables);
-        const column = columns[0];
-        column.column = columnAlias;
-        column.rename = false;
-        column.primaryKey = false;
-        column.foreign = false;
-        return { column };
-      }
-    },
-    {
-      name: 'Operator pattern',
-      pattern: /^(?!(case )).+\s((?<logical>=|(!=)|(==)|(<>)|(>=)|(<=)|>|<)|(?<maths>\*|\/|%|\+|-))\s.+\s(as)\s(?<columnAlias>[a-z0-9_]+)$/mi,
-      extractor: (groups) => {
-        const { columnAlias, logical } = groups;
-        let type;
-        if (logical !== undefined) {
-          type = 'boolean';
-        }
-        else {
-          type = 'integer';
-        }
-        return {
-          columnAlias,
-          type
-        };
-      }
-    },
-    {
-      name: 'Case pattern',
-      pattern: /^case when .+ then (?<then>.+(?!else)(?!when)) end as (?<columnAlias>[a-z0-9_]+)$/mi,
-      extractor: (groups) => {
-        const { then, columnAlias } = groups;
-        const columnName = then.split(/\s(else)|(when)/)[0];
-        const statement = `${columnName} as ${columnAlias}`;
-        return parseColumn(statement);
-      }
-    },
-    {
-      name: 'Expression pattern',
-      pattern: /^.+ (not )?((in \([^)]+\))|(like)|(regexp)|(exists \([^)]+\))|(is null)|(is not null)|(is true)|(is false)) as (?<columnAlias>[a-z0-9_]+)$/mi,
-      extractor: (groups) => {
-        const { columnAlias } = groups;
-        return {
-          tableAlias: null,
-          columnName: null,
-          columnAlias,
-          type: 'boolean'
-        };
-      }
-    },
-    {
-      name: 'Alias pattern',
-      pattern: /.+\s(as)\s(?<columnAlias>[a-z0-9_]+)$/mi,
-      extractor: (groups) => {
-        const { columnAlias } = groups;
-        return {
-          columnAlias
-        };
-      }
-    }
-  ];
-
-  const parseColumn = (statement) => {
-    for (const parser of parsers) {
-      const { pattern, extractor, pre } = parser;
-      let processed;
-      if (pre) {
-        processed = pre(statement);
-      }
-      else {
-        processed = blank(statement);
-      }
-      const result = pattern.exec(processed);
-      if (result) {
-        return extractor(result.groups);
-      }
-    }
-    return null;
-  }
-
   for (const statement of statements) {
-    const parsed = parseColumn(statement);
+    const parsed = parseColumn(statement, tables);
     selectColumns.push(parsed);
   }
   return selectColumns;
