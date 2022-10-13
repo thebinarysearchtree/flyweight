@@ -165,12 +165,14 @@ const makeOptions = (columns, db) => {
                   const count = keys.length;
                   for (const item of converted) {
                     let i = 0;
+                    let actual = item;
                     for (const key of keys) {
                       if (i + 1 === count) {
-                        if (item[key] !== null) {
-                          item[key] = converter.converter(item[key]);
+                        if (actual[key] !== null) {
+                          actual[key] = converter.converter(actual[key]);
                         }
                       }
+                      actual = item[key];
                       i++;
                     }
                   }
