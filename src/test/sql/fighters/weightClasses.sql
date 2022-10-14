@@ -14,7 +14,8 @@ weightsObjects as (
             json_object(
                 'id', weightClassId, 
                 'name', name,
-                'test', true
+                'test', true,
+                'nest', json_object('id', 1, 'age', true)
             )) as weightClasses
     from weights
     group by fighterId

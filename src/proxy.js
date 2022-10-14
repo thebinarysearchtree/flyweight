@@ -91,6 +91,46 @@ const getPrefixes = (columns) => {
   return result;
 }
 
+const convertItem = (item, converters) => {
+  for (const converter of converters) {
+    const keys = converter.keys;
+    const count = keys.length;
+    let i = 0;
+    let actual = item;
+    for (const key of keys) {
+      if (i + 1 === count) {
+        if (actual[key] !== null) {
+          actual[key] = converter.converter(actual[key]);
+        }
+      }
+      actual = actual[key];
+      i++;
+    }
+  }
+}
+
+const getConverters = (key, value, db, converters, keys = []) => {
+  keys.push(key);
+  if (typeof value.type === 'string') {
+    if (value.functionName && /^json_/i.test(value.functionName)) {
+      return converters;
+    }
+    const converter = db.getDbToJsConverter(value.type);
+    if (converter) {
+      converters.push({
+        keys: [...keys],
+        converter
+      });
+    }
+    return converters;
+  }
+  else {
+    for (const [k, v] of Object.entries(value.type)) {
+      getConverters(k, v, db, converters, [...keys]);
+    }
+  }
+}
+
 const makeOptions = (columns, db) => {
   const prefixes = getPrefixes(columns);
   const columnMap = {};
@@ -149,56 +189,31 @@ const makeOptions = (columns, db) => {
           }
           else {
             const converters = [];
-            const getConverters = (key, value, keys = []) => {
-              const results = [];
-              keys.push(key);
-              if (typeof value.type === 'string') {
-                if (value.functionName && /^json_/i.test(value.functionName)) {
-                  return [];
-                }
-                const converter = db.getDbToJsConverter(value.type);
-                if (converter) {
-                  converters.push({
-                    keys: [...keys],
-                    converter
-                  });
-                }
-                return [];
-              }
-              else {
-                for (const [k, v] of Object.entries(value.type)) {
-                  const converters = getConverters(k, v, [...keys]);
-                  results.push(...converters);
-                }
-              }
-              return results;
-            }
             for (const [key, value] of Object.entries(structuredType)) {
-              const results = getConverters(key, value);
-              converters.push(...results);
+              getConverters(key, value, db, converters);
             }
             if (converters.length > 0) {
               actualConverter = (v) => {
                 const converted = converter(v);
                 for (const item of converted) {
-                  for (const converter of converters) {
-                    const keys = converter.keys;
-                    const count = keys.length;
-                    let i = 0;
-                    let actual = item;
-                    for (const key of keys) {
-                      if (i + 1 === count) {
-                        if (actual[key] !== null) {
-                          actual[key] = converter.converter(actual[key]);
-                        }
-                      }
-                      actual = actual[key];
-                      i++;
-                    }
-                  }
+                  convertItem(item, converters);
                 }
                 return converted;
               }
+            }
+          }
+        }
+        else {
+          const structuredType = structured.type;
+          const converters = [];
+          for (const [key, value] of Object.entries(structuredType)) {
+            getConverters(key, value, db, converters);
+          }
+          if (converters.length > 0) {
+            actualConverter = (v) => {
+              const converted = converter(v);
+              convertItem(converted, converters);
+              return converted;
             }
           }
         }

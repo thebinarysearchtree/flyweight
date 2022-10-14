@@ -52,7 +52,7 @@ assert.equal(limited.length, 10);
 const lastFights = await db.fighter.lastFights({ id: 17 });
 console.log(lastFights);
 const weightClasses = await db.fighter.weightClasses({ fighterId: 17 });
-console.log(weightClasses);
+console.log(weightClasses.weightClasses[0].nest);
 const test = await db.events.test();
 console.log(test);
 
