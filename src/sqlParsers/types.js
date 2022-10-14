@@ -75,6 +75,14 @@ const toTsType = (column, customTypes) => {
         return `Array<${tsType}>`;
       }
     }
+    else {
+      const structured = structuredType.type;
+      const types = [];
+      for (const [key, value] of Object.entries(structured)) {
+        types.push(`${key}: ${toTsType(value, customTypes)}`);
+      }
+      return `{ ${types.join(', ')} }`;
+    }
   }
   let tsType;
   if (typeMap[type]) {

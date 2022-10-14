@@ -156,7 +156,7 @@ export interface EventsGetById {
 
 export interface EventsTest {
   id: number;
-  nest: { [key: string]: any };
+  nest: { name: string, startTime: Date };
 }
 
 export interface EventsQueries {
@@ -283,7 +283,7 @@ export interface FightersRight {
 
 export interface FightersWeightClasses {
   name: string;
-  weightClasses: Array<{ id: number, name: string, test: boolean }>;
+  weightClasses: Array<{ id: number, name: string, test: boolean, nest: { id: number, age: boolean } }>;
 }
 
 export interface FightersQueries {
