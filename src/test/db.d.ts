@@ -1,4 +1,4 @@
-import Database from '../db.js';
+import Database from 'flyweightjs';
 
 export interface Keywords<T> {
   select: T;
@@ -276,7 +276,7 @@ export interface FightersRight {
 
 export interface FightersWeightClasses {
   name: string;
-  weightClasses: any;
+  weightClasses: Array<{ id: number | null, name: string, test: boolean }>;
 }
 
 export interface FightersQueries {

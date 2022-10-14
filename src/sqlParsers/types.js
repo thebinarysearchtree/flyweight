@@ -52,7 +52,11 @@ const toTsType = (column, customTypes) => {
     if (Array.isArray(structuredType)) {
       const structured = structuredType[0];
       if (typeof structured.type !== 'string') {
-        return 'any';
+        const types = [];
+        for (const [key, value] of Object.entries(structured.type)) {
+          types.push(`${key}: ${toTsType(value, customTypes)}`);
+        }
+        return `Array<{ ${types.join(', ')} }>`;
       }
       if (structured.type !== 'json') {
         let tsType;

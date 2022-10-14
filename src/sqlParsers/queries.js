@@ -83,7 +83,8 @@ const parsers = [
       }
       return {
         columnAlias,
-        type
+        type,
+        notNull: true
       };
     }
   },
@@ -341,7 +342,7 @@ const processColumn = (column, tables, fromTables, whereColumns, joinColumns) =>
   let tableName;
   let primaryKey;
   let foreign;
-  let notNull = false;
+  let notNull = column.notNull || false;
   let isOptional = false;
   let structuredType = null;
   if (column.functionName) {
