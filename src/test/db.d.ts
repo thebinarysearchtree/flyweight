@@ -276,7 +276,7 @@ export interface FightersRight {
 
 export interface FightersWeightClasses {
   name: string;
-  weightClasses: Array<{ id: number | null, name: string, test: boolean }>;
+  weightClasses: Array<{ id: number, name: string, test: boolean }>;
 }
 
 export interface FightersQueries {

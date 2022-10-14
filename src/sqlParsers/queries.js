@@ -378,7 +378,7 @@ const processColumn = (column, tables, fromTables, whereColumns, joinColumns) =>
           const tableColumn = tables[fromTable.tableName].find(c => c.name === column.columnName);
           const joinColumn = joinColumns.find(c => c.tableAlias === column.tableAlias && c.columnName === column.columnName);
           const whereColumn = whereColumns.find(c => c.tableAlias === column.tableAlias && c.columnName === column.columnName);
-          const notNull = tableColumn.notNull === true || tableColumn.primaryKey || joinColumn || whereColumn;
+          const notNull = tableColumn.notNull === true || tableColumn.primaryKey || joinColumn !== undefined || whereColumn !== undefined;
           const isOptional = fromTable.isOptional;
           structuredType = [{ 
             type: tableColumn.type,
@@ -411,7 +411,7 @@ const processColumn = (column, tables, fromTables, whereColumns, joinColumns) =>
         let type = column.type;
         const joinColumn = joinColumns.find(c => c.tableAlias === tableAlias && c.columnName === column.name);
         const whereColumn = whereColumns.find(c => c.tableAlias === tableAlias && c.columnName === column.name);
-        const notNull = column.notNull === true || column.primaryKey || joinColumn || whereColumn;
+        const notNull = column.notNull === true || column.primaryKey || joinColumn !== undefined || whereColumn !== undefined;
         results.push({
           name: column.name,
           type,
@@ -433,7 +433,7 @@ const processColumn = (column, tables, fromTables, whereColumns, joinColumns) =>
       primaryKey = tableColumn.primaryKey;
       foreign = tableColumn.foreign;
       type = tableColumn.type;
-      notNull = tableColumn.notNull === true || tableColumn.primaryKey || joinColumn || whereColumn;
+      notNull = tableColumn.notNull === true || tableColumn.primaryKey || joinColumn !== undefined || whereColumn !== undefined;
       isOptional = fromTable.isOptional;
       structuredType = tableColumn.structuredType;
     }
