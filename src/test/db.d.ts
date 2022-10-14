@@ -1,4 +1,4 @@
-import Database from 'flyweightjs';
+import Database from '../db.js';
 
 export interface Keywords<T> {
   select: T;
@@ -157,7 +157,7 @@ export interface EventsGetById {
 export interface EventsTest {
   id: number;
   nest: { name: string, startTime: Date };
-  arr: Array<any>;
+  arr: [string, Date];
 }
 
 export interface EventsQueries {

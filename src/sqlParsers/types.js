@@ -49,8 +49,8 @@ const convertOptional = (tsType) => {
 const toTsType = (column, customTypes) => {
   const { type, functionName, notNull, isOptional, structuredType } = column;
   if (structuredType) {
-    if (Array.isArray(structuredType)) {
-      const structured = structuredType[0];
+    if (functionName === 'json_group_array') {
+      const structured = structuredType;
       if (typeof structured.type !== 'string') {
         const types = [];
         for (const [key, value] of Object.entries(structured.type)) {
@@ -75,13 +75,20 @@ const toTsType = (column, customTypes) => {
         return `Array<${tsType}>`;
       }
     }
-    else {
+    else if (functionName === 'json_object') {
       const structured = structuredType.type;
       const types = [];
       for (const [key, value] of Object.entries(structured)) {
         types.push(`${key}: ${toTsType(value, customTypes)}`);
       }
       return `{ ${types.join(', ')} }`;
+    }
+    else if (functionName === 'json_array') {
+      const types = [];
+      for (const type of structuredType) {
+        types.push(toTsType(type, customTypes));
+      }
+      return `[${types.join(', ')}]`
     }
   }
   let tsType;

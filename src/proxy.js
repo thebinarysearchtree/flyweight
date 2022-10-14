@@ -217,6 +217,21 @@ const makeOptions = (columns, db) => {
             }
           }
         }
+        else if (column.functionName === 'json_array') {
+          const converters = [];
+          let i = 0;
+          for (const type of structured) {
+            getConverters(i, type, db, converters);
+            i++;
+          }
+          if (converters.length > 0) {
+            actualConverter = (v) => {
+              const converted = converter(v);
+              convertItem(converted, converters);
+              return converted;
+            }
+          }
+        }
       }
       typeMap[column.name] = actualConverter;
     }

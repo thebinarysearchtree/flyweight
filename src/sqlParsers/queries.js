@@ -400,6 +400,24 @@ const processColumn = (column, tables, fromTables, whereColumns, joinColumns) =>
       else if (functionName === 'json_object') {
         structuredType = getStructuredType(column.functionContent, tables, fromTables, whereColumns, joinColumns);
       }
+      else if (functionName === 'json_array') {
+        const content = column.functionContent;
+        const matches = blank(content).matchAll(/(?<item>[^,]+)(,|$)/gmid);
+        const columns = [];
+        let i = 0;
+        for (const match of matches) {
+          const [start, end] = match.indices.groups.item;
+          const item = content.substring(start, end).trim();
+          const column = parseColumn(item + ` as c${i}`);
+          const processed = processColumn(column, tables, fromTables, whereColumns, joinColumns);
+          if (processed.structuredType) {
+            processed.type = processed.structuredType.type;
+          }
+          columns.push(processed);
+          i++;
+        }
+        structuredType = columns;
+      }
     }
   }
   else if (column.columnName) {
