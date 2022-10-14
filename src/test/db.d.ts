@@ -157,6 +157,7 @@ export interface EventsGetById {
 export interface EventsTest {
   id: number;
   nest: { name: string, startTime: Date };
+  arr: Array<any>;
 }
 
 export interface EventsQueries {

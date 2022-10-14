@@ -152,8 +152,8 @@ const makeOptions = (columns, db) => {
       }
       const structured = column.structuredType;
       if (structured) {
-        if (Array.isArray(structured)) {
-          const structuredType = structured[0].type;
+        if (column.functionName === 'json_group_array') {
+          const structuredType = structured.type;
           if (typeof structuredType === 'string') {
             const structuredConverter = db.getDbToJsConverter(structuredType);
             const makeSorter = (sorter) => {
@@ -177,7 +177,7 @@ const makeOptions = (columns, db) => {
                 const sorter = makeSorter((a, b) => a - b);
                 converted.sort(sorter);
               }
-              if (structuredConverter && !(structured[0].functionName && /^json_/i.test(structured[0].functionName))) {
+              if (structuredConverter && !(structured.functionName && /^json_/i.test(structured.functionName))) {
                 converted = converted.map(i => i !== null ? structuredConverter(i) : i);
                 if (structuredType === 'date') {
                   const sorter = makeSorter((a, b) => b.getTime() - a.getTime());
@@ -203,7 +203,7 @@ const makeOptions = (columns, db) => {
             }
           }
         }
-        else {
+        else if (column.functionName === 'json_object') {
           const structuredType = structured.type;
           const converters = [];
           for (const [key, value] of Object.entries(structuredType)) {

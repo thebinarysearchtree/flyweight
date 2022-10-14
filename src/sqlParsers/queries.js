@@ -18,7 +18,7 @@ const getTempTables = (query, fromPattern, tables) => {
     const parsedTable = parseSelect(processed, tables);
     const tableName = `temp${i}`;
     processedQuery = processedQuery.replace(from.substring(match.index, match.index + subQuery.length), tableName);
-    const columns = parsedTable.map(c => ({ name: c.column, type: c.type, notNull: c.notNull, isOptional: c.isOptional, structuredType: c.structuredType }));
+    const columns = parsedTable.map(c => ({ name: c.column, type: c.type, notNull: c.notNull, isOptional: c.isOptional, structuredType: c.structuredType, functionName: c.functionName }));
     tempTables[tableName] = columns;
     i++;
   }
@@ -345,13 +345,14 @@ const processColumn = (column, tables, fromTables, whereColumns, joinColumns) =>
   let notNull = column.notNull || false;
   let isOptional = false;
   let structuredType = null;
-  if (column.functionName) {
-    if (notNullFunctions.has(column.functionName)) {
+  let functionName = column.functionName;
+  if (functionName) {
+    if (notNullFunctions.has(functionName)) {
       notNull = true;
     }
   }
   if (column.type) {
-    if ((column.functionName === 'min' || column.functionName === 'max') && column.columnName) {
+    if ((functionName === 'min' || functionName === 'max') && column.columnName) {
       const fromTable = fromTables.find(t => t.tableAlias === column.tableAlias);
       tableName = fromTable.tableName;
       const tableColumn = tables[fromTable.tableName].find(c => c.name === column.columnName);
@@ -371,7 +372,7 @@ const processColumn = (column, tables, fromTables, whereColumns, joinColumns) =>
     }
     else {
       type = column.type;
-      if (column.functionName === 'json_group_array') {
+      if (functionName === 'json_group_array') {
         if (column.columnName) {
           const fromTable = fromTables.find(t => t.tableAlias === column.tableAlias);
           tableName = fromTable.tableName;
@@ -380,11 +381,11 @@ const processColumn = (column, tables, fromTables, whereColumns, joinColumns) =>
           const whereColumn = whereColumns.find(c => c.tableAlias === column.tableAlias && c.columnName === column.columnName);
           const notNull = tableColumn.notNull === true || tableColumn.primaryKey || joinColumn !== undefined || whereColumn !== undefined;
           const isOptional = fromTable.isOptional;
-          structuredType = [{ 
+          structuredType = { 
             type: tableColumn.type,
             notNull,
             isOptional
-          }];
+          };
         }
         else {
           const match = /^\s*json_object\((?<functionContent>[^)]+)\)\s*$/gmid.exec(blank(column.functionContent));
@@ -392,11 +393,11 @@ const processColumn = (column, tables, fromTables, whereColumns, joinColumns) =>
             const [start, end] = match.indices.groups.functionContent;
             const content = column.functionContent.substring(start, end);
             const structured = getStructuredType(content, tables, fromTables, whereColumns, joinColumns);
-            structuredType = [structured];
+            structuredType = structured;
           }
         }
       }
-      else if (column.functionName === 'json_object') {
+      else if (functionName === 'json_object') {
         structuredType = getStructuredType(column.functionContent, tables, fromTables, whereColumns, joinColumns);
       }
     }
@@ -436,6 +437,7 @@ const processColumn = (column, tables, fromTables, whereColumns, joinColumns) =>
       notNull = tableColumn.notNull === true || tableColumn.primaryKey || joinColumn !== undefined || whereColumn !== undefined;
       isOptional = fromTable.isOptional;
       structuredType = tableColumn.structuredType;
+      functionName = tableColumn.functionName;
     }
   }
   return {
@@ -449,7 +451,7 @@ const processColumn = (column, tables, fromTables, whereColumns, joinColumns) =>
     isOptional,
     rename: column.rename,
     structuredType,
-    functionName: column.functionName
+    functionName
   }
 }
 
@@ -468,7 +470,7 @@ const parseSelect = (query, tables) => {
       lastIndex = end + 1;
       const actual = query.substring(start, end);
       const columns = parseQuery(actual, tables);
-      tables[tableName] = columns.map(c => ({ name: c.name, type: c.type, notNull: c.notNull, isOptional: c.isOptional, structuredType: c.structuredType }));
+      tables[tableName] = columns.map(c => ({ name: c.name, type: c.type, notNull: c.notNull, isOptional: c.isOptional, structuredType: c.structuredType, functionName: c.functionName }));
     }
     query = query.substring(lastIndex);
     processed = processed.substring(lastIndex);
