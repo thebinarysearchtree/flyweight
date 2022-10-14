@@ -137,7 +137,7 @@ const makeOptions = (columns, db) => {
                 const sorter = makeSorter((a, b) => a - b);
                 converted.sort(sorter);
               }
-              if (structuredConverter && structuredType !== 'json') {
+              if (structuredConverter && !(structured[0].functionName && /^json_/i.test(structured[0].functionName))) {
                 converted = converted.map(i => i !== null ? structuredConverter(i) : i);
                 if (structuredType === 'date') {
                   const sorter = makeSorter((a, b) => b.getTime() - a.getTime());
@@ -153,7 +153,7 @@ const makeOptions = (columns, db) => {
               const results = [];
               keys.push(key);
               if (typeof value.type === 'string') {
-                if (value.type === 'json') {
+                if (value.functionName && /^json_/i.test(value.functionName)) {
                   return [];
                 }
                 const converter = db.getDbToJsConverter(value.type);

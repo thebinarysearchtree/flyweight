@@ -447,7 +447,8 @@ const processColumn = (column, tables, fromTables, whereColumns, joinColumns) =>
     notNull,
     isOptional,
     rename: column.rename,
-    structuredType
+    structuredType,
+    functionName: column.functionName
   }
 }
 
