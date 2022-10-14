@@ -53,6 +53,8 @@ const lastFights = await db.fighter.lastFights({ id: 17 });
 console.log(lastFights);
 const weightClasses = await db.fighter.weightClasses({ fighterId: 17 });
 console.log(weightClasses);
+const test = await db.events.test();
+console.log(test);
 
 console.log('All tests passed');
 

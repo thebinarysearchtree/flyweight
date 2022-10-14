@@ -154,12 +154,19 @@ export interface EventsGetById {
   }>;
 }
 
+export interface EventsTest {
+  id: number;
+  nest: { [key: string]: any };
+}
+
 export interface EventsQueries {
   getById(params: { id: any; }): Promise<Array<EventsGetById>>;
+  test(): Promise<Array<EventsTest>>;
 }
 
 export interface EventQueries {
   getById(params: { id: any; }): Promise<EventsGetById | undefined>;
+  test(): Promise<EventsTest | undefined>;
 }
 
 export interface Card {

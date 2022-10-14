@@ -180,10 +180,10 @@ const makeOptions = (columns, db) => {
             if (converters.length > 0) {
               actualConverter = (v) => {
                 const converted = converter(v);
-                for (const converter of converters) {
-                  const keys = converter.keys;
-                  const count = keys.length;
-                  for (const item of converted) {
+                for (const item of converted) {
+                  for (const converter of converters) {
+                    const keys = converter.keys;
+                    const count = keys.length;
                     let i = 0;
                     let actual = item;
                     for (const key of keys) {
