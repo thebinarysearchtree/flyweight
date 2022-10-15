@@ -46,6 +46,27 @@ const convertOptional = (tsType) => {
   return tsType.replace(/ \| optional$/, ' | null');
 }
 
+const getTsType = (column, customTypes) => {
+  if (column.types) {
+    const types = [];
+    for (const item of column.types) {
+      types.push(toTsType(item, customTypes));
+    }
+    let split = types.join(' | ').split(' | ');
+    const optional = split.find(s => s === 'optional');
+    if (optional) {
+      split = split.filter(s => s !== 'optional');
+    }
+    const unique = new Set(split);
+    let joined = Array.from(unique.values()).join(' | ');
+    if (optional) {
+      joined += ' | optional';
+    }
+    return joined;
+  }
+  return toTsType(column, customTypes);
+}
+
 const toTsType = (column, customTypes) => {
   const { type, functionName, notNull, isOptional, structuredType } = column;
   if (structuredType) {
@@ -54,7 +75,7 @@ const toTsType = (column, customTypes) => {
       if (typeof structured.type !== 'string') {
         const types = [];
         for (const [key, value] of Object.entries(structured.type)) {
-          types.push(`${key}: ${toTsType(value, customTypes)}`);
+          types.push(`${key}: ${getTsType(value, customTypes)}`);
         }
         return `Array<{ ${types.join(', ')} }>`;
       }
@@ -79,14 +100,14 @@ const toTsType = (column, customTypes) => {
       const structured = structuredType.type;
       const types = [];
       for (const [key, value] of Object.entries(structured)) {
-        types.push(`${key}: ${toTsType(value, customTypes)}`);
+        types.push(`${key}: ${getTsType(value, customTypes)}`);
       }
       return `{ ${types.join(', ')} }`;
     }
     else if (functionName === 'json_array') {
       const types = [];
       for (const type of structuredType) {
-        types.push(toTsType(type, customTypes));
+        types.push(getTsType(type, customTypes));
       }
       return `[${types.join(', ')}]`
     }
@@ -159,7 +180,7 @@ const getQueries = async (db, sqlDir, tableName) => {
       continue;
     }
     if (columns.length === 1) {
-      const tsType = toTsType(columns[0], db.customTypes);
+      const tsType = getTsType(columns[0], db.customTypes);
       parsedQueries.push({
         queryName,
         interfaceName: convertOptional(tsType),
@@ -171,7 +192,7 @@ const getQueries = async (db, sqlDir, tableName) => {
     let interfaceString = `export interface ${interfaceName} {\n`;
     const sample = {};
     for (const column of columns) {
-      const tsType = toTsType(column, db.customTypes);
+      const tsType = getTsType(column, db.customTypes);
       sample[column.name] = tsType;
     }
     const options = makeOptions(columns, db);

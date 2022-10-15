@@ -18,7 +18,16 @@ const getTempTables = (query, fromPattern, tables) => {
     const parsedTable = parseSelect(processed, tables);
     const tableName = `temp${i}`;
     processedQuery = processedQuery.replace(from.substring(match.index, match.index + subQuery.length), tableName);
-    const columns = parsedTable.map(c => ({ name: c.column, type: c.type, notNull: c.notNull, isOptional: c.isOptional, structuredType: c.structuredType, functionName: c.functionName }));
+    const columns = parsedTable.map(c => ({ 
+      name: c.column, 
+      type: c.type, 
+      notNull: c.notNull, 
+      isOptional: c.isOptional, 
+      structuredType: c.structuredType, 
+      functionName: c.functionName, 
+      functionContent: c.functionContent,
+      types: c.types
+    }));
     tempTables[tableName] = columns;
     i++;
   }
@@ -293,7 +302,7 @@ const parseWrite = (query, tables) => {
       tableName,
       primaryKey: c.primaryKey,
       foreign: c.foreign,
-      notNull: c.notNull || c.primaryKey
+      notNull: c.notNull
     }));
   }
   return selectColumns.map(column => {
@@ -305,7 +314,7 @@ const parseWrite = (query, tables) => {
       tableName,
       primaryKey: column.primaryKey,
       foreign: column.foreign,
-      notNull: tableColumn.notNull || tableColumn.primaryKey
+      notNull: tableColumn.notNull
     }
   });
 }
@@ -345,10 +354,40 @@ const processColumn = (column, tables, fromTables, whereColumns, joinColumns) =>
   let notNull = column.notNull || false;
   let isOptional = false;
   let structuredType = null;
+  let types;
   let functionName = column.functionName;
   if (functionName) {
     if (notNullFunctions.has(functionName)) {
       notNull = true;
+    }
+  }
+  if (functionName === 'coalesce') {
+    const content = column.functionContent;
+    const matches = blank(content).matchAll(/(?<item>[^,]+)(,|$)/gmid);
+    types = [];
+    let i = 0;
+    for (const match of matches) {
+      const [start, end] = match.indices.groups.item;
+      const item = content.substring(start, end).trim();
+      const column = parseColumn(item + ` as c${i}`);
+      const processed = processColumn(column, tables, fromTables, whereColumns, joinColumns);
+      if (processed.structuredType) {
+        processed.type = processed.structuredType.type;
+      }
+      types.push(processed);
+      i++;
+    }
+    let wontReturnNull = false;
+    for (const type of types) {
+      if ((type.notNull || type.primaryKey) && !type.isOptional) {
+        wontReturnNull = true;
+        break;
+      }
+    }
+    if (wontReturnNull) {
+      for (const type of types) {
+        type.notNull = true;
+      }
     }
   }
   if (column.type) {
@@ -440,7 +479,10 @@ const processColumn = (column, tables, fromTables, whereColumns, joinColumns) =>
           foreign: column.foreign,
           notNull,
           isOptional: fromTable.isOptional,
-          structuredType: column.structuredType
+          structuredType: column.structuredType,
+          functionName: column.functionName,
+          functionContent: column.functionContent,
+          types: column.types
         });
       }
       return results;
@@ -469,7 +511,8 @@ const processColumn = (column, tables, fromTables, whereColumns, joinColumns) =>
     isOptional,
     rename: column.rename,
     structuredType,
-    functionName
+    functionName,
+    types
   }
 }
 
@@ -488,7 +531,16 @@ const parseSelect = (query, tables) => {
       lastIndex = end + 1;
       const actual = query.substring(start, end);
       const columns = parseQuery(actual, tables);
-      tables[tableName] = columns.map(c => ({ name: c.name, type: c.type, notNull: c.notNull, isOptional: c.isOptional, structuredType: c.structuredType, functionName: c.functionName }));
+      tables[tableName] = columns.map(c => ({ 
+        name: c.name, 
+        type: c.type, 
+        notNull: c.notNull, 
+        isOptional: c.isOptional, 
+        structuredType: c.structuredType, 
+        functionName: c.functionName, 
+        functionContent: c.functionContent,
+        types: c.types
+      }));
     }
     query = query.substring(lastIndex);
     processed = processed.substring(lastIndex);
