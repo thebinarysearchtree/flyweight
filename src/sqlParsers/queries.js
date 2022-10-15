@@ -193,12 +193,15 @@ const parsers = [
   },
   {
     name: 'Case pattern',
-    pattern: /^case when .+ then (?<then>.+(?!else)(?!when)) end as (?<columnAlias>[a-z0-9_]+)$/mi,
-    extractor: (groups) => {
-      const { then, columnAlias } = groups;
-      const columnName = then.split(/\s(else)|(when)/)[0];
-      const statement = `${columnName} as ${columnAlias}`;
-      return parseColumn(statement, tables);
+    pattern: /^case (?<caseBody>.+) end as (?<columnAlias>[a-z0-9_]+)$/mid,
+    extractor: (groups, tables, indices, statement) => {
+      const { columnAlias } = groups;
+      const [start, end] = indices.groups.caseBody;
+      const caseBody = statement.substring(start, end);
+      return {
+        columnAlias,
+        caseBody
+      }
     }
   },
   {
@@ -207,8 +210,6 @@ const parsers = [
     extractor: (groups) => {
       const { columnAlias } = groups;
       return {
-        tableAlias: null,
-        columnName: null,
         columnAlias,
         type: 'boolean'
       };
@@ -359,6 +360,27 @@ const processColumn = (column, tables, fromTables, whereColumns, joinColumns) =>
   if (functionName) {
     if (notNullFunctions.has(functionName)) {
       notNull = true;
+    }
+  }
+  if (column.caseBody) {
+    const split = column
+      .caseBody
+      .split(/((?: when )|(?: then )|(?: else )|(?: end(?:$| )))/i)
+      .map(s => s.trim());
+    types = [];
+    let last;
+    let i = 0;
+    for (const statement of split) {
+      if (last && /then|else/i.test(last)) {
+        const column = parseColumn(`${statement} as c${i}`);
+        const processed = processColumn(column, tables, fromTables, whereColumns, joinColumns);
+        if (processed.structuredType) {
+          processed.type = processed.structuredType.type;
+        }
+        types.push(processed);
+      }
+      last = statement;
+      i++;
     }
   }
   if (functionName === 'coalesce') {
