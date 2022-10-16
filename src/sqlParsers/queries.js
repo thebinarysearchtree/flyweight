@@ -363,14 +363,16 @@ const processColumn = (column, tables, fromTables, whereColumns, joinColumns) =>
     }
   }
   if (column.caseBody) {
-    const split = column
-      .caseBody
-      .split(/((?: when )|(?: then )|(?: else )|(?: end(?:$| )))/i)
-      .map(s => s.trim());
+    const split = blank(column.caseBody).split(/((?: when )|(?: then )|(?: else )|(?: end(?:$| )))/i);
     types = [];
     let last;
     let i = 0;
-    for (const statement of split) {
+    let start = 0;
+    for (const blanked of split) {
+      const statement = column
+        .caseBody
+        .substring(start, start + blanked.length)
+        .trim();
       if (last && /then|else/i.test(last)) {
         const column = parseColumn(`${statement} as c${i}`);
         const processed = processColumn(column, tables, fromTables, whereColumns, joinColumns);
@@ -381,6 +383,7 @@ const processColumn = (column, tables, fromTables, whereColumns, joinColumns) =>
       }
       last = statement;
       i++;
+      start += blanked.length;
     }
   }
   if (functionName === 'coalesce') {
@@ -409,6 +412,7 @@ const processColumn = (column, tables, fromTables, whereColumns, joinColumns) =>
     if (wontReturnNull) {
       for (const type of types) {
         type.notNull = true;
+        type.isOptional = false;
       }
     }
   }
@@ -520,6 +524,7 @@ const processColumn = (column, tables, fromTables, whereColumns, joinColumns) =>
       isOptional = fromTable.isOptional;
       structuredType = tableColumn.structuredType;
       functionName = tableColumn.functionName;
+      types = tableColumn.types;
     }
   }
   return {

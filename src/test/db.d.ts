@@ -476,19 +476,12 @@ export interface FightsByFighter {
   name: string;
 }
 
-export interface FightsTest {
-  id: number;
-  test: number;
-}
-
 export interface FightsQueries {
   byFighter(params: { id: any; }): Promise<Array<FightsByFighter>>;
-  test(): Promise<Array<FightsTest>>;
 }
 
 export interface FightQueries {
   byFighter(params: { id: any; }): Promise<FightsByFighter | undefined>;
-  test(): Promise<FightsTest | undefined>;
 }
 
 export interface CancelledFight {
