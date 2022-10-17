@@ -31,8 +31,63 @@ const getIndexMigrations = (currentIndexes, lastIndexes) => {
   return migrations;
 }
 
+const getTriggers = (statements, blanked) => {
+  const split = blanked.split(/((?:^|\s)create\s)/i);
+  const items = [];
+  let last;
+  let start = 0;
+  for (const blanked of split) {
+    if (/((?:^|\s)create\s)/i.test(blanked)) {
+      last = blanked;
+    }
+    else {
+      const item = last + statements.substring(start, start + blanked.length);
+      items.push(item);
+    }
+    start += blanked.length;
+  }
+  const triggers = [];
+  for (const item of items) {
+    const match = /^\s*create\s+trigger\s+(?<triggerName>[a-z0-9_]+)\s/gmi.exec(item);
+    if (match) {
+      triggers.push({
+        name: match.groups.triggerName,
+        sql: item.trim()
+      });
+    }
+  }
+  return triggers;
+}
+
+const getTriggerMigrations = (currentTriggers, lastTriggers) => {
+  const migrations = [];
+  const actionedLastTriggers = [];
+  for (const trigger of currentTriggers) {
+    const lastTrigger = lastTriggers.find(t => t.name === trigger.name);
+    if (lastTrigger) {
+      actionedLastTriggers.push(lastTrigger.name);
+      if (lastTrigger.sql === trigger.sql) {
+        continue;
+      }
+      else {
+        migrations.push(`drop trigger ${trigger.name};`);
+        migrations.push(trigger.sql);
+      }
+    }
+    else {
+      migrations.push(trigger.sql);
+    }
+  }
+  for (const trigger of lastTriggers) {
+    if (!actionedLastTriggers.includes(trigger.name)) {
+      migrations.push(`drop trigger ${trigger.name};`);
+    }
+  }
+  return migrations;
+}
+
 const getVirtualTables = (statements, blanked) => {
-  const pattern = /^create\s+virtual\s+table\s+(?<tableName>[a-z0-9_]+)\s+using\s+(?<tableContents>[^;]+);/gmid;
+  const pattern = /^\s*create\s+virtual\s+table\s+(?<tableName>[a-z0-9_]+)\s+using\s+(?<tableContents>[^;]+);/gmid;
   const matches = blanked.matchAll(pattern);
   const tables = [];
   for (const match of matches) {
@@ -192,6 +247,9 @@ const migrate = async (db, tablesPath, viewsPath, migrationPath, migrationName) 
     console.log('Migration created.');
     process.exit();
   }
+  const currentTriggers = getTriggers(current, blankedCurrent);
+  const lastTriggers = getTriggers(last, blankedLast);
+  const triggerMigrations = getTriggerMigrations(currentTriggers, lastTriggers);
   const currentVirtualTables = getVirtualTables(current, blankedCurrent);
   const lastVirtualTables = getVirtualTables(last, blankedLast);
   const virtualMigrations = getVirtualMigrations(currentVirtualTables, lastVirtualTables);
@@ -319,7 +377,7 @@ const migrate = async (db, tablesPath, viewsPath, migrationPath, migrationName) 
       tableMigrations.push(`drop table ${table.name};`);
     }
   }
-  const migrations = [...tableMigrations, ...columnMigrations, ...indexMigrations, ...viewMigrations, ...virtualMigrations];
+  const migrations = [...tableMigrations, ...columnMigrations, ...indexMigrations, ...viewMigrations, ...virtualMigrations, ...triggerMigrations];
   if (migrations.length === 0) {
     console.log('No changes were detected.');
     process.exit();
