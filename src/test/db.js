@@ -19,7 +19,7 @@ database.registerTypes([
 const result = await database.initialize({
   db: path('databases/test.db'),
   sql: path('sql'),
-  tables: path('sql/initial.sql'),
+  tables: path('sql/tables.sql'),
   views: path('sql/views.sql'),
   types: path('db.d.ts'),
   migrations: path('migrations'),

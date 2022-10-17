@@ -128,3 +128,10 @@ create table titleRemovals (
 );
 
 create index titleRemovalsFighterIdIndex on titleRemovals(fighterId);
+
+create virtual table fighterProfiles using fts5(
+    name, 
+    hometown, 
+    content=fighters, 
+    content_rowid=id
+);

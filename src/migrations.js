@@ -4,7 +4,7 @@ import { blank } from './sqlParsers/utils.js';
 import { readSql } from './utils.js';
 
 const getIndexes = (statements, blanked) => {
-  const pattern = /^create (unique )?index (if not exists )?(?<indexName>[a-z0-9_]+) on (?<tableName>[a-z0-9_]+)\([^;]+;/gmid;
+  const pattern = /^create\s+(unique\s+)?index\s+(if\s+not\s+exists\s+)?(?<indexName>[a-z0-9_]+)\s+on\s+(?<tableName>[a-z0-9_]+)\([^;]+;/gmid;
   const indexes = [];
   for (const match of blanked.matchAll(pattern)) {
     const [start, end] = match.indices[0];
@@ -28,6 +28,59 @@ const getIndexMigrations = (currentIndexes, lastIndexes) => {
     .filter(i => !lastSql.includes(i.sql))
     .map(i => i.sql);
   migrations.push(...add);
+  return migrations;
+}
+
+const getVirtualTables = (statements, blanked) => {
+  const pattern = /^create\s+virtual\s+table\s+(?<tableName>[a-z0-9_]+)\s+using\s+(?<tableContents>[^;]+);/gmid;
+  const matches = blanked.matchAll(pattern);
+  const tables = [];
+  for (const match of matches) {
+    const [start, end] = match.indices[0];
+    const sql = statements.substring(start, end);
+    const [restStart, restEnd] = match.indices.groups.tableContents;
+    const rest = sql.substring(restStart, restEnd);
+    tables.push({
+      name: match.groups.tableName,
+      sql,
+      rest
+    });
+  }
+  return tables;
+}
+
+const getVirtualMigrations = (currentTables, lastTables) => {
+  const migrations = [];
+  const currentNames = currentTables.map(t => t.name);
+  const actionedLastTables = [];
+  for (const table of currentTables) {
+    const lastTable = lastTables.find(t => t.name === table.name);
+    if (lastTable && lastTable.sql === table.sql) {
+      actionedLastTables.push(lastTable.name);
+      continue;
+    }
+    if (lastTable && lastTable.sql !== table.sql) {
+      migrations.push(`drop table ${table.name};`);
+      migrations.push(table.sql);
+    }
+    if (!lastTable) {
+      const sameSql = lastTables.filter(t => t.rest === table.rest && !currentNames.includes(t.name) && !actionedLastTables.includes(t.name));
+      if (sameSql.length > 0) {
+        const tableName = sameSql[0].name;
+        migrations.push(`alter table ${tableName} rename to ${table.name};`);
+        actionedLastTables.push(tableName);
+        continue;
+      }
+      else {
+        migrations.push(table.sql);
+      }
+    }
+  }
+  for (const table of lastTables) {
+    if (!actionedLastTables.includes(table.name)) {
+      migrations.push(`drop table ${table.name};`);
+    }
+  }
   return migrations;
 }
 
@@ -139,6 +192,9 @@ const migrate = async (db, tablesPath, viewsPath, migrationPath, migrationName) 
     console.log('Migration created.');
     process.exit();
   }
+  const currentVirtualTables = getVirtualTables(current, blankedCurrent);
+  const lastVirtualTables = getVirtualTables(last, blankedLast);
+  const virtualMigrations = getVirtualMigrations(currentVirtualTables, lastVirtualTables);
   const currentIndexes = getIndexes(current, blankedCurrent);
   const lastIndexes = getIndexes(last, blankedLast);
   const indexMigrations = getIndexMigrations(currentIndexes, lastIndexes);
@@ -263,7 +319,7 @@ const migrate = async (db, tablesPath, viewsPath, migrationPath, migrationName) 
       tableMigrations.push(`drop table ${table.name};`);
     }
   }
-  const migrations = [...tableMigrations, ...columnMigrations, ...indexMigrations, ...viewMigrations];
+  const migrations = [...tableMigrations, ...columnMigrations, ...indexMigrations, ...viewMigrations, ...virtualMigrations];
   if (migrations.length === 0) {
     console.log('No changes were detected.');
     process.exit();
