@@ -263,14 +263,19 @@ class Database {
   }
 
   addStrict(sql) {
-    const matches = blank(sql, { stringsOnly: true }).matchAll(/^\s*create table (?<tableName>[^\s]+)\s+\((?<columns>[^;]+)(?<ending>;)/gmid);
+    const matches = blank(sql, { stringsOnly: true }).matchAll(/^\s*create table (?<tableName>[^\s]+)\s+\((?<columns>[^;]+?)(?<without>\s+without\s+rowid\s*)?(?<ending>;)/gmid);
     let lastIndex = 0;
     const fragments = [];
     for (const match of matches) {
       const [index] = match.indices.groups.ending;
       const fragment = sql.substring(lastIndex, index);
       fragments.push(fragment);
-      fragments.push(' strict');
+      if (match.groups.without) {
+        fragments.push(', strict');
+      }
+      else {
+        fragments.push(' strict');
+      }
       lastIndex = index;
     }
     const fragment = sql.substring(lastIndex);

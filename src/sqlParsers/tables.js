@@ -3,7 +3,7 @@ import { blank } from './utils.js';
 const getFragments = (sql) => {
   const fragments = [];
   let lastEnd = 0;
-  const tableMatches = blank(sql, { stringsOnly: true }).matchAll(/^\s*create table (?<tableName>[^\s]+)\s+\((?<columns>[^;]+);/gmid);
+  const tableMatches = blank(sql, { stringsOnly: true }).matchAll(/^\s*create table (?<tableName>[^\s]+)\s+\((?<columns>[^;]+?)\)(\s+without\s+rowid\s*)?\s*;/gmid);
   for (const tableMatch of tableMatches) {
     const [tableStart] = tableMatch.indices.groups.columns;
     const columnMatches = blank(tableMatch.groups.columns).matchAll(/(?<column>[^,]+)(,|(\s*\)\s*$))/gmd);
@@ -42,7 +42,7 @@ const getFragments = (sql) => {
 const getTables = (sql) => {
   const tables = [];
 
-  const matches = blank(sql, { stringsOnly: true }).matchAll(/^\s*create table (?<tableName>[^\s]+)\s+\((?<columns>[^;]+);/gmi);
+  const matches = blank(sql, { stringsOnly: true }).matchAll(/^\s*create table (?<tableName>[^\s]+)\s+\((?<columns>[^;]+?)\)(\s+without\s+rowid\s*)?\s*;/gmi);
 
   for (const match of matches) {
     const table = {
@@ -88,6 +88,15 @@ const getTables = (sql) => {
           column.primaryKey = true;
         }
       }
+    }
+    if (!table.columns.some(c => c.primaryKey)) {
+      table.columns.push({
+        name: 'rowid',
+        type: 'integer',
+        primaryKey: true,
+        notNull: false,
+        hasDefault: false
+      });
     }
     table.columnSet = new Set(table.columns.map(c => c.name));
     tables.push(table);

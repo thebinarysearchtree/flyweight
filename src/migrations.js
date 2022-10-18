@@ -141,7 +141,7 @@ const getVirtualMigrations = (currentTables, lastTables) => {
 
 const getTables = (sql) => {
   const tables = [];
-  const tableMatches = blank(sql, { stringsOnly: true }).matchAll(/^\s*create table (?<tableName>[^\s]+)\s+\((?<columns>[^;]+)\)\s+strict;/gmid);
+  const tableMatches = blank(sql, { stringsOnly: true }).matchAll(/^\s*create table (?<tableName>[^\s]+)\s+\((?<columns>[^;]+)\)(?<without>\s+without rowid,)?\s+strict;/gmid);
   for (const tableMatch of tableMatches) {
     const tableName = tableMatch.groups.tableName;
     const [tableStart, tableEnd] = tableMatch.indices[0];
@@ -168,6 +168,9 @@ const getTables = (sql) => {
           rest
         });
       }
+    }
+    if (tableMatch.groups.without) {
+      constraints.push('without rowid');
     }
     tables.push({
       name: tableName,
@@ -299,6 +302,11 @@ const migrate = async (db, tablesPath, viewsPath, migrationPath, migrationName) 
     const actionedCurrentColumns = [];
     const actionedLastColumns = [];
     let recreate = false;
+    const tableConstraints = table.constraints.sort((a, b) => a.localeCompare(b)).join(', ');
+    const sameNameConstraints = sameName.constraints.sort((a, b) => a.localeCompare(b)).join(', ');
+    if (tableConstraints !== sameNameConstraints) {
+      recreate = true;
+    }
     for (const column of sameName.columns) {
       const sameSql = table.columns.find(c => c.sql === column.sql);
       if (sameSql) {
