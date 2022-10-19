@@ -80,7 +80,9 @@ const returnTypes = {
   json_type: 'text',
   json_valid: 'integer',
   json_group_array: 'json',
-  json_group_object: 'json'
+  json_group_object: 'json',
+  highlight: 'text',
+  snippet: 'text'
 }
 
 const notNullFunctions = new Set([
@@ -118,7 +120,9 @@ const notNullFunctions = new Set([
   'json_group_array',
   'json_group_object',
   'json_each',
-  'json_tree'
+  'json_tree',
+  'highlight',
+  'snippet'
 ]);
 
 export {

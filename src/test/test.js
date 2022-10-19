@@ -55,6 +55,8 @@ const weightClasses = await db.fighter.weightClasses({ fighterId: 17 });
 console.log(weightClasses.weightClasses[0].nest);
 const test = await db.events.test();
 console.log(test);
+const otherNames = await db.fighters.otherNames();
+console.log(otherNames);
 
 console.log('All tests passed');
 

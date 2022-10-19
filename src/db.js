@@ -2,7 +2,7 @@ import sqlite3 from 'sqlite3';
 import { toValues, readSql } from './utils.js';
 import { parse } from './parsers.js';
 import { mapOne, mapMany } from './map.js';
-import { getTables } from './sqlParsers/tables.js';
+import { getTables, getViews } from './sqlParsers/tables.js';
 import { readFile } from 'fs/promises';
 import { getFragments } from './sqlParsers/tables.js';
 import { blank } from './sqlParsers/utils.js';
@@ -10,7 +10,6 @@ import { makeClient } from './proxy.js';
 import { createTypes } from './sqlParsers/types.js';
 import { watch } from 'chokidar';
 import { migrate } from './migrations.js';
-import { getViews } from './sqlParsers/views.js';
 import { join } from 'path';
 
 const process = (db, result, options) => {

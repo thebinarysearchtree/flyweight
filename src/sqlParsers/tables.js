@@ -1,4 +1,74 @@
 import { blank } from './utils.js';
+import { parseQuery } from './queries.js';
+
+const getVirtual = (sql) => {
+  const pattern = /^\s*create virtual table\s+(?<tableName>[a-z0-9_]+)\s+using\s+fts5\s*\((?<columns>[^;]+)\)\s*;/gmid;
+  const tableMatches = blank(pattern, { stringsOnly: true }).matchAll(pattern);
+  const tables = [];
+  for (const tableMatch of tableMatches) {
+    const tableName = tableMatch.groups.tableName;
+    const [start, end] = tableMatch.indices.groups.columns;
+    const columnsText = sql.substring(start, end);
+    const split = blank(columns, { stringsOnly: true }).split(',');
+    let i = 0;
+    const columnNames = [];
+    for (const blanked of split) {
+      const column = columnsText.substring(i, i + blanked.length);
+      if (!column.includes('=')) {
+        columnNames.push(column.split(' ')[0]);
+      }
+    }
+    const columns = columnNames.map(name => {
+      return {
+        name,
+        type: 'text',
+        primaryKey: false,
+        notNull: true,
+        hasDefault: false
+      }
+    });
+    columns.push({
+      name: 'rowid',
+      type: 'integer',
+      primaryKey: true,
+      notNull: false,
+      hasDefault: false
+    });
+    tables.push({
+      name: tableName,
+      columns,
+      columnSet: new Set(columns.map(c => c.name))
+    });
+  }
+}
+
+const getViews = (sql, db) => {
+  const pattern = /^\s*create\s+view\s+(?<viewName>[a-z0-9_]+)\s+(\([^)]+\)\s+)?as\s+(?<select>[^;]+);/gmid;
+  const matches = blank(sql, { stringsOnly: true }).matchAll(pattern);
+  const views = [];
+  for (const match of matches) {
+    const name = match.groups.viewName;
+    const [start, end] = match.indices.groups.select;
+    const selectSql = sql.substring(start, end);
+    const columns = parseQuery(selectSql, db.tables).map(column => {
+      const { name, type, primaryKey, foreign, notNull, isOptional } = column;
+      return {
+        name,
+        type,
+        primaryKey,
+        notNull: notNull && !isOptional,
+        hasDefault: false,
+        foreign
+      }
+    });
+    views.push({
+      name,
+      columns,
+      columnSet: new Set(columns.map(c => c.name))
+    });
+  }
+  return views;
+}
 
 const getFragments = (sql) => {
   const fragments = [];
@@ -106,5 +176,6 @@ const getTables = (sql) => {
 
 export {
   getTables,
-  getFragments
+  getFragments,
+  getViews
 }

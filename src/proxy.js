@@ -156,32 +156,19 @@ const makeOptions = (columns, db) => {
           const structuredType = structured.type;
           if (typeof structuredType === 'string') {
             const structuredConverter = db.getDbToJsConverter(structuredType);
-            const makeSorter = (sorter) => {
-              return (a, b) => {
-                if (a === null) {
-                  return 1;
-                }
-                if (b === null) {
-                  return -1;
-                }
-                return sorter(a, b);
-              }
-            }
             actualConverter = (v) => {
               let converted = converter(v);
+              converted = converted.filter(v => v !== null);
               if (structuredType === 'text') {
-                const sorter = makeSorter((a, b) => a.localeCompare(b));
-                converted.sort(sorter);
+                converted.sort((a, b) => a.localeCompare(b));
               }
               if (structuredType === 'integer' || structuredType === 'real') {
-                const sorter = makeSorter((a, b) => a - b);
-                converted.sort(sorter);
+                converted.sort((a, b) => a - b);
               }
               if (structuredConverter && !(structured.functionName && /^json_/i.test(structured.functionName))) {
-                converted = converted.map(i => i !== null ? structuredConverter(i) : i);
+                converted = converted.map(i => structuredConverter(i));
                 if (structuredType === 'date') {
-                  const sorter = makeSorter((a, b) => b.getTime() - a.getTime());
-                  converted.sort(sorter);
+                  converted.sort((a, b) => b.getTime() - a.getTime());
                 }
               }
               return converted;
@@ -198,7 +185,7 @@ const makeOptions = (columns, db) => {
                 for (const item of converted) {
                   convertItem(item, converters);
                 }
-                return converted;
+                return converted.filter(c => c !== null);
               }
             }
           }
