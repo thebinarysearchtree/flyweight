@@ -86,6 +86,23 @@ const toTsType = (column, customTypes) => {
     if (functionName === 'json_group_array') {
       const structured = structuredType;
       if (typeof structured.type !== 'string') {
+        if (Array.isArray(structured.type)) {
+          const optional = [];
+          getOptional(structured, optional);
+          const isOptional = !optional.some(o => o === false);
+          const types = [];
+          for (const value of structured.type) {
+            let type = getTsType(value, customTypes);
+            if (isOptional) {
+              type = removeOptional(type);
+            }
+            else {
+              type = convertOptional(type);
+            }
+            types.push(type);
+          }
+          return `Array<[${types.join(', ')}]>`;
+        }
         const optional = [];
         getOptional(structured, optional);
         const isOptional = !optional.some(o => o === false);

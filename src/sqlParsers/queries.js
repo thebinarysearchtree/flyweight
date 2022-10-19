@@ -344,6 +344,24 @@ const getStructuredType = (content, tables, fromTables, whereColumns, joinColumn
   return { type: structured };
 }
 
+const getScalarColumns = (content, tables, fromTables, whereColumns, joinColumns) => {
+  const matches = blank(content).matchAll(/(?<item>[^,]+)(,|$)/gmid);
+  const columns = [];
+  let i = 0;
+  for (const match of matches) {
+    const [start, end] = match.indices.groups.item;
+    const item = content.substring(start, end).trim();
+    const column = parseColumn(item + ` as c${i}`);
+    const processed = processColumn(column, tables, fromTables, whereColumns, joinColumns);
+    if (processed.structuredType) {
+      processed.type = processed.structuredType.type;
+    }
+    columns.push(processed);
+    i++;
+  }
+  return columns;
+}
+
 const processColumn = (column, tables, fromTables, whereColumns, joinColumns) => {
   if (column.column) {
     return column.column;
@@ -453,12 +471,20 @@ const processColumn = (column, tables, fromTables, whereColumns, joinColumns) =>
           };
         }
         else {
-          const match = /^\s*json_object\((?<functionContent>[^)]+)\)\s*$/gmid.exec(blank(column.functionContent));
-          if (match) {
-            const [start, end] = match.indices.groups.functionContent;
+          const objectMatch = /^\s*json_object\((?<functionContent>[^)]+)\)\s*$/gmid.exec(blank(column.functionContent));
+          if (objectMatch) {
+            const [start, end] = objectMatch.indices.groups.functionContent;
             const content = column.functionContent.substring(start, end);
             const structured = getStructuredType(content, tables, fromTables, whereColumns, joinColumns);
             structuredType = structured;
+          }
+          const arrayMatch = /^\s*json_array\((?<functionContent>[^)]+)\)\s*$/gmid.exec(blank(column.functionContent));
+          if (arrayMatch) {
+            const [start, end] = arrayMatch.indices.groups.functionContent;
+            const content = column.functionContent.substring(start, end);
+            structuredType = { 
+              type: getScalarColumns(content, tables, fromTables, whereColumns, joinColumns) 
+            };
           }
         }
       }
@@ -467,21 +493,7 @@ const processColumn = (column, tables, fromTables, whereColumns, joinColumns) =>
       }
       else if (functionName === 'json_array') {
         const content = column.functionContent;
-        const matches = blank(content).matchAll(/(?<item>[^,]+)(,|$)/gmid);
-        const columns = [];
-        let i = 0;
-        for (const match of matches) {
-          const [start, end] = match.indices.groups.item;
-          const item = content.substring(start, end).trim();
-          const column = parseColumn(item + ` as c${i}`);
-          const processed = processColumn(column, tables, fromTables, whereColumns, joinColumns);
-          if (processed.structuredType) {
-            processed.type = processed.structuredType.type;
-          }
-          columns.push(processed);
-          i++;
-        }
-        structuredType = columns;
+        structuredType = getScalarColumns(content, tables, fromTables, whereColumns, joinColumns);
       }
     }
   }
