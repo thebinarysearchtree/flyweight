@@ -38,6 +38,7 @@ const hasNull = (tsType) => {
 }
 
 const removeOptional = (tsType) => tsType.replace(/ \| optional$/, '');
+const removeNull = (tsType) => tsType.replace(/ \| null($| )/, '');
 
 const convertOptional = (tsType) => {
   if (hasNull(tsType)) {
@@ -75,7 +76,7 @@ const toTsType = (column, customTypes) => {
       if (typeof structured.type !== 'string') {
         const types = [];
         for (const [key, value] of Object.entries(structured.type)) {
-          types.push(`${key}: ${getTsType(value, customTypes)}`);
+          types.push(`${key}: ${removeNull(getTsType(value, customTypes))}`);
         }
         return `Array<{ ${types.join(', ')} }>`;
       }
@@ -86,12 +87,6 @@ const toTsType = (column, customTypes) => {
         }
         else {
           tsType = customTypes[structured.type].tsType;
-        }
-        if (!structured.notNull && !hasNull(tsType) && tsType !== 'any') {
-          tsType += ' | null';
-        }
-        if (structured.isOptional) {
-          tsType += ' | optional';
         }
         return `Array<${tsType}>`;
       }

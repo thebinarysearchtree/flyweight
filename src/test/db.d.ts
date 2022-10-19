@@ -276,6 +276,11 @@ export interface FightersOpponents {
   name: string;
 }
 
+export interface FightersOtherNames {
+  name: string;
+  otherNames: Array<string>;
+}
+
 export interface FightersRight {
   id: number;
   winner: { id: number; name: string };
@@ -292,6 +297,7 @@ export interface FightersQueries {
   left(): Promise<Array<FightersLeft>>;
   methods(params: { id: any; }): Promise<Array<FightersMethods>>;
   opponents(): Promise<Array<FightersOpponents>>;
+  otherNames(): Promise<Array<FightersOtherNames>>;
   right(): Promise<Array<FightersRight>>;
   weightClasses(params: { fighterId: any; }): Promise<Array<FightersWeightClasses>>;
 }
@@ -302,6 +308,7 @@ export interface FighterQueries {
   left(): Promise<FightersLeft | undefined>;
   methods(params: { id: any; }): Promise<FightersMethods | undefined>;
   opponents(): Promise<FightersOpponents | undefined>;
+  otherNames(): Promise<FightersOtherNames | undefined>;
   right(): Promise<FightersRight | undefined>;
   weightClasses(params: { fighterId: any; }): Promise<FightersWeightClasses | undefined>;
 }
