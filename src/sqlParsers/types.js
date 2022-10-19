@@ -68,15 +68,37 @@ const getTsType = (column, customTypes) => {
   return toTsType(column, customTypes);
 }
 
+const getOptional = (structuredType, optional) => {
+  if (typeof structuredType.type === 'string') {
+    optional.push(structuredType.isOptional);
+    return;
+  }
+  else {
+    for (const value of Object.values(structuredType.type)) {
+      getOptional(value, optional);
+    }
+  }
+}
+
 const toTsType = (column, customTypes) => {
   const { type, functionName, notNull, isOptional, structuredType } = column;
   if (structuredType) {
     if (functionName === 'json_group_array') {
       const structured = structuredType;
       if (typeof structured.type !== 'string') {
+        const optional = [];
+        getOptional(structured, optional);
+        const isOptional = !optional.some(o => o === false);
         const types = [];
         for (const [key, value] of Object.entries(structured.type)) {
-          types.push(`${key}: ${removeNull(getTsType(value, customTypes))}`);
+          let type = getTsType(value, customTypes);
+          if (isOptional) {
+            type = removeOptional(type);
+          }
+          else {
+            type = convertOptional(type);
+          }
+          types.push(`${key}: ${type}`);
         }
         return `Array<{ ${types.join(', ')} }>`;
       }
@@ -88,23 +110,37 @@ const toTsType = (column, customTypes) => {
         else {
           tsType = customTypes[structured.type].tsType;
         }
-        return `Array<${tsType}>`;
+        return `Array<${removeNull(convertOptional(tsType))}>`;
       }
     }
     else if (functionName === 'json_object') {
       const structured = structuredType.type;
       const types = [];
+      const optional = [];
+      getOptional(structuredType, optional);
+      const isOptional = !optional.some(o => o === false);
       for (const [key, value] of Object.entries(structured)) {
-        types.push(`${key}: ${getTsType(value, customTypes)}`);
+        let type = getTsType(value, customTypes);
+        if (isOptional) {
+          type = removeOptional(type);
+        }
+        else {
+          type = convertOptional(type);
+        }
+        types.push(`${key}: ${type}`);
       }
-      return `{ ${types.join(', ')} }`;
+      let type = `{ ${types.join(', ')} }`;
+      if (isOptional) {
+        type += ' | null';
+      }
+      return type;
     }
     else if (functionName === 'json_array') {
       const types = [];
       for (const type of structuredType) {
-        types.push(getTsType(type, customTypes));
+        types.push(convertOptional(getTsType(type, customTypes)));
       }
-      return `[${types.join(', ')}]`
+      return `[${types.join(', ')}]`;
     }
   }
   let tsType;
