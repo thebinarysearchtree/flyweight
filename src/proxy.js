@@ -109,11 +109,12 @@ const convertItem = (item, converters) => {
   }
 }
 
-const getConverters = (key, value, db, converters, keys = []) => {
+const getConverters = (key, value, db, converters, keys = [], optional = []) => {
   keys.push(key);
   if (typeof value.type === 'string') {
+    optional.push(value.isOptional);
     if (value.functionName && /^json_/i.test(value.functionName)) {
-      return converters;
+      return;
     }
     const converter = db.getDbToJsConverter(value.type);
     if (converter) {
@@ -122,13 +123,32 @@ const getConverters = (key, value, db, converters, keys = []) => {
         converter
       });
     }
-    return converters;
+    return;
   }
   else {
     for (const [k, v] of Object.entries(value.type)) {
-      getConverters(k, v, db, converters, [...keys]);
+      getConverters(k, v, db, converters, [...keys], optional);
     }
   }
+}
+
+const allNulls = (item) => {
+  if (item === null) {
+    return true;
+  }
+  for (const value of Object.values(item)) {
+    if (value === null) {
+      continue;
+    }
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean' || value instanceof Date) {
+      return false;
+    }
+    const isNull = allNulls(value);
+    if (!isNull) {
+      return false;
+    }
+  }
+  return true;
 }
 
 const makeOptions = (columns, db) => {
@@ -176,16 +196,27 @@ const makeOptions = (columns, db) => {
           }
           else {
             const converters = [];
+            const optional = [];
             for (const [key, value] of Object.entries(structuredType)) {
-              getConverters(key, value, db, converters);
+              getConverters(key, value, db, converters, [], optional);
             }
+            const isOptional = !optional.some(o => o === false);
             if (converters.length > 0) {
               actualConverter = (v) => {
                 const converted = converter(v);
                 for (const item of converted) {
                   convertItem(item, converters);
                 }
-                return converted.filter(c => c !== null);
+                if (isOptional) {
+                  return converted.filter(c => !allNulls(c));
+                }
+                return converted;
+              }
+            }
+            else if (isOptional) {
+              actualConverter = (v) => {
+                const converted = converter(v);
+                return converted.filter(c => !allNulls(c));
               }
             }
           }
@@ -193,13 +224,27 @@ const makeOptions = (columns, db) => {
         else if (column.functionName === 'json_object') {
           const structuredType = structured.type;
           const converters = [];
+          const optional = [];
           for (const [key, value] of Object.entries(structuredType)) {
-            getConverters(key, value, db, converters);
+            getConverters(key, value, db, converters, [], optional);
           }
+          const isOptional = !optional.some(o => o === false);
           if (converters.length > 0) {
             actualConverter = (v) => {
               const converted = converter(v);
               convertItem(converted, converters);
+              if (allNulls(converted)) {
+                return null;
+              }
+              return converted;
+            }
+          }
+          else if (isOptional) {
+            actualConverter = (v) => {
+              const converted = converter(v);
+              if (allNulls(converted)) {
+                return null;
+              }
               return converted;
             }
           }
