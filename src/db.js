@@ -11,6 +11,7 @@ import { createTypes } from './sqlParsers/types.js';
 import { watch } from 'chokidar';
 import { migrate } from './migrations.js';
 import { join } from 'path';
+import { platform, arch } from 'process';
 
 const process = (db, result, options) => {
   if (!options) {
@@ -85,6 +86,32 @@ const validateCustomType = (customType) => {
   }
 }
 
+const regexpJsToDb = (v) => {
+  const flags = v
+    .flags
+    .split('')
+    .filter(f => ['i', 's', 'm'].includes(f))
+    .join('');
+  let source;
+  if (flags !== '') {
+    source = `(?${flags})${v.source}`;
+  }
+  else {
+    source = v.source;
+  }
+  return source;
+}
+
+const regexpDbToJs = (v) => {
+  const match = v.match(/^\(\?(?<flags>[smi]+)\)/);
+  let flags = 'u';
+  if (match) {
+    v = v.replace(/^\(\?[smi]+\)/, '');
+    flags += match.groups.flags;
+  }
+  return new RegExp(v, flags);
+}
+
 class Database {
   constructor() {
     this.db = null;
@@ -124,12 +151,32 @@ class Database {
       {
         name: 'regexp',
         valueTest: (v) => v instanceof RegExp,
-        dbToJs: (v) => new RegExp(v),
-        jsToDb: (v) => v.source,
+        dbToJs: regexpDbToJs,
+        jsToDb: regexpJsToDb,
         tsType: 'RegExp',
         dbType: 'text'
       }
     ]);
+  }
+
+  async loadRegExpExtension() {
+    const supportedPlatforms = [
+      'darwin_x64'
+    ];
+    let extension;
+    if (platform === 'darwin') {
+      extension = 'dylib';
+    }
+    else if (platform === 'win32') {
+      extension = 'dll';
+    }
+    else {
+      extension = 'so';
+    }
+    const url = new URL(`../extensions/pcre_${platform}_${arch}.${extension}`, import.meta.url);
+    if (supportedPlatforms.includes(`${platform}_${arch}`)) {
+      await this.loadExtension(url.pathname);
+    }
   }
 
   async initialize(paths, interfaceName) {
@@ -140,6 +187,7 @@ class Database {
     if (views) {
       await this.setViews(views);
     }
+    await this.loadRegExpExtension();
     const client = makeClient(this, sql);
     const makeTypes = async (options) => {
       const run = async () => {

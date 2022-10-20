@@ -22,8 +22,7 @@ const result = await database.initialize({
   tables: path('sql/tables.sql'),
   views: path('sql/views.sql'),
   types: path('db.d.ts'),
-  migrations: path('migrations'),
-  extensions: path('databases/regexp.dylib')
+  migrations: path('migrations')
 });
 
 const {

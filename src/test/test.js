@@ -57,6 +57,8 @@ const test = await db.events.test();
 console.log(test);
 const otherNames = await db.fighters.otherNames();
 console.log(otherNames);
+const israel = await db.fighters.get({ name: /israel/i });
+console.log(israel);
 
 console.log('All tests passed');
 
