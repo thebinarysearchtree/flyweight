@@ -163,7 +163,8 @@ class Database {
 
   async loadRegExpExtension() {
     const supportedPlatforms = [
-      'darwin_x64'
+      'darwin_x64',
+      'linux_x64'
     ];
     let extension;
     if (platform === 'darwin') {
