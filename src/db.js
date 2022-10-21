@@ -99,6 +99,7 @@ const regexpJsToDb = (v) => {
   else {
     source = v.source;
   }
+  source = source.replaceAll(/(\\p{)Script=/g, '$1');
   return source;
 }
 
@@ -109,6 +110,7 @@ const regexpDbToJs = (v) => {
     v = v.replace(/^\(\?[smi]+\)/, '');
     flags += match.groups.flags;
   }
+  v = v.replaceAll(/\\p{([^}]{3,})\}/gi, '\\p{Script=$1}');
   return new RegExp(v, flags);
 }
 
