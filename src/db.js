@@ -161,27 +161,6 @@ class Database {
     ]);
   }
 
-  async loadRegExpExtension() {
-    const supportedPlatforms = [
-      'darwin_x64',
-      'linux_x64'
-    ];
-    let extension;
-    if (platform === 'darwin') {
-      extension = 'dylib';
-    }
-    else if (platform === 'win32') {
-      extension = 'dll';
-    }
-    else {
-      extension = 'so';
-    }
-    const url = new URL(`../extensions/pcre_${platform}_${arch}.${extension}`, import.meta.url);
-    if (supportedPlatforms.includes(`${platform}_${arch}`)) {
-      await this.loadExtension(url.pathname);
-    }
-  }
-
   async initialize(paths, interfaceName) {
     const { db, sql, tables, views, types, migrations, extensions } = paths;
     this.db = new sqlite3.Database(db);
@@ -190,7 +169,6 @@ class Database {
     if (views) {
       await this.setViews(views);
     }
-    await this.loadRegExpExtension();
     const client = makeClient(this, sql);
     const makeTypes = async (options) => {
       const run = async () => {

@@ -22,7 +22,8 @@ const result = await database.initialize({
   tables: path('sql/tables.sql'),
   views: path('sql/views.sql'),
   types: path('db.d.ts'),
-  migrations: path('migrations')
+  migrations: path('migrations'),
+  extensions: path('extensions/pcre.dylib')
 });
 
 const {
