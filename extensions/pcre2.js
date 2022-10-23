@@ -3,6 +3,7 @@ import fetch from 'node-fetch';
 import { readdir } from 'fs/promises';
 import { createWriteStream } from 'fs';
 import { pipeline } from 'stream/promises';
+import { chdir } from 'process';
 
 const download = async (url) => {
   const res = await fetch(url);
@@ -29,11 +30,11 @@ const getFiles = async () => {
 }
 
 const installPcre2 = async () => {
-  exec(`cd ${pcre2}`);
+  chdir(pcre2);
   const filenames = await readdir(new URL('.', import.meta.url));
   if (!filenames.includes('Makefile')) {
     exec('./configure --enable-jit');
-    exec('make install');
+    exec('sudo make install');
   }
 }
 
