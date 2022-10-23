@@ -6,7 +6,7 @@
   "types": "index.d.ts",
   "type": "module",
   "scripts": {
-    "test": "node ./src/test/test.js"
+    "test": "node ./test/test.js"
   },
   "author": "Andrew Jones",
   "license": "MIT",
