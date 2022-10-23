@@ -1,4 +1,4 @@
-import Database from '../db.js';
+import { Database } from '../index.js';
 
 export interface Keywords<T> {
   select: T;
