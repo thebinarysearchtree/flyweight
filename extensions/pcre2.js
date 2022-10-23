@@ -1,4 +1,4 @@
-import { execSync as exec } from 'child_process';
+import { spawnSync as exec } from 'child_process';
 import fetch from 'node-fetch';
 import { readdir } from 'fs/promises';
 import { createWriteStream } from 'fs';
@@ -35,8 +35,12 @@ const installPcre2 = async () => {
   if (!filenames.includes('Makefile')) {
     exec('./configure --enable-jit');
   }
-  exec('sudo make install');
+  if (!filenames.includes('pcre2test')) {
+    exec('sudo make install');
+  }
+  chdir('../');
 }
 
 await getFiles();
 await installPcre2();
+exec(`gcc -g -fPIC -dynamiclib pcre2.c -o pcre2.dylib -lpcre2-8 -I ${sqlite}`);
