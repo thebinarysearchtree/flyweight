@@ -21,5 +21,5 @@ yarn-error.log*
 *.zip
 *.tar.gz
 
-sqlite-amalgamation-3390400/
-pcre2-10.40/
+extensions/sqlite-amalgamation-3390400/
+extensions/pcre2-10.40/
