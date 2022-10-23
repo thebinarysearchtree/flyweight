@@ -54,4 +54,4 @@ else {
   exec(`gcc -g -fPIC -shared pcre2.c -o pcre2.so -lpcre2-8 -I ${sqlite}`);
 }
 
-console.log('Extension created');
+console.log('Extension created.');

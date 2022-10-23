@@ -243,13 +243,21 @@ The ```initialize``` method's ```path``` object has the following properties:
 
 ```initialize``` also takes an optional second argument, ```interfaceName```, which is a string that can be used instead of ```TypedDb```. This is useful if you have more than one database.
 
-## Compiling extensions
+## Regular expressions
 
-Flyweight supports regular expressions in some of its methods if you have loaded a regular expression extension. The SQLite website contains instructions for compiling extensions. It is missing some steps though. To compile the regexp.c extension included in the SQLite source code, you should do the following:
+Flyweight supports regular expressions in some of its methods. To enable this functionality, there is a ```pcre2.js``` file located in ```node_modules/flyweightjs/extensions```. You can run this with ```node pcre2.js``` and it will generate a ```pcre2.so``` or ```pcre2.dylib``` file depending on your operating system. You should then copy this file to the location where you keep your extensions.
 
-1. Download regexp.c from the SQLite repository
-2. Download the SQLite amalgamation file from the SQLite website and unzip it into a folder
-3. Put the regexp.c file into this folder and then run the commands mentioned at https://www.sqlite.org/loadext.html under the heading "Compiling a Loadable Extension" depending on your operating system
+The regular expression software used by this extension is PCRE2 10.40. You can even use ```i```, ```m```, and ```s``` flags in your regular expressions. Unicode is on by default, whether or not you pass it in as a flag.
+
+```js
+const coach = await db.coach.get({ city: /\p{Script=Greek}+/i });
+```
+
+When wanting to using regular expressions in SQL, you should write them more like PCRE2 regular expressions than JavaScript regular expressions.
+
+```sql
+select * from coaches where city regexp '(?i)\p{Greek}+';
+```
 
 ## Creating tables
 

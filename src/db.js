@@ -11,7 +11,6 @@ import { createTypes } from './sqlParsers/types.js';
 import { watch } from 'chokidar';
 import { migrate } from './migrations.js';
 import { join } from 'path';
-import { platform, arch } from 'process';
 
 const process = (db, result, options) => {
   if (!options) {
