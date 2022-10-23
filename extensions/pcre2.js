@@ -1,4 +1,4 @@
-import { spawnSync as exec } from 'child_process';
+import { execSync } from 'child_process';
 import fetch from 'node-fetch';
 import { readdir } from 'fs/promises';
 import { createWriteStream } from 'fs';
@@ -7,11 +7,14 @@ import { chdir } from 'process';
 import { platform } from 'os';
 
 const download = async (url) => {
+  console.log(`Downloading ${url}`);
   const res = await fetch(url);
   const filename = url.split('/').at(-1);
   const file = createWriteStream(filename);
   await pipeline(res.body, file);
 }
+
+const exec = (command) => execSync(command, { stdio: 'inherit' });
 
 const sqlite = 'sqlite-amalgamation-3390400';
 const pcre2 = 'pcre2-10.40';
@@ -32,7 +35,7 @@ const getFiles = async () => {
 
 const installPcre2 = async () => {
   chdir(pcre2);
-  const filenames = await readdir(new URL('.', import.meta.url));
+  const filenames = await readdir(new URL(pcre2, import.meta.url));
   if (!filenames.includes('Makefile')) {
     exec('./configure --enable-jit');
   }
@@ -50,3 +53,5 @@ if (platform === 'darwin') {
 else {
   exec(`gcc -g -fPIC -shared pcre2.c -o pcre2.so -lpcre2-8 -I ${sqlite}`);
 }
+
+console.log('Extension created');
