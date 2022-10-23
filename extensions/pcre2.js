@@ -34,8 +34,8 @@ const installPcre2 = async () => {
   const filenames = await readdir(new URL('.', import.meta.url));
   if (!filenames.includes('Makefile')) {
     exec('./configure --enable-jit');
-    exec('sudo make install');
   }
+  exec('sudo make install');
 }
 
 await getFiles();
