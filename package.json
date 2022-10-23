@@ -13,6 +13,7 @@
   "dependencies": {
     "chokidar": "3.5.3",
     "pluralize": "8.0.0",
-    "sqlite3": "5.1.2"
+    "sqlite3": "5.1.2",
+    "node-fetch": "3.2.10"
   }
 }

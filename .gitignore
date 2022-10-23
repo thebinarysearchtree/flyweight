@@ -18,3 +18,8 @@ yarn-error.log*
 *.db
 *.dylib
 *.so
+*.zip
+*.tar.gz
+
+sqlite-amalgamation-3390400/
+pcre2-10.40/
