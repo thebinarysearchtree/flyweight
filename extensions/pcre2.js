@@ -4,7 +4,6 @@ import { readdir } from 'fs/promises';
 import { createWriteStream } from 'fs';
 import { pipeline } from 'stream/promises';
 import { chdir } from 'process';
-import { platform } from 'os';
 
 const download = async (url) => {
   console.log(`Downloading ${url}`);
@@ -47,7 +46,7 @@ const installPcre2 = async () => {
 
 await getFiles();
 await installPcre2();
-if (platform() === 'darwin') {
+if (process.platform === 'darwin') {
   exec(`gcc -g -fPIC -dynamiclib pcre2.c -o pcre2.dylib -lpcre2-8 -I ${sqlite}`);
 }
 else {

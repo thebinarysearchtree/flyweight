@@ -1,4 +1,4 @@
-import { Database } from '../index.js';
+import Database from 'flyweightjs';
 
 export interface Keywords<T> {
   select: T;
@@ -140,18 +140,22 @@ export interface WhereEvent {
   locationId?: number | Array<number> | null;
 }
 
+export interface EventsGetByIdCardsFights {
+  id: number;
+  blue: { id: number; name: string; social: any };
+  red: { id: number; name: string; social: any };
+};
+
+export interface EventsGetByIdCards {
+  id: number;
+  cardName: string;
+  fights: Array<EventsGetByIdCardsFights>;
+};
+
 export interface EventsGetById {
   id: number;
   name: string;
-  cards: Array<{
-    id: number;
-    cardName: string;
-    fights: Array<{
-      id: number;
-      blue: { id: number; name: string; social: any };
-      red: { id: number; name: string; social: any };
-    }>;
-  }>;
+  cards: Array<EventsGetByIdCards>;
 }
 
 export interface EventsTest {

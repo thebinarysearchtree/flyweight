@@ -245,12 +245,12 @@ const getQueries = async (db, sqlDir, tableName) => {
     }
     const options = makeOptions(columns, db);
     const adjusted = convertPrefixes(sample, options.prefixes);
-    const makeProperties = (sample, indent) => {
+    const makeProperties = (sample) => {
       sample = renameColumns(sample, options.columns, options.prefixes);
       let interfaceString = '';
       for (const [key, type] of Object.entries(sample)) {
         if (typeof type === 'string') {
-          interfaceString += `${indent}${key}: ${convertOptional(type)};\n`;
+          interfaceString += `  ${key}: ${convertOptional(type)};\n`;
         }
         else {
           const types = [];
@@ -269,38 +269,39 @@ const getQueries = async (db, sqlDir, tableName) => {
           }
           const colon = optional ? '?:' : ':';
           const properties = types.join('; ');
-          interfaceString += `${indent}${key}${colon} { ${properties} };\n`;
+          interfaceString += `  ${key}${colon} { ${properties} };\n`;
         }
       }
       return interfaceString;
     }
-    const makeSpaces = (levels) => {
-      const spaces = 2 * (levels + 1);
-      let result = '';
-      for (let i = 0; i < spaces; i++) {
-        result += ' ';
-      }
-      return result;
-    }
-    const getMappedTypes = (sample, primaryKeys, levels) => {
-      const spaces = makeSpaces(levels);
-      levels++;
+    const getMappedTypes = (sample, primaryKeys, subInterfaces, keys = []) => {
       let interfaceString = '';
       const currentKey = primaryKeys[0];
       const nextKey = primaryKeys[1];
       const sliced = sliceProps(sample, currentKey ? currentKey.index : 0, nextKey ? nextKey.index : undefined);
       if (!nextKey) {
-        interfaceString += makeProperties(sliced, spaces);
+        interfaceString += makeProperties(sliced);
         return interfaceString;
       }
       const arrayName = toArrayName(nextKey.name);
-      interfaceString += makeProperties(sliced, spaces);
-      const result = getMappedTypes(sample, primaryKeys.slice(1), levels);
-      interfaceString += `${spaces}${arrayName}: Array<{\n${result}${spaces}}>;\n`;
+      keys.push(arrayName);
+      interfaceString += makeProperties(sliced);
+      const result = getMappedTypes(sample, primaryKeys.slice(1), subInterfaces, [...keys]);
+      const subInterfaceName = interfaceName + keys.map(k => capitalize(k)).join('');
+      const subInterface = `export interface ${subInterfaceName} {\n${result}};`;
+      subInterfaces.push(subInterface);
+      interfaceString += `  ${arrayName}: Array<${subInterfaceName}>;\n`;
       return interfaceString;
     }
-    interfaceString += getMappedTypes(adjusted, options.primaryKeys, 0);
+    const subInterfaces = [];
+    interfaceString += getMappedTypes(adjusted, options.primaryKeys, subInterfaces);
     interfaceString += `}\n`;
+    if (subInterfaces.length > 0) {
+      const temp = interfaceString;
+      interfaceString = subInterfaces.join('\n\n');
+      interfaceString += '\n\n';
+      interfaceString += temp;
+    }
     parsedQueries.push({
       queryName,
       interfaceName,
