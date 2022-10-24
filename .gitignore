@@ -15,11 +15,10 @@ yarn-error.log*
 
 *.db-shm
 *.db-wal
-*.db
 *.dylib
 *.so
 *.zip
 *.tar.gz
 
-extensions/sqlite-amalgamation-3390400/
-extensions/pcre2-10.40/
+extensions/*/
+test/databases/*
