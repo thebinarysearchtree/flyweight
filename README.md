@@ -250,13 +250,13 @@ Flyweight supports regular expressions in some of its methods. To enable this fu
 The regular expression software used by this extension is PCRE2 10.40. You can even use ```i```, ```m```, and ```s``` flags in your regular expressions. Unicode is on by default, whether or not you pass it in as a flag.
 
 ```js
-const coach = await db.coach.get({ city: /\p{Script=Greek}+/i });
+const coach = await db.coach.get({ city: /\p{Script=Greek}+/ });
 ```
 
 When wanting to using regular expressions in SQL, you should write them more like PCRE2 regular expressions than JavaScript regular expressions.
 
 ```sql
-select * from coaches where city regexp '(?i)\p{Greek}+';
+select * from coaches where city regexp '\p{Greek}+';
 ```
 
 ## Creating tables
@@ -323,6 +323,31 @@ select max(startTime) from events;
 ```
 
 as there is no name given to ```max(startTime)```.
+
+Parameters in SQL files should use the ```$name``` notation. JSON functions are automatically typed and parsed. For example, the following:
+
+```sql
+select id, json_object('name', name, 'startTime', startTime) as nest from events;
+```
+
+will have the type:
+
+```ts
+interface EventQuery {
+  id: number;
+  nest: { name: string, startTime: Date }
+}
+```
+
+Nulls are automatically removed from all ```json_group_array``` results. If ```json_group_array``` is used with a single value, and that value is a number, string, or date, the resulting array will be sorted in order, depending on the type. Dates are sorted in descending order, numbers and strings are sorted in ascending order.
+
+When all of the properties of ```json_object``` are from a left or right join, and there are no matches from that table, instead of returning, for example:
+
+```js
+{ name: null, startTime: null }
+```
+
+the entire object will be null.
 
 ## The API
 
@@ -457,3 +482,7 @@ replacing ```migrationName``` with the name you want to call your migration.
 The SQL created by the migration may need adjusting, so make sure you check the file before you apply it to the database. If you want to add a new column to a table without needing to drop the table, make sure you put the column at the end of the list of columns.
 
 ```runMigration``` can be used the same way. It reads the migration file created by ```createMigration```, turns off foreign keys, begins a transaction, runs the migration, and then turns foreign keys back on.
+
+## Running tests
+
+To run the tests, first go into the ```test``` folder and run ```node setup.js``` to move the test database to the right location and create the PCRE2 extension. You can then run the tests with ```node test.js``` or ```npm test```.
