@@ -20,5 +20,6 @@ const run = async () => {
 }
 
 export default {
+  name: 'json',
   run
 };

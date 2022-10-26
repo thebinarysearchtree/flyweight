@@ -8,16 +8,16 @@ import {
   remove
 } from './queries.js';
 import { join } from 'path';
-import { parseQuery } from './sqlParsers/queries.js';
+import { parseQuery, isWrite } from './sqlParsers/queries.js';
 import pluralize from 'pluralize';
 
 const queries = {
-  insert: (database, table) => async (params) => await insert(database, table, params),
-  insertMany: (database, table) => async (items) => await insertMany(database, table, items),
-  update: (database, table) => async (params, query) => await update(database, table, params, query),
-  get: (database, table) => async (query, columns) => await get(database, table, query, columns),
-  all: (database, table) => async (query, columns) => await all(database, table, query, columns),
-  remove: (database, table) => async (query) => await remove(database, table, query)
+  insert: (database, table, tx) => async (params) => await insert(database, table, params, tx),
+  insertMany: (database, table, tx) => async (items) => await insertMany(database, table, items, tx),
+  update: (database, table, tx) => async (params, query) => await update(database, table, params, query, tx),
+  get: (database, table, tx) => async (query, columns) => await get(database, table, query, columns, tx),
+  all: (database, table, tx) => async (query, columns) => await all(database, table, query, columns, tx),
+  remove: (database, table, tx) => async (query) => await remove(database, table, query, tx)
 }
 
 const singularQueries = {
@@ -331,7 +331,7 @@ const getResultType = (columns, isSingular) => {
   }
 }
 
-const makeQueryHandler = (table, db, sqlDir) => {
+const makeQueryHandler = (table, db, sqlDir, tx) => {
   let isSingular;
   let queries;
   if (pluralize.isSingular(table)) {
@@ -351,7 +351,7 @@ const makeQueryHandler = (table, db, sqlDir) => {
             throw Error(`Query ${query} of table ${table} not found`);
           }
           else {
-            target[query] = queries[query](db, table);
+            target[query] = queries[query](db, table, tx);
           }
         }
         else {
@@ -363,13 +363,14 @@ const makeQueryHandler = (table, db, sqlDir) => {
           catch (e) {
             const makeQuery = isSingular ? singularQueries[query] : multipleQueries[query];
             if (makeQuery) {
-              target[query] = makeQuery(db, table);
+              target[query] = makeQuery(db, table, tx);
               return target[query];
             }
             else {
               throw e;
             }
           }
+          const write = isWrite(sql);
           try {
             const columns = parseQuery(sql, db.tables);
             const options = makeOptions(columns, db);
@@ -384,12 +385,12 @@ const makeQueryHandler = (table, db, sqlDir) => {
             run = run.bind(db);
             options.cacheName = `${table}.${query}`;
             target[query] = async (params) => {
-              return await run(sql, params, options);
+              return await run(sql, params, options, tx, write);
             }
           }
           catch {
             target[query] = async (params) => {
-              return await db.all(sql, params);
+              return await db.all(sql, params, tx, write);
             }
           }
         }
@@ -399,15 +400,18 @@ const makeQueryHandler = (table, db, sqlDir) => {
   }
 }
 
-const makeClient = (db, sqlDir) => {
+const makeClient = (db, sqlDir, tx) => {
   const tableHandler = {
     get: function(target, table, receiver) {
       if (['begin', 'commit', 'rollback'].includes(table)) {
         db[table] = db[table].bind(db);
-        return db[table];
+        return () => db[table](tx);
+      }
+      if (table === 'release') {
+        return () => db.pool.push(tx);
       }
       if (!target[table]) {
-        target[table] = new Proxy({}, makeQueryHandler(table, db, sqlDir));
+        target[table] = new Proxy({}, makeQueryHandler(table, db, sqlDir, tx));
       }
       return target[table];
     }

@@ -1,4 +1,4 @@
-const insert = async (db, table, params) => {
+const insert = async (db, table, params, tx) => {
   const columnSet = db.columnSets[table];
   const verify = makeVerify(table, columnSet);
   const columns = Object.keys(params);
@@ -6,11 +6,11 @@ const insert = async (db, table, params) => {
   const placeholders = columns.map(c => `$${c}`);
   const sql = `insert into ${table}(${columns.join(', ')}) values(${placeholders.join(', ')})`;
   const primaryKey = db.getPrimaryKey(table);
-  const result = await db.all(`${sql} returning ${primaryKey}`, params);
+  const result = await db.all(`${sql} returning ${primaryKey}`, params, tx);
   return result[0][primaryKey];
 }
 
-const insertMany = async (db, table, items) => {
+const insertMany = async (db, table, items, tx) => {
   if (items.length === 0) {
     return;
   }
@@ -21,17 +21,9 @@ const insertMany = async (db, table, items) => {
   verify(columns);
   const placeholders = columns.map(c => `$${c}`);
   const sql = `insert into ${table}(${columns.join(', ')}) values(${placeholders.join(', ')})`;
-  const statement = db.prepare(sql);
-  try {
-    await db.begin();
-    for (const item of items) {
-      await db.run(statement, item);
-    }
-    await db.commit();
-  }
-  catch (e) {
-    await db.rollback();
-    throw e;
+  const statement = tx ? tx.prepare(sql) : db.prepare(sql);
+  for (const item of items) {
+    await db.run(statement, item, tx);
   }
 }
 
@@ -71,7 +63,7 @@ const removeNulls = (query) => {
   return result;
 }
 
-const update = async (db, table, query, params) => {
+const update = async (db, table, query, params, tx) => {
   const columnSet = db.columnSets[table];
   const verify = makeVerify(table, columnSet);
   const keys = Object.keys(params);
@@ -86,7 +78,7 @@ const update = async (db, table, query, params) => {
   else {
     sql = `update ${table} set ${set}`;
   }
-  return await db.run(sql, { ...params, ...query });
+  return await db.run(sql, { ...params, ...query }, tx);
 }
 
 const makeVerify = (table, columnSet) => {
@@ -176,7 +168,7 @@ const toKeywords = (keywords, verify) => {
   return sql;
 }
 
-const get = async (db, table, query, columns) => {
+const get = async (db, table, query, columns, tx) => {
   const columnSet = db.columnSets[table];
   const verify = makeVerify(table, columnSet);
   const keywords = columns && typeof columns !== 'string' && !Array.isArray(columns) ? columns : null;
@@ -193,12 +185,16 @@ const get = async (db, table, query, columns) => {
     sql += ` where ${where}`;
   }
   sql += toKeywords(keywords, verify);
-  const results = await db.all(sql, query);
+  const results = await db.all(sql, query, tx);
   if (results.length > 0) {
     const result = results[0];
     const adjusted = {};
     const entries = Object.entries(result);
     for (const [key, value] of entries) {
+      if (key === 'count') {
+        adjusted[key] = value;
+        continue;
+      }
       adjusted[key] = db.convertToJs(table, key, value);
     }
     if (returnValue) {
@@ -209,7 +205,7 @@ const get = async (db, table, query, columns) => {
   return undefined;
 }
 
-const all = async (db, table, query, columns) => {
+const all = async (db, table, query, columns, tx) => {
   const columnSet = db.columnSets[table];
   const verify = makeVerify(table, columnSet);
   const keywords = columns && typeof columns !== 'string' && !Array.isArray(columns) ? columns : null;
@@ -226,7 +222,7 @@ const all = async (db, table, query, columns) => {
     sql += ` where ${where}`;
   }
   sql += toKeywords(keywords, verify);
-  const rows = await db.all(sql, query);
+  const rows = await db.all(sql, query, tx);
   if (rows.length === 0) {
     return rows;
   }
@@ -248,13 +244,16 @@ const all = async (db, table, query, columns) => {
     adjusted = rows;
   }
   if (returnValue) {
+    if (keywords && keywords.count) {
+      return adjusted[0].count;
+    }
     const key = keys[0];
     return adjusted.map(item => item[key]);
   }
   return adjusted;
 }
 
-const remove = async (db, table, query) => {
+const remove = async (db, table, query, tx) => {
   const columnSet = db.columnSets[table];
   const verify = makeVerify(table, columnSet);
   let sql = `delete from ${table}`;
@@ -263,7 +262,7 @@ const remove = async (db, table, query) => {
   if (where) {
     sql += ` where ${where}`;
   }
-  return await db.run(sql, query);
+  return await db.run(sql, query, tx);
 }
 
 export {

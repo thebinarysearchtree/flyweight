@@ -22,5 +22,6 @@ const run = async () => {
 }
 
 export default {
+  name: 'sql',
   run
 };

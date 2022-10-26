@@ -52,6 +52,7 @@ export interface MultipleQueries<T, I, W> {
   get<K extends keyof T>(params: W | null, columns: K[]): Promise<Array<Pick<T, K>>>;
   get<K extends keyof T>(params: W | null, column: K): Promise<Array<T[K]>>;
   get(params: W | null, keywords: KeywordsWithoutSelect): Promise<Array<T>>;
+  get(params: W | null, keywords: KeywordsWithCount): Promise<number>;
   get<K extends keyof T>(params: W | null, keywords: Keywords<K>): Promise<Array<T[K]>>;
   get<K extends keyof T>(params: W | null, keywords: Keywords<K[]>): Promise<Array<Pick<T, K>>>;
   get<K extends keyof T>(params: W | null, keywords: KeywordsWithExclude<K[]>): Promise<Array<Omit<T, K>>>;

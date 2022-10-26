@@ -113,9 +113,17 @@ const regexpDbToJs = (v) => {
   return new RegExp(v, flags);
 }
 
+const wait = async () => {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => resolve(), 100);
+  });
+}
+
 class Database {
   constructor() {
-    this.db = null;
+    this.db;
+    this.read = null;
+    this.write = null;
     this.tables = {};
     this.columnSets = {};
     this.mappers = {};
@@ -123,6 +131,13 @@ class Database {
     this.columns = {};
     this.statements = new Map();
     this.viewSet = new Set();
+    this.pool = [];
+    this.poolSize = 100;
+    this.dbPath = null;
+    this.sqlPath = null;
+    this.transactionCount = 0;
+    this.extensions = null;
+    this.databases = [];
     this.registerTypes([
       {
         name: 'boolean',
@@ -162,8 +177,11 @@ class Database {
 
   async initialize(paths, interfaceName) {
     const { db, sql, tables, views, types, migrations, extensions } = paths;
-    this.db = new sqlite3.Database(db);
-    await this.enableForeignKeys();
+    this.dbPath = db;
+    this.sqlPath = sql;
+    this.extensions = extensions;
+    this.read = await this.createDatabase();
+    this.write = await this.createDatabase({ serialize: true });
     await this.setTables(tables);
     if (views) {
       await this.setViews(views);
@@ -227,16 +245,6 @@ class Database {
       }
       this.enableForeignKeys();
     }
-    if (extensions) {
-      if (typeof extensions === 'string') {
-        await this.loadExtension(extensions);
-      }
-      else {
-        for (const extension of extensions) {
-          await this.loadExtension(extension);
-        }
-      }
-    }
     return {
       db: client,
       makeTypes,
@@ -246,12 +254,33 @@ class Database {
     }
   }
 
-  async enableForeignKeys() {
-    await this.basicAll('pragma foreign_keys = on');
+  async createDatabase(options) {
+    const serialize = options ? options.serialize : false;
+    const db = new sqlite3.Database(db);
+    if (serialize) {
+      db.serialize();
+    }
+    this.enableForeignKeys(db);
+    if (this.extensions) {
+      if (typeof extensions === 'string') {
+        await this.loadExtension(extensions);
+      }
+      else {
+        for (const extension of extensions) {
+          await this.loadExtension(extension);
+        }
+      }
+    }
+    this.databases.push(db);
+    return db;
   }
 
-  async disableForeignKeys() {
-    await this.basicAll('pragma foreign_keys = off');
+  async enableForeignKeys(db) {
+    await this.basicAll('pragma foreign_keys = on', db);
+  }
+
+  async disableForeignKeys(db) {
+    await this.basicAll('pragma foreign_keys = off', db);
   }
 
   addTables(tables) {
@@ -345,6 +374,9 @@ class Database {
 
   needsParsing(table, keys) {
     for (const key of keys) {
+      if (key === 'count') {
+        continue;
+      }
       const type = this.columns[table][key];
       if (!dbTypes[type]) {
         return true;
@@ -409,8 +441,24 @@ class Database {
     return adjusted;
   }
 
-  async begin() {
-    await this.basicRun('begin');
+  async getTransaction() {
+    const db = this.pool.pop();
+    if (!db) {
+      if (this.transactionCount < this.poolSize) {
+        const db = new sqlite3.Database(this.dbPath);
+        this.transactionCount++;
+        const tx = { name: `tx${this.transactionCount}`, db };
+        const client = makeClient(this, this.sqlPath, tx);
+        return client;
+      }
+      await wait();
+      return this.getTransaction();
+    }
+    return db;
+  }
+
+  async begin(tx) {
+    await this.basicRun('begin', tx);
   }
 
   async commit() {
@@ -421,13 +469,9 @@ class Database {
     await this.basicRun('rollback');
   }
 
-  prepare(sql) {
-    return this.db.prepare(sql);
-  }
-
-  async loadExtension(path) {
+  async loadExtension(path, db) {
     return new Promise((resolve, reject) => {
-      this.db.loadExtension(path, (err) => {
+      db.loadExtension(path, (err) => {
         if (err) {
           reject(err);
         }
@@ -438,9 +482,10 @@ class Database {
     });
   }
 
-  async basicRun(sql) {
+  async basicRun(sql, tx) {
+    const db = tx ? tx.db : this.write;
     return new Promise((resolve, reject) => {
-      this.db.run(sql, undefined, function (err) {
+      db.run(sql, undefined, function (err) {
         if (err) {
           reject(err);
         }
@@ -451,9 +496,9 @@ class Database {
     });
   }
 
-  async basicAll(sql) {
+  async basicAll(sql, db) {
     return new Promise((resolve, reject) => {
-      this.db.all(sql, undefined, function (err, rows) {
+      db.all(sql, undefined, function (err, rows) {
         if (err) {
           reject(err);
         }
@@ -464,7 +509,7 @@ class Database {
     });
   }
 
-  async run(query, params, options) {
+  async run(query, params, options, tx) {
     if (params === null) {
       params = undefined;
     }
@@ -472,6 +517,7 @@ class Database {
       params = this.adjust(params);
     }
     let setCache;
+    const db = tx ? tx.db : this.write;
     if (typeof query === 'string') {
       let key;
       if (options && options.cacheName) {
@@ -480,18 +526,25 @@ class Database {
       else {
         key = query;
       }
-      const cached = this.statements.get(key);
+      const statementKey = tx ? tx.name : 'write';
+      const statements = this.statements[statementKey];
+      const cached = statements ? this.statements.get(key) : undefined;
       if (cached) {
         query = cached;
       }
       else {
-        setCache = () => this.statements.set(key, this.prepare(query));
+        setCache = () => {
+          if (!statements) {
+            this.statements[statementKey] = new Map();
+          }
+          this.statements[statementKey].set(key, db.prepare(query));
+        }
       }
     }
     if (typeof query === 'string') {
       const sql = query;
       return new Promise((resolve, reject) => {
-        this.db.run(sql, params, function (err) {
+        db.run(sql, params, function (err) {
           if (err) {
             reject(err);
           }
@@ -514,7 +567,7 @@ class Database {
     });
   }
 
-  async all(query, params, options) {
+  async all(query, params, options, tx, write) {
     if (params === null) {
       params = undefined;
     }
@@ -522,6 +575,7 @@ class Database {
       params = this.adjust(params);
     }
     let setCache;
+    const client = tx ? tx.db : (write ? this.write : this.read);
     if (typeof query === 'string') {
       let key;
       if (options && options.cacheName) {
@@ -530,19 +584,26 @@ class Database {
       else {
         key = query;
       }
-      const cached = this.statements.get(key);
+      const statementKey = tx ? tx.name : (write ? 'write' : 'read');
+      const statements = this.statements[statementKey];
+      const cached = statements ? this.statements.get(key) : undefined;
       if (cached) {
         query = cached;
       }
       else {
-        setCache = () => this.statements.set(key, this.prepare(query));
+        setCache = () => {
+          if (!statements) {
+            this.statements[statementKey] = new Map();
+          }
+          this.statements[statementKey].set(key, client.prepare(query));
+        }
       }
     }
     const db = this;
     if (typeof query === 'string') {
       const sql = query;
       return new Promise((resolve, reject) => {
-        this.db.all(sql, params, function (err, rows) {
+        client.all(sql, params, function (err, rows) {
           if (err) {
             reject(err);
           }
@@ -569,7 +630,7 @@ class Database {
 
   async exec(sql) {
     return new Promise((resolve, reject) => {
-      this.db.exec(sql, function (err) {
+      this.write.exec(sql, function (err) {
         if (err) {
           reject(err);
         }
@@ -581,16 +642,18 @@ class Database {
   }
 
   async close() {
-    return new Promise((resolve, reject) => {
-      this.db.close(function (err) {
-        if (err) {
-          reject(err);
-        }
-        else {
-          resolve();
-        }
+    const makePromise = (db) => {
+      return new Promise((resolve, reject) => {
+        db.close(function (err) {
+          if (err) {
+            reject(err);
+          }
+          else {
+            resolve();
+          }
+        });
       });
-    });
+    }
   }
 }
 

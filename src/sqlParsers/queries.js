@@ -59,6 +59,12 @@ const getQueryType = (query) => {
   return null;
 }
 
+const isWrite = (sql) => {
+  sql = sql.replaceAll(/\s+/gm, ' ');
+  sql = blank(sql, { stringsOnly: true });
+  return /(^| |\()(insert|update|delete) /gi.test(sql);
+}
+
 const parseQuery = (sql, tables) => {
   tables = {...tables };
   sql = sql.replaceAll(/\s+/gm, ' ');
@@ -661,5 +667,6 @@ const parseSelect = (query, tables) => {
 
 export {
   parseQuery,
-  getQueryType
+  getQueryType,
+  isWrite
 }
