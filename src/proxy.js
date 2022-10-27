@@ -390,7 +390,7 @@ const makeQueryHandler = (table, db, sqlDir, tx) => {
           }
           catch {
             target[query] = async (params) => {
-              return await db.all(sql, params, tx, write);
+              return await db.all(sql, params, null, tx, write);
             }
           }
         }

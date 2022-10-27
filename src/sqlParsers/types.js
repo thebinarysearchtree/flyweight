@@ -187,7 +187,7 @@ const toTsType = (column, customTypes) => {
 
 const parseParams = (sql) => {
   const processed = blank(sql, { stringsOnly: true });
-  const matches = processed.matchAll(/(\s|,)\$(?<param>[a-z0-9_]+)(\s|,|$)/gmi);
+  const matches = processed.matchAll(/(\s|,|\()\$(?<param>[a-z0-9_]+)(\s|,|\)|$)/gmi);
   const params = {};
   for (const match of matches) {
     params[match.groups.param] = true;
@@ -212,13 +212,7 @@ const getQueries = async (db, sqlDir, tableName) => {
     const queryName = fileName.substring(0, fileName.length - 4);
     const queryPath = join(path, fileName);
     const sql = await readFile(queryPath, 'utf8');
-    let columns;
-    try {
-      columns = parseQuery(sql, db.tables);
-    }
-    catch {
-      throw Error(`Error trying to parse ${queryPath}.`);
-    }
+    const columns = parseQuery(sql, db.tables);
     const params = parseParams(sql);
     if (columns.length === 0) {
       parsedQueries.push({

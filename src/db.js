@@ -214,12 +214,7 @@ class Database {
           .on('change', watchRun);
       }
       else {
-        try {
-          await run();
-        }
-        catch (e) {
-          console.log(e.message);
-        }
+        await run();
       }
     }
     const getTables = async () => {

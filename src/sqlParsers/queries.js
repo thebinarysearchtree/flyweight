@@ -293,16 +293,16 @@ const getWhereColumns = (query) => {
 
 const parseWrite = (query, tables) => {
   const blanked = blank(query);
-  const tableMatch = blanked.match(/^\s*(insert into )|(update )|(delete from )(?<tableName>[a-z0-9_]+)/gmi);
-  const returningMatch = blanked.match(/ returning (?<columns>.+)$/gmi);
+  const tableMatch = /^\s*(insert into |update |delete from )(?<tableName>[a-z0-9_]+)/gmi.exec(blanked);
+  const returningMatch = / returning (?<columns>.+)$/gmi.exec(blanked);
   if (!returningMatch) {
     return [];
   }
   const selectColumns = getSelectColumns(returningMatch.groups.columns, tables);
   const tableName = tableMatch.groups.tableName;
-  const table = tables[tableName];
+  const columns = tables[tableName];
   if (selectColumns.length === 1 && selectColumns[0].columnName === '*') {
-    return table.columns.map(c => ({
+    return columns.map(c => ({
       column: c.name,
       type: c.type,
       originalName: c.name,
@@ -313,7 +313,7 @@ const parseWrite = (query, tables) => {
     }));
   }
   return selectColumns.map(column => {
-    const tableColumn = table.columns.find(c => c.name === column.columnName);
+    const tableColumn = columns.find(c => c.name === column.columnName);
     return {
       column: column.columnAlias || column.columnName,
       type: column.type || tableColumn.type,
