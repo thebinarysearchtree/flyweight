@@ -407,6 +407,10 @@ const makeClient = (db, sqlDir, tx) => {
         db[table] = db[table].bind(db);
         return () => db[table](tx);
       }
+      if (table === 'getTransaction') {
+        db[table] = db[table].bind(db);
+        return db[table];
+      }
       if (table === 'release') {
         return () => db.pool.push(tx);
       }

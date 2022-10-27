@@ -32,36 +32,37 @@ const run = async () => {
   assert.equal(israel.id, 17);
 
   let javierId;
+  const tx = await db.getTransaction();
   try {
-    await db.begin();
-    javierId = await db.coach.insert({
+    await tx.begin();
+    javierId = await tx.coach.insert({
       name: 'Javier Mendez',
       city: 'San Jose'
     });
     throw Error();
   }
   catch {
-    await db.rollback();
+    await tx.rollback();
   }
-  let javier = await db.coach.get({ id: javierId });
+  let javier = await tx.coach.get({ id: javierId });
   assert.equal(javier, undefined);
 
   try {
-    await db.begin();
-    javierId = await db.coach.insert({
+    await tx.begin();
+    javierId = await tx.coach.insert({
       name: 'Javier Mendez',
       city: 'San Jose'
     });
-    await db.commit();
+    await tx.commit();
   }
   catch {
-    await db.rollback();
+    await tx.rollback();
   }
-  javier = await db.coach.get({ id: javierId });
+  javier = await tx.coach.get({ id: javierId });
   assert.notEqual(javier, undefined);
-  await db.coach.remove({ id: javierId });
+  await tx.coach.remove({ id: javierId });
 
-  await db.coaches.insert([
+  await tx.coaches.insert([
     {
       name: 'Eugene Bareman',
       city: 'Auckland'
@@ -71,45 +72,47 @@ const run = async () => {
       city: 'Denver'
     },
   ]);
-  let coaches = await db.coaches.get();
+  let coaches = await tx.coaches.get();
   assert.equal(coaches.length, 2);
-  await db.coach.remove({ name: /^[e-u]+\s[a-r]+$/i });
-  coaches = await db.coaches.get();
+  await tx.coach.remove({ name: /^[e-u]+\s[a-r]+$/i });
+  coaches = await tx.coaches.get();
   assert.equal(coaches.length, 1);
-  await db.coaches.remove();
+  await tx.coaches.remove();
+  db.release(tx);
+
   const methodCount = await db.fights.get({ methodId: null }, { count: true });
   assert.equal(methodCount, 45);
 
   const wait = async () => {
     return new Promise((resolve, reject) => {
-      setTimeout(() => resolve(), 1000);
+      setTimeout(() => resolve(), 100);
     });
   }
 
   const t1 = async () => {
-    await db.begin();
-    await db.coach.insert({
+    const tx = await db.getTransaction();
+    await tx.begin();
+    await tx.coach.insert({
       name: 'Test User',
       city: 'Whatever'
     });
     await wait();
-    const coaches = await db.coaches.get();
-    console.log(coaches);
-    await db.commit();
+    await tx.commit();
+    db.release(tx);
   }
   const t2 = async () => {
-    await db.begin();
-    await db.coach.insert({
+    const tx = await db.getTransaction();
+    await tx.begin();
+    await tx.coach.insert({
       name: 'Test User 2',
       city: 'Whatever 2'
     });
-    await db.rollback();
-    const coaches = await db.coaches.get();
-    console.log(coaches);
+    await tx.rollback();
+    db.release(tx);
   }
   const promises = [t1(), t2()];
   await Promise.all(promises);
-  console.log(await db.coaches.get());
+  await db.coaches.remove();
 }
 
 const cleanUp = async () => {

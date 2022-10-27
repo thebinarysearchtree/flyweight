@@ -324,7 +324,7 @@ select max(startTime) from events;
 
 as there is no name given to ```max(startTime)```.
 
-Parameters in SQL files should use the ```$name``` notation. JSON functions are automatically typed and parsed. For example, the following:
+Parameters in SQL files should use the ```$name``` notation. Single quotes in strings should be escaped with ```\```. JSON functions are automatically typed and parsed. For example, the following:
 
 ```sql
 select id, json_object('name', name, 'startTime', startTime) as nest from events;
@@ -351,31 +351,7 @@ the entire object will be null.
 
 ## The API
 
-Flyweight parses all of your SQL files and generates an API using TypeScript. In the "Getting started" section, you export a variable named ```db```. This is the API, and its properties include both the singular and plural form of every table in your database, as well as ```begin```, ```commit```, and ```rollback``` methods for transactions. Here is an example of a transaction:
-
-```js
-import { db } from './db.js';
-
-try {
-  await db.begin();
-
-  const coachId = await db.coach.insert({
-    name: 'Eugene Bareman',
-    city: 'Auckland'
-  });
-  const fighterId = await db.fighter.get({ name: /Israel/ }, 'id');
-  await db.fighterCoach.insert({
-    fighterId,
-    coachId
-  });
-  
-  await db.commit();
-}
-catch (e) {
-  console.log(e);
-  await db.rollback();
-}
-```
+Flyweight parses all of your SQL files and generates an API using TypeScript. In the "Getting started" section, you export a variable named ```db```. This is the API, and its properties include both the singular and plural form of every table in your database.
 
 Every table has ```get```, ```update```, ```insert```, and ```remove``` methods available to it, along with any of the custom methods that are created when you add a new SQL file to the corresponding table's folder. Views only have the ```get``` method available to them.
 
@@ -459,6 +435,42 @@ const fighters = await db.fighters.get({ isActive: true }, {
 
 ```js
 const changes = await db.fighters.remove({ id: 100 });
+```
+
+## Transactions and concurrency
+
+There are two situations in which you need to use transactions. Firstly, when you need all of the statements to either fail or pass together, and secondly, when you need to perform a write, and then perform a read while expecting the read to contain the latest updates from the write. A write is any statement that includes either an ```insert```, ```update```, or ```delete``` statement.
+
+In any other situations, you should not use a transaction, as transactions involve taking a connection from a pool of connections, and once that pool is empty due to a large number of simultaneous transactions, ```getTransaction``` will start to wait until the pool has a connection available.
+
+Once you have finished using the transaction returned from ```getTransaction```, you should call ```release``` on the main database (not the transaction itself) to return the connection to the pool.
+
+```js
+import { db } from './db.js';
+
+try {
+  const tx = await db.getTransaction();
+  await tx.begin();
+
+  const coachId = await tx.coach.insert({
+    name: 'Eugene Bareman',
+    city: 'Auckland'
+  });
+  const fighterId = await tx.fighter.get({ name: /Israel/ }, 'id');
+  await tx.fighterCoach.insert({
+    fighterId,
+    coachId
+  });
+  
+  await tx.commit();
+}
+catch (e) {
+  console.log(e);
+  await tx.rollback();
+}
+finally {
+  db.release(tx);
+}
 ```
 
 ## Migrations

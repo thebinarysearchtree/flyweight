@@ -6,7 +6,7 @@ const insert = async (db, table, params, tx) => {
   const placeholders = columns.map(c => `$${c}`);
   const sql = `insert into ${table}(${columns.join(', ')}) values(${placeholders.join(', ')})`;
   const primaryKey = db.getPrimaryKey(table);
-  const result = await db.all(`${sql} returning ${primaryKey}`, params, tx);
+  const result = await db.all(`${sql} returning ${primaryKey}`, params, null, tx, true);
   return result[0][primaryKey];
 }
 
@@ -21,9 +21,9 @@ const insertMany = async (db, table, items, tx) => {
   verify(columns);
   const placeholders = columns.map(c => `$${c}`);
   const sql = `insert into ${table}(${columns.join(', ')}) values(${placeholders.join(', ')})`;
-  const statement = tx ? tx.prepare(sql) : db.prepare(sql);
+  const statement = tx ? tx.db.prepare(sql) : db.write.prepare(sql);
   for (const item of items) {
-    await db.run(statement, item, tx);
+    await db.run(statement, item, null, tx);
   }
 }
 
@@ -78,7 +78,7 @@ const update = async (db, table, query, params, tx) => {
   else {
     sql = `update ${table} set ${set}`;
   }
-  return await db.run(sql, { ...params, ...query }, tx);
+  return await db.run(sql, { ...params, ...query }, null, tx);
 }
 
 const makeVerify = (table, columnSet) => {
@@ -185,7 +185,7 @@ const get = async (db, table, query, columns, tx) => {
     sql += ` where ${where}`;
   }
   sql += toKeywords(keywords, verify);
-  const results = await db.all(sql, query, tx);
+  const results = await db.all(sql, query, null, tx);
   if (results.length > 0) {
     const result = results[0];
     const adjusted = {};
@@ -222,7 +222,7 @@ const all = async (db, table, query, columns, tx) => {
     sql += ` where ${where}`;
   }
   sql += toKeywords(keywords, verify);
-  const rows = await db.all(sql, query, tx);
+  const rows = await db.all(sql, query, null, tx);
   if (rows.length === 0) {
     return rows;
   }
@@ -262,7 +262,7 @@ const remove = async (db, table, query, tx) => {
   if (where) {
     sql += ` where ${where}`;
   }
-  return await db.run(sql, query, tx);
+  return await db.run(sql, query, null, tx);
 }
 
 export {

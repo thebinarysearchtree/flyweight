@@ -256,18 +256,18 @@ class Database {
 
   async createDatabase(options) {
     const serialize = options ? options.serialize : false;
-    const db = new sqlite3.Database(db);
+    const db = new sqlite3.Database(this.dbPath);
     if (serialize) {
       db.serialize();
     }
     this.enableForeignKeys(db);
     if (this.extensions) {
-      if (typeof extensions === 'string') {
-        await this.loadExtension(extensions);
+      if (typeof this.extensions === 'string') {
+        await this.loadExtension(this.extensions, db);
       }
       else {
-        for (const extension of extensions) {
-          await this.loadExtension(extension);
+        for (const extension of this.extensions) {
+          await this.loadExtension(extension, db);
         }
       }
     }
@@ -444,10 +444,9 @@ class Database {
   async getTransaction() {
     const db = this.pool.pop();
     if (!db) {
-      if (this.transactionCount < this.poolSize) {
-        const db = new sqlite3.Database(this.dbPath);
-        this.transactionCount++;
-        const tx = { name: `tx${this.transactionCount}`, db };
+      if (this.databases.length < this.poolSize) {
+        const db = await this.createDatabase({ serialize: true });
+        const tx = { name: `tx${this.databases.length}`, db };
         const client = makeClient(this, this.sqlPath, tx);
         return client;
       }
@@ -461,12 +460,16 @@ class Database {
     await this.basicRun('begin', tx);
   }
 
-  async commit() {
-    await this.basicRun('commit');
+  async commit(tx) {
+    await this.basicRun('commit', tx);
   }
 
-  async rollback() {
-    await this.basicRun('rollback');
+  async rollback(tx) {
+    await this.basicRun('rollback', tx);
+  }
+
+  release(tx) {
+    this.pool.push(tx);
   }
 
   async loadExtension(path, db) {
@@ -496,7 +499,8 @@ class Database {
     });
   }
 
-  async basicAll(sql, db) {
+  async basicAll(sql, tx) {
+    const db = tx ? tx : this.write;
     return new Promise((resolve, reject) => {
       db.all(sql, undefined, function (err, rows) {
         if (err) {
@@ -654,6 +658,8 @@ class Database {
         });
       });
     }
+    const promises = this.databases.map(db => makePromise(db));
+    await Promise.all(promises);
   }
 }
 

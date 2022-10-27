@@ -470,7 +470,9 @@ const createTypes = async (options) => {
   }
   types += '  begin(): Promise<void>,\n';
   types += '  commit(): Promise<void>,\n';
-  types += '  rollback(): Promise<void>';
+  types += '  rollback(): Promise<void>,\n';
+  types += `  getTransaction(): Promise<${interfaceName}>,\n`;
+  types += `  release(transaction: ${interfaceName}): void`;
   types += '\n}\n\n';
   if (/\.d\.ts/.test(destinationPath)) {
     types += `declare const database: Database;\n`;

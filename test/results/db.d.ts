@@ -623,7 +623,9 @@ export interface TypedDb {
   opponent: Pick<SingularQueries<Opponent, InsertOpponent, WhereOpponent, undefined>, "get">,
   begin(): Promise<void>,
   commit(): Promise<void>,
-  rollback(): Promise<void>
+  rollback(): Promise<void>,
+  getTransaction(): Promise<TypedDb>,
+  release(transaction: TypedDb): void
 }
 
 declare const database: Database;
