@@ -303,25 +303,25 @@ const parseWrite = (query, tables) => {
   const columns = tables[tableName];
   if (selectColumns.length === 1 && selectColumns[0].columnName === '*') {
     return columns.map(c => ({
-      column: c.name,
+      name: c.name,
       type: c.type,
       originalName: c.name,
       tableName,
       primaryKey: c.primaryKey,
       foreign: c.foreign,
-      notNull: c.notNull
+      notNull: c.notNull || c.primaryKey
     }));
   }
   return selectColumns.map(column => {
     const tableColumn = columns.find(c => c.name === column.columnName);
     return {
-      column: column.columnAlias || column.columnName,
+      name: column.columnAlias || column.columnName,
       type: column.type || tableColumn.type,
       originalName: column.columnName,
       tableName,
-      primaryKey: column.primaryKey,
+      primaryKey: tableColumn.primaryKey,
       foreign: column.foreign,
-      notNull: tableColumn.notNull
+      notNull: tableColumn.notNull || tableColumn.primaryKey
     }
   });
 }
