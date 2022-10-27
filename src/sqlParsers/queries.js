@@ -19,7 +19,7 @@ const getTempTables = (query, fromPattern, tables) => {
     const tableName = `temp${i}`;
     processedQuery = processedQuery.replace(from.substring(match.index, match.index + subQuery.length), tableName);
     const columns = parsedTable.map(c => ({ 
-      name: c.column, 
+      name: c.name, 
       type: c.type, 
       notNull: c.notNull, 
       isOptional: c.isOptional, 
