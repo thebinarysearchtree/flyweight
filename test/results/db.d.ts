@@ -124,14 +124,22 @@ export interface LocationsEvents {
   events: Array<LocationsEventsEvents>;
 }
 
+export interface LocationsWinners {
+  location: string;
+  fighter: string;
+  wins: number;
+}
+
 export interface LocationsQueries {
   byMethod(params: { id: any; }): Promise<Array<LocationsByMethod>>;
   events(): Promise<Array<LocationsEvents>>;
+  winners(): Promise<Array<LocationsWinners>>;
 }
 
 export interface LocationQueries {
   byMethod(params: { id: any; }): Promise<LocationsByMethod | undefined>;
   events(): Promise<LocationsEvents | undefined>;
+  winners(): Promise<LocationsWinners | undefined>;
 }
 
 export interface Event {

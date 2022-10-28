@@ -2,8 +2,9 @@ import json from './json.js';
 import queries from './queries.js';
 import sql from './sql.js';
 import types from './types.js';
+import transactions from './transactions.js';
 
-let tests = [json, queries, sql, types];
+let tests = [json, queries, sql, types, transactions];
 
 const argument = process.argv[2];
 

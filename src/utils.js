@@ -1,4 +1,5 @@
 import { readFile, readdir } from 'fs/promises';
+import { join } from 'path';
 
 const toValues = (rows) => {
   if (!rows || rows.length === 0) {

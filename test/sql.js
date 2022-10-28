@@ -10,6 +10,7 @@ const run = async () => {
   const methods = await db.methods.byFighter({ fighterId: 17 });
   const submission = await db.method.topSubmission();
   const locationEvents = await db.locations.events();
+  const winners = await db.locations.winners();
 
   compare(event, 'eventGetById');
   compare(locations, 'locationsByMethod');
@@ -17,6 +18,7 @@ const run = async () => {
   compare(common, 'fightersCommon');
   compare(methods, 'methodsByFighter');
   compare(locationEvents, 'locationEvents');
+  compare(winners, 'locationWinners');
 
   assert.equal(submission, 'Rear-naked choke');
 }

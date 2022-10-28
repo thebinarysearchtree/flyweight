@@ -20,7 +20,7 @@ const result = await database.initialize({
   db: path('databases/test.db'),
   sql: path('sql'),
   tables: path('sql/tables.sql'),
-  views: path('sql/views.sql'),
+  views: path('views'),
   types: path('db.d.ts'),
   migrations: path('migrations'),
   extensions: path('extensions/pcre2.dylib')
