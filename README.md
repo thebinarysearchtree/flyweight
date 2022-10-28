@@ -439,11 +439,7 @@ const changes = await db.fighters.remove({ id: 100 });
 
 ## Transactions and concurrency
 
-There are two situations in which you need to use transactions. Firstly, when you need all of the statements to either fail or pass together, and secondly, when you need to perform a write, and then perform a read while expecting the read to contain the latest updates from the write. A write is any statement that includes either an ```insert```, ```update```, or ```delete``` statement.
-
-In any other situations, you should not use a transaction, as transactions involve taking a connection from a pool of connections, and once that pool is empty due to a large number of simultaneous transactions, ```getTransaction``` will start to wait until the pool has a connection available.
-
-Once you have finished using the transaction returned from ```getTransaction```, you should call ```release``` on the main database (not the transaction itself) to return the connection to the pool.
+Transactions involve taking a connection from a pool of connections by calling ```getTransaction```. Once you have finished using the transaction, you should call ```release``` to return the connection to the pool. If there are a large number of simultaneous transactions, the connection pool will be empty and ```getTransaction``` will start to wait until a connection is returned to the pool.
 
 ```js
 import { db } from './db.js';
