@@ -212,8 +212,19 @@ const getQueries = async (db, sqlDir, tableName) => {
     const queryName = fileName.substring(0, fileName.length - 4);
     const queryPath = join(path, fileName);
     const sql = await readFile(queryPath, 'utf8');
-    const columns = parseQuery(sql, db.tables);
     const params = parseParams(sql);
+    let columns;
+    try {
+      columns = parseQuery(sql, db.tables);
+    }
+    catch {
+      parsedQueries.push({
+        queryName,
+        interfaceName: 'any',
+        params
+      });
+      continue;
+    }
     if (columns.length === 0) {
       parsedQueries.push({
         queryName,
@@ -353,6 +364,11 @@ const createTypes = async (options) => {
   }
   types += definitions;
   types += '\n\n';
+  if (options.interfaces) {
+    const interfaces = await readFile(options.interfaces, 'utf8');
+    types += interfaces.trim();
+    types += '\n\n';
+  }
   const returnTypes = [];
   for (const table of tables) {
     const singular = pluralize.singular(table.name);

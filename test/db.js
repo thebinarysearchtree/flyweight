@@ -23,7 +23,8 @@ const result = await database.initialize({
   views: path('views'),
   types: path('db.d.ts'),
   migrations: path('migrations'),
-  extensions: path('extensions/pcre2.dylib')
+  extensions: path('extensions/pcre2.dylib'),
+  interfaces: path('interfaces.d.ts')
 });
 
 const {

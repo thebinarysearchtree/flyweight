@@ -150,7 +150,8 @@ const result = await database.initialize({
   views: '/path/views',
   types: '/path/db.d.ts',
   migrations: '/path/migrations',
-  extensions: '/path/regexp.dylib'
+  extensions: '/path/regexp.dylib',
+  interfaces: '/path/interfaces.d.ts'
 });
 
 const {
@@ -202,7 +203,8 @@ const result = await database.initialize<TypedDb>({
   views: '/path/views',
   types: '/path/types.ts',
   migrations: '/path/migrations',
-  extensions: '/path/regexp.dylib'
+  extensions: '/path/regexp.dylib',
+  interfaces: '/path/interfaces.d.ts'
 });
 
 const {
@@ -237,9 +239,11 @@ The ```initialize``` method's ```path``` object has the following properties:
 
 ```types```: If you are using JavaScript, this should be a path to a file that is in the same location as ```db.js```. If you are using TypeScript, this can be any path. This file should not exist yet. It will be created by the ```makeTypes``` function.
 
+```migrations```: A path to the migrations folder. When you run ```createMigration```, the SQL files will be created in this folder.
+
 ```extensions```: A string or array of strings of SQLite extensions that will be loaded each time a connection is made to the database.
 
-```migrations```: A path to the migrations folder. When you run ```createMigration```, the SQL files will be created in this folder.
+```interfaces```: A path to a TypeScript declaration file that can be used to easily type JSON columns.
 
 ```initialize``` also takes an optional second argument, ```interfaceName```, which is a string that can be used instead of ```TypedDb```. This is useful if you have more than one database.
 
@@ -304,7 +308,34 @@ For example, the custom type for ```boolean``` is as follows:
 }
 ```
 
-Once you have created your tables, you can run the ```getTables``` function mentioned earlier with no arguments to convert the tables into a form that can be run by the database to create the tables. ```getTables``` returns a string of SQL.
+You can also easily type JSON columns by passing in an ```interfaces.d.ts``` file to the ```initialize``` method mentioned in the getting started section. For example, if your ```interfaces.d.ts``` file looks like this:
+
+```ts
+export interface Social {
+  instagram?: string;
+  twitter?: string;
+}
+```
+
+and you have a table that looks like this:
+
+```sql
+create table fighters (
+    id integer primary key,
+    name text not null,
+    nickname text,
+    born text,
+    heightCm integer,
+    reachCm integer,
+    hometown text not null,
+    social,
+    isActive boolean not null
+);
+```
+
+The ```social``` column is typed with the ```Social``` type. This is because any column without a type is assumed to have the type name of the column, and any type that hasn't been registered as a custom type is assumed to be of the type ```json``` if it matches the lowercase name of one of the interfaces defined in the ```interfaces.d.ts```.
+
+Once you have created your tables, you can run the ```getTables``` function mentioned earlier with no arguments to convert the tables into a form that can be run by the database to create the tables. ```getTables``` returns a string of SQL. You can also just use the migration tools mentioned later on, as the first migration will include everything in your ```tables.sql```.
 
 ## Creating SQL queries
 

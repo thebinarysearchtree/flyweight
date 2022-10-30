@@ -79,8 +79,20 @@ const getFragments = (sql) => {
     const columnMatches = blank(tableMatch.groups.columns).matchAll(/(?<column>[^,]+)(,|(\s*\)\s*$))/gmd);
     for (const columnMatch of columnMatches) {
       const [columnStart, columnEnd] = columnMatch.indices.groups.column;
-      const match = /^\s+(?<name>[a-z0-9_]+)\s+(?<type>[a-z0-9_]+)((?<primaryKey>\s+primary key)|(?<notNull>\s+not null))?/mi.exec(columnMatch.groups.column);
+      const match = /^\s+(?<name>[a-z0-9_]+)(\s+(?<type>[a-z0-9_]+))?((?<primaryKey>\s+primary key)|(?<notNull>\s+not null)|(\s+foreign\s+)|(\s+check(\s+|\()))?/mi.exec(columnMatch.groups.column);
       const isColumn = match && !['unique', 'check', 'primary', 'foreign'].includes(match.groups.name);
+      let type;
+      if (isColumn) {
+        if (match.groups.type === undefined) {
+          type = match.groups.name.toLowerCase();
+        }
+        else {
+          type = match.groups.type;
+        }
+      }
+      else {
+        type = null;
+      }
       const start = tableStart + columnStart;
       const end = start + (columnEnd - columnStart);
       if (lastEnd !== start) {
@@ -93,7 +105,7 @@ const getFragments = (sql) => {
       const fragment = sql.substring(start, end).replace(/\n$/, '');
       fragments.push({
         columnName: isColumn ? match.groups.name : null,
-        type: isColumn ? match.groups.type : null,
+        type,
         isColumn,
         start,
         end,
@@ -126,11 +138,15 @@ const getTables = (sql) => {
       .map(s => s.trim());
     let primaryKeys;
     for (let column of columns) {
-      const match = /^(?<name>[a-z0-9_]+)\s(?<type>[a-z0-9_]+)((?<primaryKey> primary key)|(?<notNull> not null))?(\sreferences\s+(?<foreign>[a-z0-9_]+)\s)?/mi.exec(column);
+      const match = /^(?<name>[a-z0-9_]+)(\s(?<type>[a-z0-9_]+))?((?<primaryKey> primary key)|(?<notNull> not null))?(\sreferences\s+(?<foreign>[a-z0-9_]+)\s)?(\scheck(\s|\())?/mi.exec(column);
       if (!match) {
         continue;
       }
-      const { name, type } = match.groups;
+      const name = match.groups.name;
+      let type = match.groups.type;
+      if (type === undefined) {
+        type = name.toLowerCase();
+      }
       const primaryKey = / primary key/mi.test(column);
       const notNull = / not null/mi.test(column);
       const hasDefault = / default /mi.test(column);

@@ -46,7 +46,7 @@ create table fighters (
     heightCm integer,
     reachCm integer,
     hometown text not null,
-    social json,
+    social,
     isActive boolean not null
 );
 

@@ -176,7 +176,7 @@ class Database {
   }
 
   async initialize(paths, interfaceName) {
-    const { db, sql, tables, views, types, migrations, extensions } = paths;
+    const { db, sql, tables, views, types, migrations, extensions, interfaces } = paths;
     this.dbPath = db;
     this.sqlPath = sql;
     this.extensions = extensions;
@@ -186,6 +186,23 @@ class Database {
     if (views) {
       await this.setViews(views);
     }
+    if (interfaces) {
+      const file = await readFile(interfaces, 'utf8');
+      const matches = file
+        .replaceAll(/\s+/g, ' ')
+        .matchAll(/^\s*export (interface|type) (?<name>[a-z0-9_]+) /gmi);
+      const json = this.customTypes['json'];
+      const customTypes = [];
+      for (const match of matches) {
+        const name = match.groups.name;
+        customTypes.push({
+          ...json,
+          name: name.toLowerCase(),
+          tsType: name
+        });
+      }
+      this.registerTypes(customTypes);
+    }
     const client = makeClient(this, sql);
     const makeTypes = async (options) => {
       const run = async () => {
@@ -193,7 +210,8 @@ class Database {
           db: this,
           sqlDir: sql,
           destinationPath: types,
-          interfaceName
+          interfaceName,
+          interfaces
         });
       }
       if (options && options.watch) {
@@ -347,7 +365,13 @@ class Database {
         converted += fragment.sql;
         continue;
       }
-      fragment.sql = fragment.sql.replace(/(^\s*[a-z0-9_]+\s+)([a-z0-9_]+)((\s+)|$)/gmi, `$1${customType.dbType}$3`);
+      const match = /^\s*(?<name>[a-z0-9_]+)((\s+not\s+)|(\s+primary\s+)|(\s+references\s+)|(\s+check(\s+|\())|\s*$)/gmi.exec(fragment.sql);
+      if (match) {
+        fragment.sql = fragment.sql.replace(/(^\s*[a-z0-9_]+)(\s+|$)/gmi, `$1 ${customType.dbType}$2`);
+      }
+      else {
+        fragment.sql = fragment.sql.replace(/(^\s*[a-z0-9_]+\s+)([a-z0-9_]+)((\s+)|$)/gmi, `$1${customType.dbType}$3`);
+      }
       if (customType.makeConstraint) {
         const constraint = customType.makeConstraint(fragment.columnName);
         fragment.sql += ' ';

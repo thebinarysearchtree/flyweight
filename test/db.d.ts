@@ -61,6 +61,11 @@ export interface MultipleQueries<T, I, W> {
   remove(params?: W): Promise<number>;
 }
 
+export interface Social {
+  instagram?: string;
+  twitter?: string;
+}
+
 export interface WeightClass {
   id: number;
   name: string;
@@ -165,8 +170,8 @@ export interface WhereEvent {
 
 export interface EventsGetByIdCardsFights {
   id: number;
-  blue: { id: number; name: string; social: any };
-  red: { id: number; name: string; social: any };
+  blue: { id: number; name: string; social: Social | null };
+  red: { id: number; name: string; social: Social | null };
 };
 
 export interface EventsGetByIdCards {
@@ -246,7 +251,7 @@ export interface Fighter {
   heightCm: number | null;
   reachCm: number | null;
   hometown: string;
-  social: any;
+  social: Social | null;
   isActive: boolean;
 }
 
@@ -258,7 +263,7 @@ export interface InsertFighter {
   heightCm?: number;
   reachCm?: number;
   hometown: string;
-  social?: any;
+  social?: Social;
   isActive: boolean;
 }
 
@@ -270,7 +275,7 @@ export interface WhereFighter {
   heightCm?: number | Array<number> | null;
   reachCm?: number | Array<number> | null;
   hometown?: string | Array<string> | RegExp;
-  social?: any | Array<any> | RegExp | null;
+  social?: Social | Array<Social> | RegExp | null;
   isActive?: boolean | Array<boolean>;
 }
 
