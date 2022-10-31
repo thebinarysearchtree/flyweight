@@ -21,7 +21,8 @@ const insertMany = async (db, table, items, tx) => {
   verify(columns);
   const placeholders = columns.map(c => `$${c}`);
   const sql = `insert into ${table}(${columns.join(', ')}) values(${placeholders.join(', ')})`;
-  const statement = tx ? tx.db.prepare(sql) : db.write.prepare(sql);
+  const client = tx ? tx.db : db.write;
+  const statement = await db.prepare(sql, client);
   for (const item of items) {
     await db.run(statement, item, null, tx);
   }
@@ -166,6 +167,21 @@ const toKeywords = (keywords, verify) => {
     }
   }
   return sql;
+}
+
+const getVirtual = async (db, table, query, columns, tx, keywords, select, verify) => {
+  if (keywords && keywords.highlight) {
+    const highlight = keywords.highlight;
+    verify(highlight.column);
+    const index = db.tables[table].map((c, i) => ({ name: c.name, index: i })).find(c => c.name === highlight.column).index - 1;
+    select = `rowid as id, highlight(${table}, ${index}, ${highlight.tags[0]}, ${highlight.tags[1]}) as highlight`;
+  }
+  if (keywords && keywords.snippet) {
+    const snippet = keywords.snippet;
+    verify(snippet.column);
+    const index = db.tables[table].map((c, i) => ({ name: c.name, index: i })).find(c => c.name === highlight.column).index - 1;
+    select = `rowid as id, snippet(${table}, ${index}, ${snippet.tags[0]}, ${snippet.tags[1]}, ${snippet.trailing}, ${snippet.tokens}) as snippet`;
+  }
 }
 
 const get = async (db, table, query, columns, tx) => {

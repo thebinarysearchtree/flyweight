@@ -31,6 +31,49 @@ export interface KeywordsWithCount {
   count: true;
 }
 
+export interface VirtualKeywordsSelect<T, K> {
+  select: K;
+  rank?: true;
+  bm25?: true | Partial<Record<keyof T, number>>;
+  limit?: number;
+  offset?: number;
+}
+
+export interface VirtualKeywordsHighlight<T> {
+  rank?: true;
+  bm25?: true | Partial<Record<keyof T, number>>;
+  highlight?: { column: keyof T, tags: [string, string] };
+  limit?: number;
+  offset?: number;
+}
+
+export interface VirtualKeywordsSnippet<T> {
+  rank?: true;
+  bm25?: true | Partial<Record<keyof T, number>>;
+  snippet?: { column: keyof T, tags: [string, string], trailing: string, tokens: number };
+  limit?: number;
+  offset?: number;
+}
+
+export interface SingularVirtualQueries<T, W> {
+  [key: string]: any;
+  get(params?: W | null): Promise<T | undefined>;
+  get<K extends keyof T>(params: W | null, column: K): Promise<T[K] | undefined>;
+  get<K extends keyof T>(params: W | null, keywords: VirtualKeywordsSelect<T, K[]>): Promise<Pick<T, K> | undefined>;
+  get(params: W | null, keywords: VirtualKeywordsHighlight<T>): Promise<{ id: number, highlight: string } | undefined>;
+  get(params: W | null, keywords: VirtualKeywordsSnippet<T>): Promise<{ id: number, snippet: string } | undefined>;
+}
+
+export interface MultipleVirtualQueries<T, W> {
+  [key: string]: any;
+  get(params?: W): Promise<Array<T>>;
+  get<K extends keyof T>(params: W | null, columns: K[]): Promise<Array<Pick<T, K>>>;
+  get<K extends keyof T>(params: W | null, column: K): Promise<Array<T[K]>>;
+  get<K extends keyof T>(params: W | null, keywords: VirtualKeywordsSelect<T, K[]>): Promise<Array<Pick<T, K>>>;
+  get(params: W | null, keywords: VirtualKeywordsHighlight<T>): Promise<Array<{ id: number, highlight: string }>>;
+  get(params: W | null, keywords: VirtualKeywordsSnippet<T>): Promise<Array<{ id: number, snippet: string }>>;
+}
+
 export interface SingularQueries<T, I, W, R> {
   [key: string]: any;
   insert(params: I): Promise<R>;
@@ -580,6 +623,25 @@ export interface WhereTitleRemoval {
   reason?: string | Array<string> | RegExp;
 }
 
+export interface FighterProfile {
+  rowid: number;
+  name: string;
+  hometown: string;
+}
+
+export interface InsertFighterProfile {
+  rowid?: number;
+  name: string;
+  hometown: string;
+}
+
+export interface WhereFighterProfile {
+  rowid?: number | Array<number>;
+  name?: string | Array<string> | RegExp;
+  hometown?: string | Array<string> | RegExp;
+  fighterProfiles?: string;
+}
+
 export interface Opponent {
   fightId: number;
   startTime: Date;
@@ -632,6 +694,8 @@ export interface TypedDb {
   cancelledFight: SingularQueries<CancelledFight, InsertCancelledFight, WhereCancelledFight, number>,
   titleRemovals: MultipleQueries<TitleRemoval, InsertTitleRemoval, WhereTitleRemoval>,
   titleRemoval: SingularQueries<TitleRemoval, InsertTitleRemoval, WhereTitleRemoval, number>,
+  fighterProfiles: MultipleVirtualQueries<FighterProfile, WhereFighterProfile>,
+  fighterProfile: SingularVirtualQueries<FighterProfile, WhereFighterProfile>,
   opponents: Pick<MultipleQueries<Opponent, InsertOpponent, WhereOpponent>, "get">,
   opponent: Pick<SingularQueries<Opponent, InsertOpponent, WhereOpponent, undefined>, "get">,
   begin(): Promise<void>,

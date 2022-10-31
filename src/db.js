@@ -2,7 +2,7 @@ import sqlite3 from 'sqlite3';
 import { toValues, readSql } from './utils.js';
 import { parse } from './parsers.js';
 import { mapOne, mapMany } from './map.js';
-import { getTables, getViews } from './sqlParsers/tables.js';
+import { getTables, getViews, getVirtual } from './sqlParsers/tables.js';
 import { readFile } from 'fs/promises';
 import { getFragments } from './sqlParsers/tables.js';
 import { blank } from './sqlParsers/utils.js';
@@ -138,6 +138,7 @@ class Database {
     this.transactionCount = 0;
     this.extensions = null;
     this.databases = [];
+    this.virtualSet = new Set();
     this.registerTypes([
       {
         name: 'boolean',
@@ -183,6 +184,7 @@ class Database {
     this.read = await this.createDatabase();
     this.write = await this.createDatabase({ serialize: true });
     await this.setTables(tables);
+    await this.setVirtual(tables);
     if (views) {
       await this.setViews(views);
     }
@@ -320,6 +322,16 @@ class Database {
       this.viewSet.add(view.name);
     }
     this.addTables(views);
+  }
+
+  async setVirtual(path) {
+    const sql = await readSql(path);
+    const tables = getVirtual(sql);
+    this.addTables(tables);
+    for (const table of tables) {
+      this.virtualSet.add(table.name);
+      this.columnSets[table.name].add(table.name);
+    }
   }
 
   registerTypes(customTypes) {
@@ -532,6 +544,19 @@ class Database {
     });
   }
 
+  async prepare(sql, db) {
+    return new Promise((resolve, reject) => {
+      const statement = db.prepare(sql, (err) => {
+        if (err) {
+          reject(err);
+        }
+        else {
+          resolve(statement);
+        }
+      });
+    });
+  }
+
   async run(query, params, options, tx) {
     if (params === null) {
       params = undefined;
@@ -539,7 +564,6 @@ class Database {
     if (params !== undefined) {
       params = this.adjust(params);
     }
-    let setCache;
     const db = tx ? tx.db : this.write;
     if (typeof query === 'string') {
       let key;
@@ -556,12 +580,11 @@ class Database {
         query = cached;
       }
       else {
-        setCache = () => {
-          if (!statements) {
-            this.statements[statementKey] = new Map();
-          }
-          this.statements[statementKey].set(key, db.prepare(query));
+        if (!statements) {
+          this.statements[statementKey] = new Map();
         }
+        const statement = await this.prepare(query, db);
+        this.statements[statementKey].set(key, statement);
       }
     }
     if (typeof query === 'string') {
@@ -572,7 +595,6 @@ class Database {
             reject(err);
           }
           else {
-            setCache();
             resolve(this.changes);
           }
         });
@@ -597,7 +619,6 @@ class Database {
     if (params !== undefined) {
       params = this.adjust(params);
     }
-    let setCache;
     const client = tx ? tx.db : (write ? this.write : this.read);
     if (typeof query === 'string') {
       let key;
@@ -614,12 +635,11 @@ class Database {
         query = cached;
       }
       else {
-        setCache = () => {
-          if (!statements) {
-            this.statements[statementKey] = new Map();
-          }
-          this.statements[statementKey].set(key, client.prepare(query));
+        if (!statements) {
+          this.statements[statementKey] = new Map();
         }
+        const statement = await this.prepare(query, client);
+        this.statements[statementKey].set(key, statement);
       }
     }
     const db = this;
@@ -631,7 +651,6 @@ class Database {
             reject(err);
           }
           else {
-            setCache();
             const result = process(db, rows, options);
             resolve(result);
           }

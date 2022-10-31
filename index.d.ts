@@ -39,7 +39,6 @@ export class Database {
   begin(): Promise<void>;
   commit(): Promise<void>;
   rollback(): Promise<void>;
-  prepare(sql: string): Statement;
   run(query: string | Statement, params?: any): Promise<number>;
   all<T>(query: string | Statement, params?: any, options?: QueryOptions): Promise<Array<T>>;
   exec(query: string): Promise<void>;

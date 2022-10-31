@@ -392,6 +392,10 @@ const createTypes = async (options) => {
       multipleReturnType = `  ${multipleTableName}: Pick<MultipleQueries<${interfaceName}, Insert${interfaceName}, Where${interfaceName}>, "get">`;
       singularReturnType = `  ${singularTableName}: Pick<SingularQueries<${interfaceName}, Insert${interfaceName}, Where${interfaceName}, ${tsType}>, "get">`;
     }
+    else if (db.virtualSet.has(table.name)) {
+      multipleReturnType = `  ${multipleTableName}: MultipleVirtualQueries<${interfaceName}, Where${interfaceName}>`;
+      singularReturnType = `  ${singularTableName}: SingularVirtualQueries<${interfaceName}, Where${interfaceName}>`;
+    }
     else {
       multipleReturnType = `  ${multipleTableName}: MultipleQueries<${interfaceName}, Insert${interfaceName}, Where${interfaceName}>`;
       singularReturnType = `  ${singularTableName}: SingularQueries<${interfaceName}, Insert${interfaceName}, Where${interfaceName}, ${tsType}>`;
@@ -459,6 +463,9 @@ const createTypes = async (options) => {
       }
       property += ';\n';
       types += property;
+    }
+    if (db.virtualSet.has(table.name)) {
+      types += `  ${table.name}?: string;\n`;
     }
     types += '}\n\n';
     if (queries) {

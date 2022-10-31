@@ -3,22 +3,31 @@ import { parseQuery } from './queries.js';
 
 const getVirtual = (sql) => {
   const pattern = /^\s*create virtual table\s+(?<tableName>[a-z0-9_]+)\s+using\s+fts5\s*\((?<columns>[^;]+)\)\s*;/gmid;
-  const tableMatches = blank(pattern, { stringsOnly: true }).matchAll(pattern);
+  const tableMatches = blank(sql, { stringsOnly: true }).matchAll(pattern);
   const tables = [];
   for (const tableMatch of tableMatches) {
     const tableName = tableMatch.groups.tableName;
     const [start, end] = tableMatch.indices.groups.columns;
     const columnsText = sql.substring(start, end);
-    const split = blank(columns, { stringsOnly: true }).split(',');
-    let i = 0;
+    const columnMatches = blank(columnsText, { stringsOnly: true }).matchAll(/(^|,)(?<column>.+?)(,|$)/gmid);
     const columnNames = [];
-    for (const blanked of split) {
-      const column = columnsText.substring(i, i + blanked.length);
-      if (!column.includes('=')) {
-        columnNames.push(column.split(' ')[0]);
+    for (const columnMatch of columnMatches) {
+      const [start, end] = columnMatch.indices.groups.column;
+      const column = columnsText.substring(start, end);
+      const match = /^[^\s]+/gm.exec(column.trim());
+      if (!column.includes('=') && match) {
+        columnNames.push(match[0]);
       }
     }
-    const columns = columnNames.map(name => {
+    const columns = [];
+    columns.push({
+      name: 'rowid',
+      type: 'integer',
+      primaryKey: true,
+      notNull: false,
+      hasDefault: false
+    });
+    const mapped = columnNames.map(name => {
       return {
         name,
         type: 'text',
@@ -27,19 +36,16 @@ const getVirtual = (sql) => {
         hasDefault: false
       }
     });
-    columns.push({
-      name: 'rowid',
-      type: 'integer',
-      primaryKey: true,
-      notNull: false,
-      hasDefault: false
-    });
+    for (const column of mapped) {
+      columns.push(column);
+    }
     tables.push({
       name: tableName,
       columns,
       columnSet: new Set(columns.map(c => c.name))
     });
   }
+  return tables;
 }
 
 const getViews = (sql, db) => {
@@ -193,5 +199,6 @@ const getTables = (sql) => {
 export {
   getTables,
   getFragments,
-  getViews
+  getViews,
+  getVirtual
 }
