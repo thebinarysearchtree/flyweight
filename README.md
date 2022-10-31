@@ -1,5 +1,5 @@
 # Flyweight
-An ORM for SQLite and NodeJS. Flyweight is different from other ORMs in that it combines a very simple API for performing basic operations, with the ability to create SQL queries that are typed and automatically mapped to complex object types.
+An ORM for SQLite and NodeJS. Flyweight combines a very simple API for performing basic operations, with the ability to create SQL queries that are typed and automatically mapped to complex object types.
 
 The following examples are based on a hypothetical UFC database with the following structure:
 
