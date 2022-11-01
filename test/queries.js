@@ -30,6 +30,19 @@ const run = async () => {
   assert.equal(limited.length, 10);
   const israel = await db.fighter.get({ name: /israel/i }, ['name', 'id']);
   assert.equal(israel.id, 17);
+  const profiles = await db.fighterProfiles.get({ fighterProfiles: 'Sao' }, 
+  { 
+    highlight: { 
+      column: 'hometown', 
+      tags: ['<b>', '</b>'] 
+    }, 
+    bm25: { 
+      name: 1, 
+      hometown: 10 
+    },
+    limit: 5
+  });
+  compare(profiles, 'fighterProfiles');
 }
 
 const cleanUp = async () => {

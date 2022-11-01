@@ -34,23 +34,23 @@ export interface KeywordsWithCount {
 export interface VirtualKeywordsSelect<T, K> {
   select: K;
   rank?: true;
-  bm25?: true | Partial<Record<keyof T, number>>;
+  bm25?: Record<keyof Omit<T, "rowid">, number>;
   limit?: number;
   offset?: number;
 }
 
 export interface VirtualKeywordsHighlight<T> {
   rank?: true;
-  bm25?: true | Partial<Record<keyof T, number>>;
-  highlight?: { column: keyof T, tags: [string, string] };
+  bm25?: Record<keyof Omit<T, "rowid">, number>;
+  highlight: { column: keyof T, tags: [string, string] };
   limit?: number;
   offset?: number;
 }
 
 export interface VirtualKeywordsSnippet<T> {
   rank?: true;
-  bm25?: true | Partial<Record<keyof T, number>>;
-  snippet?: { column: keyof T, tags: [string, string], trailing: string, tokens: number };
+  bm25?: Record<keyof Omit<T, "rowid">, number>;
+  snippet: { column: keyof T, tags: [string, string], trailing: string, tokens: number };
   limit?: number;
   offset?: number;
 }

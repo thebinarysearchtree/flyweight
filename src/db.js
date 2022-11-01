@@ -585,20 +585,8 @@ class Database {
         }
         const statement = await this.prepare(query, db);
         this.statements[statementKey].set(key, statement);
+        query = statement;
       }
-    }
-    if (typeof query === 'string') {
-      const sql = query;
-      return new Promise((resolve, reject) => {
-        db.run(sql, params, function (err) {
-          if (err) {
-            reject(err);
-          }
-          else {
-            resolve(this.changes);
-          }
-        });
-      });
     }
     return new Promise((resolve, reject) => {
       query.run(params, function (err) {
@@ -640,23 +628,10 @@ class Database {
         }
         const statement = await this.prepare(query, client);
         this.statements[statementKey].set(key, statement);
+        query = statement;
       }
     }
     const db = this;
-    if (typeof query === 'string') {
-      const sql = query;
-      return new Promise((resolve, reject) => {
-        client.all(sql, params, function (err, rows) {
-          if (err) {
-            reject(err);
-          }
-          else {
-            const result = process(db, rows, options);
-            resolve(result);
-          }
-        });
-      });
-    }
     return new Promise((resolve, reject) => {
       query.all(params, function (err, rows) {
         if (err) {

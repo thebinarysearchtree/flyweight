@@ -169,19 +169,81 @@ const toKeywords = (keywords, verify) => {
   return sql;
 }
 
-const getVirtual = async (db, table, query, columns, tx, keywords, select, verify) => {
+const getVirtual = async (db, table, query, tx, keywords, select, returnValue, verify, once) => {
+  let params;
   if (keywords && keywords.highlight) {
     const highlight = keywords.highlight;
     verify(highlight.column);
     const index = db.tables[table].map((c, i) => ({ name: c.name, index: i })).find(c => c.name === highlight.column).index - 1;
-    select = `rowid as id, highlight(${table}, ${index}, ${highlight.tags[0]}, ${highlight.tags[1]}) as highlight`;
+    params = {
+      index,
+      startTag: highlight.tags[0],
+      endTag: highlight.tags[1]
+    }
+    select = `rowid as id, highlight(${table}, $index, $startTag, $endTag) as highlight`;
   }
   if (keywords && keywords.snippet) {
     const snippet = keywords.snippet;
     verify(snippet.column);
     const index = db.tables[table].map((c, i) => ({ name: c.name, index: i })).find(c => c.name === highlight.column).index - 1;
-    select = `rowid as id, snippet(${table}, ${index}, ${snippet.tags[0]}, ${snippet.tags[1]}, ${snippet.trailing}, ${snippet.tokens}) as snippet`;
+    params = {
+      index,
+      startTag: snippet.tags[0],
+      endTag: snippet.tags[1],
+      trailing: snippet.trailing,
+      tokens: snippet.tokens
+    }
+    select = `rowid as id, snippet(${table}, $index, $startTag, $endTag, $trailing, $tokens) as snippet`;
   }
+  let sql = `select ${select} from ${table}`;
+  if (query) {
+    params = { ...params, ...query };
+    const statements = [];
+    for (const column of Object.keys(query)) {
+      verify(column);
+      statements.push(`${column} match $${column}`);
+    }
+    sql += ` where ${statements.join(' and ')}`;
+  }
+  if (keywords.rank) {
+    sql += ' order by rank';
+  }
+  if (keywords.bm25) {
+    sql += ` order by bm25(${table}, `;
+    const values = [];
+    for (const column of db.tables[table]) {
+      if (column.name === 'rowid') {
+        continue;
+      }
+      const value = keywords.bm25[column.name];
+      if (typeof value === 'number') {
+        values.push(value);
+      }
+    }
+    sql += values.join(', ');
+    sql += ')';
+  }
+  sql += toKeywords(keywords, verify);
+  const results = await db.all(sql, params, null, tx);
+  if (once) {
+    if (results.length === 0) {
+      return undefined;
+    }
+    if (returnValue) {
+      const result = results[0];
+      const key = Object.keys(result)[0];
+      return result[key];
+    }
+    return results[0];
+  }
+  if (results.length === 0) {
+    return results;
+  }
+  if (returnValue) {
+    const key = Object.keys(results[0])[0];
+    return results.map(r => r[key]);
+  }
+  return results;
 }
 
 const get = async (db, table, query, columns, tx) => {
@@ -190,6 +252,9 @@ const get = async (db, table, query, columns, tx) => {
   const keywords = columns && typeof columns !== 'string' && !Array.isArray(columns) ? columns : null;
   const select = toSelect(columns, keywords, table, db, verify);
   const returnValue = typeof columns === 'string' || (keywords && typeof keywords.select === 'string') || (keywords && keywords.count);
+  if (db.virtualSet.has(table)) {
+    return await getVirtual(db, table, query, tx, keywords, select, returnValue, verify, true);
+  }
   let sql = 'select ';
   if (keywords && keywords.distinct) {
     sql += 'distinct ';
@@ -227,6 +292,9 @@ const all = async (db, table, query, columns, tx) => {
   const keywords = columns && typeof columns !== 'string' && !Array.isArray(columns) ? columns : null;
   const select = toSelect(columns, keywords, table, db, verify);
   const returnValue = typeof columns === 'string' || (keywords && typeof keywords.select === 'string') || (keywords && keywords.count);
+  if (db.virtualSet.has(table)) {
+    return await getVirtual(db, table, query, tx, keywords, select, returnValue, verify, false);
+  }
   let sql = 'select ';
   if (keywords && keywords.distinct) {
     sql += 'distinct ';
