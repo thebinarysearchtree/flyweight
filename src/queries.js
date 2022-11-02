@@ -19,13 +19,14 @@ const insertMany = async (db, table, items, tx) => {
   const sample = items[0];
   const columns = Object.keys(sample);
   verify(columns);
-  const placeholders = columns.map(c => `$${c}`);
-  const sql = `insert into ${table}(${columns.join(', ')}) values(${placeholders.join(', ')})`;
-  const client = tx ? tx.db : db.write;
-  const statement = await db.prepare(sql, client);
-  for (const item of items) {
-    await db.run(statement, item, null, tx);
-  }
+  let sql = `insert into ${table}(${columns.join(', ')}) select `;
+  const select = columns.map(c => `json_each.value ->> '${c}'`).join(', ');
+  sql += select;
+  sql += ' from json_each($items)';
+  const params = {
+    items: JSON.stringify(items)
+  };
+  await db.run(sql, params, null, tx);
 }
 
 const toClause = (query, verify) => {

@@ -137,14 +137,14 @@ create virtual table fighterProfiles using fts5(
 );
 
 create trigger fighters_ai after insert on fighters begin
-    insert into fighterProfiles(rowid, name, hometown) values (new.id, new.name. new.hometown);
+    insert into fighterProfiles(rowid, name, hometown) values (new.rowid, new.name. new.hometown);
 end;
 
 create trigger fighters_ad after delete on fighters begin
-    insert into fighterProfiles(fighterProfiles, id, name, hometown) values ('delete', old.id, old.name, old.hometown);
+    insert into fighterProfiles(fighterProfiles, rowid, name, hometown) values ('delete', old.rowid, old.name, old.hometown);
 end;
 
 create trigger fighters_au after update on fighters begin
-    insert into fighterProfiles(fighterProfiles, id, name, hometown) values ('delete', old.id, old.name, old.hometown);
-    insert into fighterProfiles(rowid, name, hometown) values (new.id, new.name, new.hometown);
+    insert into fighterProfiles(fighterProfiles, rowid, name, hometown) values ('delete', old.rowid, old.name, old.hometown);
+    insert into fighterProfiles(rowid, name, hometown) values (new.rowid, new.name, new.hometown);
 end;
