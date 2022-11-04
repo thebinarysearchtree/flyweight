@@ -10,6 +10,11 @@ const insert = async (db, table, params, tx) => {
   return result[0][primaryKey];
 }
 
+const canStringify = (table, columns, db) => {
+  const tableColumns = db.tables[table].filter(c => columns.includes(c.name)).some(c => c.type === 'blob');
+
+}
+
 const insertMany = async (db, table, items, tx) => {
   if (items.length === 0) {
     return;
@@ -19,6 +24,37 @@ const insertMany = async (db, table, items, tx) => {
   const sample = items[0];
   const columns = Object.keys(sample);
   verify(columns);
+  const hasBlob = db.tables[table].filter(c => columns.includes(c.name)).some(c => c.type === 'blob');
+  if (hasBlob) {
+    let createdTransaction;
+    if (!tx) {
+      tx = await db.getTransaction();
+      createdTransaction = true;
+    }
+    try {
+      await tx.begin();
+      const placeholders = columns.map(c => `$${c}`);
+      const sql = `insert into ${table}(${columns.join(', ')}) values(${placeholders.join(', ')})`;
+      const statement = await db.prepare(sql, tx.db);
+      const promises = [];
+      for (const item of items) {
+        const promise = db.run(statement, item, null, tx);
+        promises.push(promise);
+      }
+      await Promise.all(promises);
+      await tx.commit();
+    }
+    catch (e) {
+      await tx.rollback();
+      throw e;
+    }
+    finally {
+      if (createdTransaction) {
+        db.release(tx);
+      }
+      return;
+    }
+  }
   let sql = `insert into ${table}(${columns.join(', ')}) select `;
   const select = columns.map(c => `json_each.value ->> '${c}'`).join(', ');
   sql += select;

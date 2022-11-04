@@ -9,7 +9,7 @@ const getVirtual = (sql) => {
     const tableName = tableMatch.groups.tableName;
     const [start, end] = tableMatch.indices.groups.columns;
     const columnsText = sql.substring(start, end);
-    const columnMatches = blank(columnsText, { stringsOnly: true }).matchAll(/(^|,)(?<column>.+?)(,|$)/gmid);
+    const columnMatches = blank(columnsText, { stringsOnly: true }).matchAll(/(?<column>[^,]+)(,|$)/gmid);
     const columnNames = [];
     for (const columnMatch of columnMatches) {
       const [start, end] = columnMatch.indices.groups.column;
