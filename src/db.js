@@ -52,7 +52,7 @@ const process = (db, result, options) => {
     return parsed;
   }
   if (options.map) {
-    return mapper(db, result, options.prefixes, options.columns, options.types, options.primaryKeys);
+    return mapper(db, result, options.columns, options.types, options.primaryKeys);
   }
   return result;
 }

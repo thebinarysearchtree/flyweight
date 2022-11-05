@@ -10,12 +10,12 @@ with weights as (
 weightsObjects as (
     select 
         fighterId, 
-        json_group_array(
-            json_object(
-                'id', weightClassId, 
-                'name', name,
-                'test', true,
-                'nest', json_object('id', 1, 'age', true)
+        groupArray(
+            object(
+                weightClassId as id, 
+                name,
+                true as test,
+                object(1 as id, true as age) as nest
             )) as weightClasses
     from weights
     group by fighterId

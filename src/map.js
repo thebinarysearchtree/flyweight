@@ -39,11 +39,6 @@ const split = (rows, key) => {
   return results;
 }
 
-const removePrefix = (key, prefix) => {
-  const without = key.substring(prefix.length);
-  return without[0].toLowerCase() + without.substring(1);
-}
-
 const sliceProps = (o, start, end) => {
   const entries = Object.entries(o).slice(start, end);
   const result = {};
@@ -53,48 +48,11 @@ const sliceProps = (o, start, end) => {
   return result;
 }
 
-const convertPrefixes = (o, prefixes) => {
-  if (!prefixes) {
-    return o;
-  }
-  const stored = {};
-  const map = {};
-  const skip = new Set(Object.values(prefixes).flat());
-  for (const [key, columns] of Object.entries(prefixes)) {
-    stored[key] = {};
-    map[columns[0]] = key;
-    if (o[columns[0]] === null) {
-      stored[key] = null;
-      continue;
-    }
-    for (const name of columns) {
-      const value = o[name];
-      const adjusted = removePrefix(name, key);
-      stored[key][adjusted] = value;
-    }
-  }
-  const result = {};
-  for (const [key, value] of Object.entries(o)) {
-    const mapped = map[key];
-    if (mapped) {
-      result[mapped] = stored[mapped];
-    }
-    else if (skip.has(key)) {
-      continue;
-    }
-    else {
-      result[key] = value;
-    }
-  }
-  return result;
-}
-
-const renameColumns = (o, columns, prefixes) => {
-  const prefixedColumns = prefixes ? Object.keys(prefixes) : null;
+const renameColumns = (o, columns) => {
   const result = {};
   for (const [key, value] of Object.entries(o)) {
     const column = columns[key];
-    if (column && (!prefixedColumns || !prefixedColumns.includes(key))) {
+    if (column) {
       result[column] = value;
     }
     else {
@@ -130,16 +88,9 @@ const toArrayName = (primaryKey) => {
   return pluralize.plural(name);
 }
 
-const auto = (db, rows, prefixes, columns, types, primaryKeys, firstRun, one) => {
+const auto = (db, rows, columns, types, primaryKeys, firstRun, one) => {
   if (rows.length === 0) {
     return [];
-  }
-  if (prefixes && Array.isArray(prefixes)) {
-    const result = {};
-    for (const prefix of prefixes) {
-      result[prefix] = prefix;
-    }
-    prefixes = result;
   }
   const sample = rows[0];
   if (firstRun) {
@@ -150,11 +101,8 @@ const auto = (db, rows, prefixes, columns, types, primaryKeys, firstRun, one) =>
         if (types) {
           result = parse(result, types);
         }
-        if (prefixes) {
-          result = convertPrefixes(result, prefixes);
-        }
         if (columns) {
-          result = renameColumns(result, columns, prefixes);
+          result = renameColumns(result, columns);
         }
         return result;
       }
@@ -162,11 +110,8 @@ const auto = (db, rows, prefixes, columns, types, primaryKeys, firstRun, one) =>
         if (types) {
           rows = rows.map(s => parse(s, types));
         }
-        if (prefixes) {
-          rows = rows.map(s => convertPrefixes(s, prefixes));
-        }
         if (columns) {
-          rows = rows.map(s => renameColumns(s, columns, prefixes));
+          rows = rows.map(s => renameColumns(s, columns));
         }
         return rows;
       }
@@ -176,11 +121,8 @@ const auto = (db, rows, prefixes, columns, types, primaryKeys, firstRun, one) =>
     if (types) {
       rows = rows.map(s => parse(s, types));
     }
-    if (prefixes) {
-      rows = rows.map(s => convertPrefixes(s, prefixes));
-    }
     if (columns) {
-      rows = rows.map(s => renameColumns(s, columns, prefixes));
+      rows = rows.map(s => renameColumns(s, columns));
     }
     return rows;
   }
@@ -190,11 +132,8 @@ const auto = (db, rows, prefixes, columns, types, primaryKeys, firstRun, one) =>
     if (types) {
       sliced = sliced.map(s => parse(s, types));
     }
-    if (prefixes) {
-      sliced = sliced.map(s => convertPrefixes(s, prefixes));
-    }
     if (columns) {
-      sliced = sliced.map(s => renameColumns(s, columns, prefixes));
+      sliced = sliced.map(s => renameColumns(s, columns));
     }
     return nullToArray(sliced, previousKey.name);
   }
@@ -205,15 +144,12 @@ const auto = (db, rows, prefixes, columns, types, primaryKeys, firstRun, one) =>
     if (types) {
       result = parse(result, types);
     }
-    if (prefixes) {
-      result = convertPrefixes(result, prefixes);
-    }
     if (columns) {
-      result = renameColumns(result, columns, prefixes);
+      result = renameColumns(result, columns);
     }
     const splitRows = split(rows, nextKey.name);
     const slicedKeys = primaryKeys.slice(1);
-    let mapped = splitRows.map(rows => auto(db, rows, prefixes, columns, types, slicedKeys, firstRun, true));
+    let mapped = splitRows.map(rows => auto(db, rows, columns, types, slicedKeys, firstRun, true));
     if (slicedKeys.length === 1) {
       mapped = mapped.flat();
     }
@@ -226,14 +162,13 @@ const auto = (db, rows, prefixes, columns, types, primaryKeys, firstRun, one) =>
   return split(rows, previousKey.name).map(r => getResults(r));
 }
 
-const mapOne = (db, rows, prefixes, columns, types, primaryKeys) => auto(db, rows, prefixes, columns, types, primaryKeys, true, true);
-const mapMany = (db, rows, prefixes, columns, types, primaryKeys) => auto(db, rows, prefixes, columns, types, primaryKeys, true, false);
+const mapOne = (db, rows, columns, types, primaryKeys) => auto(db, rows, columns, types, primaryKeys, true, true);
+const mapMany = (db, rows, columns, types, primaryKeys) => auto(db, rows, columns, types, primaryKeys, true, false);
 
 export {
   map,
   mapOne,
   mapMany,
-  convertPrefixes,
   renameColumns,
   sliceProps,
   toArrayName

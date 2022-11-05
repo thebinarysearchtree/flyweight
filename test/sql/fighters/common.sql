@@ -6,16 +6,19 @@ with common as (
     where fighterId = $fighter2 and methodId is not null
 )
 select
-    f.redId,
-    rf.name as redName,
-    f.blueId,
-    bf.name as blueName,
+    object(
+        rf.id, 
+        rf.name) as red,
+    object(
+        bf.id, 
+        bf.name) as blue,
     f.winnerId,
     m.name as method,
     f.methodDescription as description,
-    c.eventId,
-    e.name as eventName,
-    e.startTime as eventDate
+    object(
+        e.id, 
+        e.name, 
+        e.startTime as date) as event
 from 
     opponents o join
     fights f on o.fightId = f.id join

@@ -213,8 +213,8 @@ export interface WhereEvent {
 
 export interface EventsGetByIdCardsFights {
   id: number;
-  blue: { id: number; name: string; social: Social | null };
-  red: { id: number; name: string; social: Social | null };
+  blue: { id: number, name: string, social: Social | null };
+  red: { id: number, name: string, social: Social | null };
 };
 
 export interface EventsGetByIdCards {
@@ -323,12 +323,12 @@ export interface WhereFighter {
 }
 
 export interface FightersCommon {
-  red: { id: number; name: string };
-  blue: { id: number; name: string };
+  red: { id: number, name: string };
+  blue: { id: number, name: string };
   winnerId: number | null;
   method: string;
   description: string | null;
-  event: { id: number; name: string; date: Date };
+  event: { id: number, name: string, date: Date };
 }
 
 export interface FightersLastFights {
@@ -338,7 +338,8 @@ export interface FightersLastFights {
 
 export interface FightersLeft {
   id: number;
-  winner?: { id: number; name: string };
+  winnerId: number | null;
+  winnerName: string | null;
 }
 
 export interface FightersMethods {
@@ -358,7 +359,8 @@ export interface FightersOtherNames {
 
 export interface FightersRight {
   id: number;
-  winner: { id: number; name: string };
+  winnerId: number;
+  winnerName: string;
 }
 
 export interface FightersWeightClasses {

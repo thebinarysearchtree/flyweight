@@ -50,12 +50,14 @@ select
     c.id as cardId,
     c.cardName,
     f.id as fightId,
-    f.blueId,
-    bf.name as blueName,
-    bf.social as blueSocial,
-    f.redId,
-    rf.name as redName,
-    rf.social as redSocial
+    object(
+        bf.id, 
+        bf.name, 
+        bf.social) as blue,
+    object(
+        rf.id, 
+        rf.name, 
+        rf.social) as red
 from
     events e join
     cards c on c.eventId = e.id join
@@ -112,19 +114,21 @@ Now let's look at how Flyweight does this without you having to specify any mapp
   c.id as cardId,           // primary key
   c.cardName,
   f.id as fightId,          // primary key
-  f.blueId,                 // foreign key
-  bf.name as blueName,
-  bf.social as blueSocial,
-  f.redId,                  // foreign key
-  rf.name as redName,
-  rf.social as redSocial
+  object(
+        bf.id, 
+        bf.name, 
+        bf.social) as blue,
+  object(
+      rf.id, 
+      rf.name, 
+      rf.social) as red
 ```
 
 Every time you want to create an array within an object (such as the ```cards``` array in the main object), you include a primary key. Every column including and after the primary key forms the keys of the objects inside the array. Flyweight takes the name of the column (eg ```cardId```), removes the ```Id``` part, and then converts the name into its plural form to create the name of the array (eg ```cards```).
 
 If you didn't want to create a ```cards``` array but wanted to include the ```cardId```, you would just select ```f.cardId```, which is a foreign key on the ```fights``` table rather than a primary key.
 
-If you wanted to create a nested object inside an object (such as the ```red``` and ```blue``` in this example), you select a foreign key (such as ```blueId```) and then give any other columns after ```blueId``` the same prefix (```blue```), and they will be included in the object with the prefix removed.
+```object(bf.id, bf.name, bf.social) as blue``` is just shorthand for ```json_object('id', bf.id, 'name', bf.name, 'social', bf.social) as blue```. Other commands available are ```groupArray``` which is shorthand for ```json_group_array```, and ```array```, which is shorthand for ```json_array```.
 
 The ```social``` property is an object because in the ```fighters``` table, it is defined with the type ```json```, which is automatically parsed into an object.
 

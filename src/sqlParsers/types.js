@@ -2,9 +2,10 @@ import { readFile, writeFile, readdir } from 'fs/promises';
 import pluralize from 'pluralize';
 import { join } from 'path';
 import { parseQuery } from './queries.js';
-import { convertPrefixes, renameColumns, toArrayName, sliceProps } from '../map.js';
+import { renameColumns, toArrayName, sliceProps } from '../map.js';
 import { makeOptions } from '../proxy.js';
 import { blank } from './utils.js';
+import { preprocess } from './preprocessor.js';
 
 const capitalize = (word) => word[0].toUpperCase() + word.substring(1);
 
@@ -211,7 +212,8 @@ const getQueries = async (db, sqlDir, tableName) => {
     }
     const queryName = fileName.substring(0, fileName.length - 4);
     const queryPath = join(path, fileName);
-    const sql = await readFile(queryPath, 'utf8');
+    let sql = await readFile(queryPath, 'utf8');
+    sql = preprocess(sql);
     const params = parseParams(sql);
     let columns;
     try {
@@ -249,9 +251,8 @@ const getQueries = async (db, sqlDir, tableName) => {
       sample[column.name] = tsType;
     }
     const options = makeOptions(columns, db);
-    const adjusted = convertPrefixes(sample, options.prefixes);
     const makeProperties = (sample) => {
-      sample = renameColumns(sample, options.columns, options.prefixes);
+      sample = renameColumns(sample, options.columns);
       let interfaceString = '';
       for (const [key, type] of Object.entries(sample)) {
         if (typeof type === 'string') {
@@ -299,7 +300,7 @@ const getQueries = async (db, sqlDir, tableName) => {
       return interfaceString;
     }
     const subInterfaces = [];
-    interfaceString += getMappedTypes(adjusted, options.primaryKeys, subInterfaces);
+    interfaceString += getMappedTypes(sample, options.primaryKeys, subInterfaces);
     interfaceString += `}\n`;
     if (subInterfaces.length > 0) {
       const temp = interfaceString;

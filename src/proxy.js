@@ -10,6 +10,7 @@ import {
 import { join } from 'path';
 import { parseQuery, isWrite } from './sqlParsers/queries.js';
 import pluralize from 'pluralize';
+import { preprocess } from './sqlParsers/preprocessor.js';
 
 const queries = {
   insert: (database, table, tx) => async (params) => await insert(database, table, params, tx),
@@ -32,63 +33,6 @@ const multipleQueries = {
   update: queries.update,
   get: queries.all,
   remove: queries.remove
-}
-
-const getPrefixes = (columns) => {
-  let prefixes = null;
-  let prefix;
-  let foreign;
-  let keys = [];
-  for (const column of columns) {
-    if (column.foreign) {
-      if (prefix) {
-        if (!prefixes) {
-          prefixes = {};
-        }
-        prefixes[prefix] = [...keys];
-        keys = [];
-        prefix = undefined;
-        foreign = undefined;
-      }
-      prefix = column.name.split(/[A-Z]/)[0];
-      keys.push(column.name);
-      foreign = column.foreign;
-      continue;
-    }
-    if (prefix) {
-      if (column.name.split(/[A-Z]/)[0] === prefix && column.tableName === foreign) {
-        keys.push(column.name);
-      }
-      else {
-        if (!prefixes) {
-          prefixes = {};
-        }
-        prefixes[prefix] = [...keys];
-        keys = [];
-        prefix = undefined;
-        foreign = undefined;
-      }
-    }
-  }
-  if (prefix) {
-    if (!prefixes) {
-      prefixes = {};
-    }
-    prefixes[prefix] = [...keys];
-  }
-  if (!prefixes) {
-    return null;
-  }
-  const result = {};
-  for (const [key, value] of Object.entries(prefixes)) {
-    if (value.length > 1) {
-      result[key] = value;
-    }
-  }
-  if (Object.keys(result).length === 0) {
-    return null;
-  }
-  return result;
 }
 
 const convertItem = (item, converters) => {
@@ -152,7 +96,6 @@ const allNulls = (item) => {
 }
 
 const makeOptions = (columns, db) => {
-  const prefixes = getPrefixes(columns);
   const columnMap = {};
   let typeMap = null;
   const primaryKeys = [];
@@ -305,7 +248,6 @@ const makeOptions = (columns, db) => {
   options.columns = columnMap;
   options.types = typeMap;
   options.primaryKeys = primaryKeys;
-  options.prefixes = prefixes;
   return options;
 }
 
@@ -359,6 +301,7 @@ const makeQueryHandler = (table, db, sqlDir, tx) => {
           let sql;
           try {
             sql = readFileSync(path, 'utf8');
+            sql = preprocess(sql);
           }
           catch (e) {
             const makeQuery = isSingular ? singularQueries[query] : multipleQueries[query];

@@ -1,5 +1,5 @@
 with dates as (
-    select json_group_array(startTime) as dates 
+    select groupArray(startTime) as dates 
     from opponents
     where fighterId = $id
 )
