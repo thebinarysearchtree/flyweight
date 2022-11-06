@@ -1,4 +1,83 @@
 import { blank } from './utils.js';
+import { parseQuery } from './queries.js';
+
+const expandStar = (sql, tables) => {
+  const fragments = [];
+  const columns = parseQuery(sql, tables);
+  const blanked = blank(sql);
+  const [start, end] = /^\s*select\s+(distinct\s)?(?<select>.+?)\s+from\s+.+$/gmids
+    .exec(blanked)
+    .indices
+    .groups
+    .select;
+  const select = sql.substring(start, end);
+  const matches = blank(select).matchAll(/(?<statement>[^,]+)(,|$)/gmd);
+  let lastEnd = 0;
+  let i = 0;
+  const duplicates = new Set();
+  for (const match of matches) {
+    const [statementStart, statementEnd] = match.indices.groups.statement;
+    const statement = select.substring(statementStart, statementEnd).trim();
+    if (/^([a-z0-9_]+\.)?\*$/gmi.test(statement)) {
+      if (lastEnd !== start + statementStart) {
+        fragments.push(sql.substring(lastEnd, start + statementStart));
+      }
+      lastEnd = start + statementEnd;
+      const split = statement.split('.');
+      let tableAlias;
+      if (split.length > 1) {
+        tableAlias = split[0];
+      }
+      const tableColumns = columns.filter(c => c.partOf === statement);
+      const expanded = [];
+      for (const column of tableColumns) {
+        let adjusted;
+        if (duplicates.has(column.name)) {
+          adjusted = `flyweight${i}_${column.name}`;
+          i++;
+        }
+        else {
+          adjusted = column.name;
+          duplicates.add(column.name);
+        }
+        const statement = tableAlias ? `${tableAlias}.${adjusted}` : adjusted;
+        expanded.push(statement);
+      }
+      fragments.push(expanded.join(', '));
+    }
+    else {
+      let name;
+      const aliasMatch = /.+\s+as\s+(?<alias>[a-z0-9_]+)$/gmids.exec(statement);
+      if (aliasMatch) {
+        name = aliasMatch.groups.alias;
+      }
+      else {
+        name = statement.split('.').at(-1);
+      }
+      if (duplicates.has(name)) {
+        let adjusted;
+        if (aliasMatch) {
+          adjusted = statement.replace(/\s+as\s+[a-z0-9_]+$/gmid, '');
+        }
+        else {
+          adjusted = statement;
+        }
+        adjusted += ` as flyweight${i}_${name}`;
+        i++;
+        if (lastEnd !== start + statementStart) {
+          fragments.push(sql.substring(lastEnd, start + statementStart));
+        }
+        lastEnd = start + statementEnd;
+        fragments.push(adjusted);
+      }
+      else {
+        duplicates.add(name);
+      }
+    }
+  }
+  fragments.push(sql.substring(lastEnd));
+  return fragments.join('');
+}
 
 const processGroups = (sql) => {
   const fragments = [];
@@ -85,10 +164,11 @@ const processObjects = (sql, fragments = []) => {
   return processObjects(sql.substring(objectEnd), fragments);
 }
 
-const preprocess = (sql) => {
+const preprocess = (sql, tables) => {
   sql = processGroups(sql);
   sql = processArrays(sql);
   sql = processObjects(sql);
+  sql = expandStar(sql, tables);
   return sql;
 }
 

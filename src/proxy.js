@@ -100,13 +100,9 @@ const makeOptions = (columns, db) => {
   let typeMap = null;
   const primaryKeys = [];
   let i = 0;
-  let revertMap = {};
-  const primaryKeyCount = new Set(columns.filter(c => c.primaryKey).map(c => c.tableName)).size;
   let lastPrimaryKey;
   for (const column of columns) {
-    const rename = column.rename && primaryKeyCount > 1 && column.originalName.length < column.name.length;
-    const columnName = rename ? column.originalName : column.name;
-    columnMap[column.name] = rename ? column.originalName : column.name;
+    columnMap[column.name] = column.name.replace(/^flyweight\d+_/, '');
     const converter = db.getDbToJsConverter(column.type);
     let actualConverter = converter;
     if (converter) {
@@ -226,18 +222,6 @@ const makeOptions = (columns, db) => {
         name: column.name,
         index: i
       });
-      revertMap = {};
-      revertMap[columnName] = column.name;
-    }
-    else {
-      const revert = revertMap[columnName];
-      if (revert) {
-        columnMap[revert] = revert;
-        columnMap[column.name] = column.name;
-      }
-      else {
-        revertMap[columnName] = column.name;
-      }
     }
     i++;
   }
@@ -301,7 +285,7 @@ const makeQueryHandler = (table, db, sqlDir, tx) => {
           let sql;
           try {
             sql = readFileSync(path, 'utf8');
-            sql = preprocess(sql);
+            sql = preprocess(sql, db.tables);
           }
           catch (e) {
             const makeQuery = isSingular ? singularQueries[query] : multipleQueries[query];

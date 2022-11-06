@@ -213,7 +213,7 @@ const getQueries = async (db, sqlDir, tableName) => {
     const queryName = fileName.substring(0, fileName.length - 4);
     const queryPath = join(path, fileName);
     let sql = await readFile(queryPath, 'utf8');
-    sql = preprocess(sql);
+    sql = preprocess(sql, db.tables);
     const params = parseParams(sql);
     let columns;
     try {

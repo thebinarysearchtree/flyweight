@@ -1,8 +1,6 @@
+import { database } from './db.js';
 import { preprocess } from '../src/sqlParsers/preprocessor.js';
 
-const sql = `select
-id,
-groupArray(object(name, startTime, array(2, 3) as arr)) as nest
-from events limit 5;`;
+const sql = `select e.*, c.* from events e join cards c on c.eventId = e.id`;
 
-console.log(preprocess(sql));
+console.log(preprocess(sql, database.tables));
