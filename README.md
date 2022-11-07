@@ -133,7 +133,10 @@ The ```social``` property is an object because in the ```fighters``` table, it i
 When writing SQL that is mapped to nested arrays, you don't have to worry about avoiding name clashes. For example,
 
 ```sql
-select l.*, e.* from locations l join events e on e.locationId = l.id
+select l.*, e.* 
+from 
+  locations l join 
+  events e on e.locationId = l.id
 ```
 
 will work even though ```locations``` and ```events``` both have a ```name``` property. Flyweight automatically renames columns that clash, and then returns them to their original name during the mapping stage. As this query returns an array of locations that each contain an array of events, the ```name``` property no longer clashes.
