@@ -2,7 +2,7 @@ select
     l.id,
     l.name,
     e.id as eventId,
-    e.name as eventName,
+    e.name,
     e.startTime
 from
     locations l join

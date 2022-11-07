@@ -46,7 +46,7 @@ By using conventions, Flyweight is able to automatically map SQL statements into
 ```sql
 select
     e.id,
-    e.name as eventName,
+    e.name,
     c.id as cardId,
     c.cardName,
     f.id as fightId,
@@ -110,7 +110,7 @@ Now let's look at how Flyweight does this without you having to specify any mapp
 
 ```sql
   e.id,                     // primary key
-  e.name as eventName,
+  e.name,
   c.id as cardId,           // primary key
   c.cardName,
   f.id as fightId,          // primary key
@@ -124,15 +124,19 @@ Now let's look at how Flyweight does this without you having to specify any mapp
       rf.social) as red
 ```
 
-Every time you want to create an array within an object (such as the ```cards``` array in the main object), you include a primary key. Every column including and after the primary key forms the keys of the objects inside the array. Flyweight takes the name of the column (eg ```cardId```), removes the ```Id``` part, and then converts the name into its plural form to create the name of the array (eg ```cards```).
-
-If you didn't want to create a ```cards``` array but wanted to include the ```cardId```, you would just select ```f.cardId```, which is a foreign key on the ```fights``` table rather than a primary key.
+Every time you want to create an array within an object (such as the ```cards``` array in the main object), you include a primary key. Every column including and after the primary key forms the keys of the objects inside the array. Flyweight takes the name of the column (eg ```cardId```), removes the ```Id``` part, and then converts the name into its plural form to create the name of the array (eg ```cards```). If the column name doesn't fit this format, Flyweight just uses the name of the table the primary key is from as the array name.
 
 ```object(bf.id, bf.name, bf.social) as blue``` is just shorthand for ```json_object('id', bf.id, 'name', bf.name, 'social', bf.social) as blue```. Other commands available are ```groupArray``` which is shorthand for ```json_group_array```, and ```array```, which is shorthand for ```json_array```.
 
 The ```social``` property is an object because in the ```fighters``` table, it is defined with the type ```json```, which is automatically parsed into an object.
 
-In the example above, ```eventName``` is turned into ```name```. This is because the ORM tries to return the column name to the original name if the original name is shorter than the alias and the alias was only created to avoid a clash of names that no longer exists after the mapping has occurred.
+When writing SQL that is mapped to nested arrays, you don't have to worry about avoiding name clashes. For example,
+
+```sql
+select l.*, e.* from locations l join events e on e.locationId = l.id
+```
+
+will work even though ```locations``` and ```events``` both have a ```name``` property. Flyweight automatically renames columns that clash, and then returns them to their original name during the mapping stage. As this query returns an array of locations that each contain an array of events, the ```name``` property no longer clashes.
 
 ## Getting started
 

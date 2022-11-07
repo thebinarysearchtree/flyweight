@@ -1,6 +1,6 @@
 select
     e.id,
-    e.name as eventName,
+    e.name,
     c.id as cardId,
     c.cardName,
     f.id as fightId,

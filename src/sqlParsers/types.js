@@ -289,7 +289,7 @@ const getQueries = async (db, sqlDir, tableName) => {
         interfaceString += makeProperties(sliced);
         return interfaceString;
       }
-      const arrayName = toArrayName(nextKey.name);
+      const arrayName = toArrayName(nextKey);
       keys.push(arrayName);
       interfaceString += makeProperties(sliced);
       const result = getMappedTypes(sample, primaryKeys.slice(1), subInterfaces, [...keys]);

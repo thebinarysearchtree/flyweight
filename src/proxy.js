@@ -100,9 +100,15 @@ const makeOptions = (columns, db) => {
   let typeMap = null;
   const primaryKeys = [];
   let i = 0;
+  const primaryKeyCount = new Set(columns.filter(c => c.primaryKey).map(c => c.tableName)).size;
   let lastPrimaryKey;
   for (const column of columns) {
-    columnMap[column.name] = column.name.replace(/^flyweight\d+_/, '');
+    if (primaryKeyCount > 1 && column.primaryKey) {
+      columnMap[column.name] = column.originalName;
+    }
+    else {
+      columnMap[column.name] = column.name.replace(/^flyweight\d+_/, '');
+    }
     const converter = db.getDbToJsConverter(column.type);
     let actualConverter = converter;
     if (converter) {
@@ -220,7 +226,8 @@ const makeOptions = (columns, db) => {
       };
       primaryKeys.push({
         name: column.name,
-        index: i
+        index: i,
+        table: column.tableName
       });
     }
     i++;

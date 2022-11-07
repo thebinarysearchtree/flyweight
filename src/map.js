@@ -84,8 +84,12 @@ const nullToArray = (rows, primaryKey) => {
 }
 
 const toArrayName = (primaryKey) => {
-  const name = primaryKey.substring(0, primaryKey.length - 2);
-  return pluralize.plural(name);
+  const name = primaryKey.name;
+  if (/^.+Id$/.test(name)) {
+    const arrayName = name.substring(0, name.length - 2);
+    return pluralize.plural(arrayName);
+  }
+  return primaryKey.table;
 }
 
 const auto = (db, rows, columns, types, primaryKeys, firstRun, one) => {
@@ -138,7 +142,7 @@ const auto = (db, rows, columns, types, primaryKeys, firstRun, one) => {
     return nullToArray(sliced, previousKey.name);
   }
   const nextKey = primaryKeys[1];
-  const arrayName = toArrayName(nextKey.name);
+  const arrayName = toArrayName(nextKey);
   const getResults = (rows) => {
     let result = sliceProps(rows[0], previousKey.index, nextKey.index);
     if (types) {
