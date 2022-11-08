@@ -370,6 +370,7 @@ export interface FightersWeightClasses {
 
 export interface FightersQueries {
   common(params: { fighter1: any; fighter2: any; }): Promise<Array<FightersCommon>>;
+  instagram(): Promise<Array<string | null>>;
   lastFights(params: { id: any; }): Promise<Array<FightersLastFights>>;
   left(): Promise<Array<FightersLeft>>;
   methods(params: { id: any; }): Promise<Array<FightersMethods>>;
@@ -381,6 +382,7 @@ export interface FightersQueries {
 
 export interface FighterQueries {
   common(params: { fighter1: any; fighter2: any; }): Promise<FightersCommon | undefined>;
+  instagram(): Promise<string | null | undefined>;
   lastFights(params: { id: any; }): Promise<FightersLastFights | undefined>;
   left(): Promise<FightersLeft | undefined>;
   methods(params: { id: any; }): Promise<FightersMethods | undefined>;

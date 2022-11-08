@@ -17,6 +17,8 @@ const run = async () => {
   assert.equal(test[0].nest.startTime instanceof Date, true);
   const otherNames = await db.fighters.otherNames();
   assert.equal(otherNames.some(n => n.otherNames.length === 0), true);
+  const instagram = await db.fighters.instagram();
+  console.log(instagram);
 }
 
 export default {

@@ -222,6 +222,32 @@ const parsers = [
     }
   },
   {
+    name: 'Json extractor pattern',
+    pattern: /^(?<column>.+?)\s+(?<operator>->>|->)\s+'(?<extractor>.+?)'\s+as\s+(?<columnAlias>[a-z0-9_]+)$/mid,
+    extractor: (groups, tables, indices, statement) => {
+      const { column, operator, columnAlias } = groups;
+      const [start, end] = indices.groups.extractor;
+      const extractor = statement.substring(start, end);
+      const type = operator === '->' ? 'json' : 'any';
+      const match = /^((?<tableAlias>[a-z0-9_]+)\.)?(?<columnName>[a-z0-9_]+)$/gmi.exec(column);
+      let jsonExtractor;
+      if (match) {
+        const { tableAlias, columnName } = match.groups;
+        jsonExtractor = {
+          tableAlias,
+          columnName,
+          operator,
+          extractor
+        }
+      }
+      return {
+        columnAlias,
+        type,
+        jsonExtractor
+      };
+    }
+  },
+  {
     name: 'Alias pattern',
     pattern: /.+\s(as)\s(?<columnAlias>[a-z0-9_]+)$/mi,
     extractor: (groups) => {
@@ -384,6 +410,17 @@ const processColumn = (column, tables, fromTables, whereColumns, joinColumns) =>
   if (functionName) {
     if (notNullFunctions.has(functionName)) {
       notNull = true;
+    }
+  }
+  if (column.jsonExtractor) {
+    const fromTable = fromTables.find(t => t.tableAlias === column.jsonExtractor.tableAlias);
+    const tableColumn = tables[fromTable.tableName].find(c => c.name === column.jsonExtractor.columnName);
+    if (tableColumn) {
+      column.jsonExtractor.type = tableColumn.type;
+    }
+    else {
+      const { jsonExtractor, ...rest } = column;
+      column = rest;
     }
   }
   if (column.caseBody) {
@@ -558,7 +595,8 @@ const processColumn = (column, tables, fromTables, whereColumns, joinColumns) =>
     rename: column.rename,
     structuredType,
     functionName,
-    types
+    types,
+    jsonExtractor: column.jsonExtractor
   }
 }
 
