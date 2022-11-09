@@ -281,21 +281,21 @@ export interface Coach {
   id: number;
   name: string;
   city: string;
-  profile: Profile;
+  profile: Profile | null;
 }
 
 export interface InsertCoach {
   id?: number;
   name: string;
   city: string;
-  profile: Profile;
+  profile?: Profile;
 }
 
 export interface WhereCoach {
   id?: number | Array<number>;
   name?: string | Array<string> | RegExp;
   city?: string | Array<string> | RegExp;
-  profile?: Profile | Array<Profile> | RegExp;
+  profile?: Profile | Array<Profile> | RegExp | null;
 }
 
 export interface Fighter {
@@ -495,11 +495,13 @@ export interface MethodsByFighter {
 
 export interface MethodsQueries {
   byFighter(params: { fighterId: any; }): Promise<Array<MethodsByFighter>>;
+  coach(): Promise<Array<boolean | null>>;
   topSubmission(): Promise<Array<string | null>>;
 }
 
 export interface MethodQueries {
   byFighter(params: { fighterId: any; }): Promise<MethodsByFighter | undefined>;
+  coach(): Promise<boolean | null | undefined>;
   topSubmission(): Promise<string | null | undefined>;
 }
 

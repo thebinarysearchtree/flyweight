@@ -8,10 +8,9 @@ const blank = (s, options) => {
   let i = 0;
   let stringStart = false;
   let bracketStart = false;
-  let stringsOnly;
-  if (options) {
-    stringsOnly = options.stringsOnly;
-  }
+  let open = options?.open || '(';
+  let close = options?.close || ')';
+  let stringsOnly = options?.stringsOnly;
   for (const char of s.split('')) {
     if (char === '\'') {
       if (previous === '\\') {
@@ -26,13 +25,13 @@ const blank = (s, options) => {
         stringStart = true;
       }
     }
-    if (char === '(' && !inString) {
+    if (char === open && !inString) {
       count++;
       if (count === 1) {
         bracketStart = true;
       }
     }
-    if (char === ')' && !inString) {
+    if (char === close && !inString) {
       count--;
     }
     if ((!stringsOnly && count > 0) || inString) {

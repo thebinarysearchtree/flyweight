@@ -1,0 +1,1 @@
+select profile ->> '$.medical.fit' as fit from coaches

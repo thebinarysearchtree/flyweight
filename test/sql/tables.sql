@@ -36,7 +36,7 @@ create table coaches (
     id integer primary key,
     name text not null,
     city text not null,
-    profile not null
+    profile
 );
 
 create table fighters (

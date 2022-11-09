@@ -109,6 +109,15 @@ export interface Social {
   twitter?: string;
 }
 
+export interface Profile {
+  medical: {
+    age: number;
+    fit: boolean;
+    testDate: Date;
+  },
+  tests: Array<{ id: number, result: number }>
+}
+
 export interface WeightClass {
   id: number;
   name: string;
@@ -272,18 +281,21 @@ export interface Coach {
   id: number;
   name: string;
   city: string;
+  profile: Profile | null;
 }
 
 export interface InsertCoach {
   id?: number;
   name: string;
   city: string;
+  profile?: Profile;
 }
 
 export interface WhereCoach {
   id?: number | Array<number>;
   name?: string | Array<string> | RegExp;
   city?: string | Array<string> | RegExp;
+  profile?: Profile | Array<Profile> | RegExp | null;
 }
 
 export interface Fighter {
@@ -370,7 +382,7 @@ export interface FightersWeightClasses {
 
 export interface FightersQueries {
   common(params: { fighter1: any; fighter2: any; }): Promise<Array<FightersCommon>>;
-  instagram(): Promise<Array<string | null>>;
+  instagram(): Promise<Array<number | string | Buffer | null>>;
   lastFights(params: { id: any; }): Promise<Array<FightersLastFights>>;
   left(): Promise<Array<FightersLeft>>;
   methods(params: { id: any; }): Promise<Array<FightersMethods>>;
@@ -382,7 +394,7 @@ export interface FightersQueries {
 
 export interface FighterQueries {
   common(params: { fighter1: any; fighter2: any; }): Promise<FightersCommon | undefined>;
-  instagram(): Promise<string | null | undefined>;
+  instagram(): Promise<number | string | Buffer | null | undefined>;
   lastFights(params: { id: any; }): Promise<FightersLastFights | undefined>;
   left(): Promise<FightersLeft | undefined>;
   methods(params: { id: any; }): Promise<FightersMethods | undefined>;
@@ -483,11 +495,13 @@ export interface MethodsByFighter {
 
 export interface MethodsQueries {
   byFighter(params: { fighterId: any; }): Promise<Array<MethodsByFighter>>;
+  coach(): Promise<Array<number | string | Buffer | null>>;
   topSubmission(): Promise<Array<string | null>>;
 }
 
 export interface MethodQueries {
   byFighter(params: { fighterId: any; }): Promise<MethodsByFighter | undefined>;
+  coach(): Promise<number | string | Buffer | null | undefined>;
   topSubmission(): Promise<string | null | undefined>;
 }
 

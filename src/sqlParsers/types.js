@@ -89,46 +89,39 @@ const parseExtractor = (column, parsedInterfaces) => {
   if (!definedType) {
     return;
   }
-  let type;
   if (/^\d+$/.test(extractor)) {
-    if (typeof definedType === 'string' && operator === '->>') {
-      const match = /^(?<type>[a-z]+)[]$/i.exec(definedType);
-      if (match) {
-        type = match.groups.type;
+    if (definedType.arrayType) {
+      if (definedType.arrayType.basicType) {
+        return definedType.arrayType.tsType;
       }
     }
-  }
-  if (/^[a-z0-0_]+$/i.test(extractor)) {
-    type = definedType[extractor];
-  }
-  if (/\$(\.[a-z0-9_]+)+/gmi.test(extractor)) {
-    const properties = extractor.substring(1).split('.');
-    for (const property of properties) {
-      if (!type) {
-        type = definedType[property];
-      }
-      else {
-        type = type[property];
-      }
+    if (definedType.tupleTypes) {
+      return definedType.tupleTypes[Number(extractor)].tsType;
     }
   }
-  if (!type) {
-    return;
-  }
-  if ((typeof type !== 'string' || type.startsWith('Array<') || type.endsWith('[]') || type.startsWith('[')) &&  operator === '->') {
-    if (typeof type !== 'string') {
-      const properties = [];
-      for (const [key, value] of Object.entries(type)) {
-        properties.push(`${key}: ${value};`);
-      }
-      return `{ ${properties.join(' ')} }`;
+  if (/^[a-z0-0_]+$/i.test(extractor) && operator === '->>') {
+    const type = definedType.objectProperties[extractor].tsType;
+    if (operator === '->>') {
+      return type.replaceAll(/(^| )(undefined)( |$)/g, '$1null$3');
     }
     return type;
   }
-  if (typeof type === 'string' && !type.startsWith('Array<') && !type.endsWith('[]') && !type.startsWith('[') &&  operator === '->>') {
-    return type.replaceAll(/(^| )(undefined)( |$)/g, '$1null$3');
+  if (/\$(\.[a-z0-9_]+)+/gmi.test(extractor)) {
+    const properties = extractor.substring(2).split('.');
+    let type;
+    for (const property of properties) {
+      if (!type) {
+        type = definedType.objectProperties[property];
+      }
+      else {
+        type = type.objectProperties[property];
+      }
+    }
+    if (operator === '->>') {
+      return type.tsType.replaceAll(/(^| )(undefined)( |$)/g, '$1null$3');
+    }
+    return type.tsType;
   }
-  return type;
 }
 
 const toTsType = (column, customTypes, parsedInterfaces) => {

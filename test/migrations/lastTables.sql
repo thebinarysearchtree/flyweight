@@ -35,7 +35,8 @@ create index cardsEventIdIndex on cards(eventId);
 create table coaches (
     id integer primary key,
     name text not null,
-    city text not null
+    city text not null,
+    profile
 );
 
 create table fighters (

@@ -19,6 +19,7 @@ const run = async () => {
   assert.equal(otherNames.some(n => n.otherNames.length === 0), true);
   const instagram = await db.fighters.instagram();
   console.log(instagram);
+  console.log(await db.methods.coach());
 }
 
 export default {
