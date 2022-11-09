@@ -109,6 +109,15 @@ export interface Social {
   twitter?: string;
 }
 
+export interface Profile {
+  medical: {
+    age: number;
+    fit: boolean;
+    testDate: Date;
+  },
+  tests: Array<{ id: number, result: number }>
+}
+
 export interface WeightClass {
   id: number;
   name: string;
@@ -272,18 +281,21 @@ export interface Coach {
   id: number;
   name: string;
   city: string;
+  profile: Profile;
 }
 
 export interface InsertCoach {
   id?: number;
   name: string;
   city: string;
+  profile: Profile;
 }
 
 export interface WhereCoach {
   id?: number | Array<number>;
   name?: string | Array<string> | RegExp;
   city?: string | Array<string> | RegExp;
+  profile?: Profile | Array<Profile> | RegExp;
 }
 
 export interface Fighter {

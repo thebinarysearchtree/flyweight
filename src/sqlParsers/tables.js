@@ -76,29 +76,35 @@ const getViews = (sql, db) => {
   return views;
 }
 
+const getColumn = (sql) => {
+  const split = sql.split(/\s+/);
+  const isColumn = split.length > 0 && !['unique', 'check', 'primary', 'foreign'].includes(split[0].toLowerCase());
+  if (!isColumn) {
+    return;
+  }
+  let type;
+  if (split.length === 1 || ['not', 'primary', 'foreign', 'check'].includes(split[1].toLowerCase())) {
+    type = split[0].toLowerCase();
+  }
+  else {
+    type = split[1];
+  }
+  return {
+    name: split[0],
+    type
+  }
+}
+
 const getFragments = (sql) => {
   const fragments = [];
   let lastEnd = 0;
   const tableMatches = blank(sql, { stringsOnly: true }).matchAll(/^\s*create table (?<tableName>[^\s]+)\s+\((?<columns>[^;]+?)\)(\s+without\s+rowid\s*)?\s*;/gmid);
   for (const tableMatch of tableMatches) {
     const [tableStart] = tableMatch.indices.groups.columns;
-    const columnMatches = blank(tableMatch.groups.columns).matchAll(/(?<column>[^,]+)(,|(\s*\)\s*$))/gmd);
+    const columnMatches = blank(tableMatch.groups.columns).matchAll(/(?<column>[^,]+)(,|$)/gmd);
     for (const columnMatch of columnMatches) {
       const [columnStart, columnEnd] = columnMatch.indices.groups.column;
-      const match = /^\s+(?<name>[a-z0-9_]+)(\s+(?<type>[a-z0-9_]+))?((?<primaryKey>\s+primary key)|(?<notNull>\s+not null)|(\s+foreign\s+)|(\s+check(\s+|\()))?/mi.exec(columnMatch.groups.column);
-      const isColumn = match && !['unique', 'check', 'primary', 'foreign'].includes(match.groups.name);
-      let type;
-      if (isColumn) {
-        if (match.groups.type === undefined) {
-          type = match.groups.name.toLowerCase();
-        }
-        else {
-          type = match.groups.type;
-        }
-      }
-      else {
-        type = null;
-      }
+      const result = getColumn(columnMatch.groups.column.trim());
       const start = tableStart + columnStart;
       const end = start + (columnEnd - columnStart);
       if (lastEnd !== start) {
@@ -110,9 +116,9 @@ const getFragments = (sql) => {
       lastEnd = end;
       const fragment = sql.substring(start, end).replace(/\n$/, '');
       fragments.push({
-        columnName: isColumn ? match.groups.name : null,
-        type,
-        isColumn,
+        columnName: result ? result.name : null,
+        type: result.type,
+        isColumn: result !== undefined,
         start,
         end,
         sql: fragment,
@@ -144,21 +150,16 @@ const getTables = (sql) => {
       .map(s => s.trim());
     let primaryKeys;
     for (let column of columns) {
-      const match = /^(?<name>[a-z0-9_]+)(\s(?<type>[a-z0-9_]+))?((?<primaryKey> primary key)|(?<notNull> not null))?(\sreferences\s+(?<foreign>[a-z0-9_]+)\s)?(\scheck(\s|\())?/mi.exec(column);
-      if (!match) {
+      const result = getColumn(column);
+      if (!result) {
         continue;
-      }
-      const name = match.groups.name;
-      let type = match.groups.type;
-      if (type === undefined) {
-        type = name.toLowerCase();
       }
       const primaryKey = / primary key/mi.test(column);
       const notNull = / not null/mi.test(column);
       const hasDefault = / default /mi.test(column);
       const foreignMatch = / references (?<foreign>[a-z0-9_]+)(\s|$)/mi.exec(column);
       const foreign = foreignMatch ? foreignMatch.groups.foreign : undefined;
-      if (/(unique)|(check)|(primary)|(foreign)/mi.test(name)) {
+      if (/^(unique|check|primary|foreign)/mi.test(column)) {
         const match = /^primary key\((?<keys>[^)]+)\)/mi.exec(column);
         if (match) {
           primaryKeys = match.groups.keys.split(',').map(k => k.trim());
@@ -166,8 +167,8 @@ const getTables = (sql) => {
         continue;
       }
       table.columns.push({
-        name,
-        type,
+        name: result.name,
+        type: result.type,
         primaryKey,
         notNull,
         hasDefault,

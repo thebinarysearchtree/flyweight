@@ -46,7 +46,7 @@ create table fighters (
     heightCm integer,
     reachCm integer,
     hometown text not null,
-    social json,
+    social,
     isActive boolean not null
 );
 
@@ -135,3 +135,16 @@ create virtual table fighterProfiles using fts5(
     content=fighters, 
     content_rowid=id
 );
+
+create trigger fighters_ai after insert on fighters begin
+    insert into fighterProfiles(rowid, name, hometown) values (new.rowid, new.name. new.hometown);
+end;
+
+create trigger fighters_ad after delete on fighters begin
+    insert into fighterProfiles(fighterProfiles, rowid, name, hometown) values ('delete', old.rowid, old.name, old.hometown);
+end;
+
+create trigger fighters_au after update on fighters begin
+    insert into fighterProfiles(fighterProfiles, rowid, name, hometown) values ('delete', old.rowid, old.name, old.hometown);
+    insert into fighterProfiles(rowid, name, hometown) values (new.rowid, new.name, new.hometown);
+end;

@@ -83,48 +83,52 @@ const getOptional = (structuredType, optional) => {
 }
 
 const parseExtractor = (column, parsedInterfaces) => {
-  const { type, operator, extractor } = column.jsonExtractor;
-  const definedType = parsedInterfaces[type];
+  const { operator, extractor } = column.jsonExtractor;
+  const tsType = column.jsonExtractor.type;
+  const definedType = parsedInterfaces[tsType];
   if (!definedType) {
     return;
   }
-  if (operator === '->>') {
-    if (!extractor.startsWith('$')) {
-      if (/^\d+$/.test(extractor)) {
-        if (typeof definedType === 'string') {
-          const match = /^(?<type>[a-z]+)[]$/i.exec(definedType);
-          if (match) {
-            return match.groups.type;
-          }
-        }
-      }
-      else {
-        const type = definedType[extractor];
-        if (typeof type === 'string') {
-          return definedType[extractor].replaceAll(/(^| )(undefined)( |$)/g, '$1null$3');
-        }
-        return;
-      }
-    }
-    else {
-      if (/\$(\.[a-z0-9_]+)+/gmi.test(extractor)) {
-        const properties = extractor.substring(1).split('.');
-        let type;
-        for (const property of properties) {
-          if (!type) {
-            type = definedType[property];
-          }
-          else {
-            type = type[property];
-          }
-        }
-        if (typeof type === 'string') {
-          return type.replaceAll(/(^| )(undefined)( |$)/g, '$1null$3');
-        }
-        return;
+  let type;
+  if (/^\d+$/.test(extractor)) {
+    if (typeof definedType === 'string' && operator === '->>') {
+      const match = /^(?<type>[a-z]+)[]$/i.exec(definedType);
+      if (match) {
+        type = match.groups.type;
       }
     }
   }
+  if (/^[a-z0-0_]+$/i.test(extractor)) {
+    type = definedType[extractor];
+  }
+  if (/\$(\.[a-z0-9_]+)+/gmi.test(extractor)) {
+    const properties = extractor.substring(1).split('.');
+    for (const property of properties) {
+      if (!type) {
+        type = definedType[property];
+      }
+      else {
+        type = type[property];
+      }
+    }
+  }
+  if (!type) {
+    return;
+  }
+  if ((typeof type !== 'string' || type.startsWith('Array<') || type.endsWith('[]') || type.startsWith('[')) &&  operator === '->') {
+    if (typeof type !== 'string') {
+      const properties = [];
+      for (const [key, value] of Object.entries(type)) {
+        properties.push(`${key}: ${value};`);
+      }
+      return `{ ${properties.join(' ')} }`;
+    }
+    return type;
+  }
+  if (typeof type === 'string' && !type.startsWith('Array<') && !type.endsWith('[]') && !type.startsWith('[') &&  operator === '->>') {
+    return type.replaceAll(/(^| )(undefined)( |$)/g, '$1null$3');
+  }
+  return type;
 }
 
 const toTsType = (column, customTypes, parsedInterfaces) => {

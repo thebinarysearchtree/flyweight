@@ -192,7 +192,7 @@ class Database {
       const file = await readFile(interfaces, 'utf8');
       const matches = file
         .replaceAll(/\s+/g, ' ')
-        .matchAll(/^\s*export (interface|type) (?<name>[a-z0-9_]+) /gmi);
+        .matchAll(/(^| )export (interface|type) (?<name>[a-z0-9_]+) /gmi);
       const json = this.customTypes['json'];
       const customTypes = [];
       for (const match of matches) {
