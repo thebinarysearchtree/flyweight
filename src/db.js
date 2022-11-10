@@ -12,6 +12,7 @@ import { watch } from 'chokidar';
 import { migrate } from './migrations.js';
 import { join } from 'path';
 import { parseInterfaces } from './sqlParsers/interfaces.js';
+import { getConverter } from './json.js';
 
 const process = (db, result, options) => {
   if (!options) {
@@ -440,6 +441,15 @@ class Database {
       return value;
     }
     const customType = this.customTypes[type];
+    const definedType = this.interfaces[type];
+    if (definedType) {
+      const converter = getConverter(definedType, this);
+      if (converter) {
+        let converted = customType.dbToJs(value);
+        converted = converter(converted);
+        return converted;
+      }
+    }
     return customType.dbToJs(value);
   }
 

@@ -114,6 +114,9 @@ export interface Profile {
     age: number;
     fit: boolean;
     testDate: Date;
+    nested: {
+      test: Array<Date>
+    }
   },
   tests: Array<{ id: number, testDate: Date, result: number }>
 }
@@ -495,7 +498,9 @@ export interface MethodsByFighter {
 
 export interface MethodsCoach {
   fit: boolean | null;
+  test: Array<Date> | null;
   tests: Array<{ id: number, testDate: Date, result: number }> | null;
+  profile: Profile | null;
 }
 
 export interface MethodsQueries {

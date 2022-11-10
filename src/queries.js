@@ -10,11 +10,6 @@ const insert = async (db, table, params, tx) => {
   return result[0][primaryKey];
 }
 
-const canStringify = (table, columns, db) => {
-  const tableColumns = db.tables[table].filter(c => columns.includes(c.name)).some(c => c.type === 'blob');
-
-}
-
 const insertMany = async (db, table, items, tx) => {
   if (items.length === 0) {
     return;
