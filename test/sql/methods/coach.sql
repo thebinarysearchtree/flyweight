@@ -1,1 +1,4 @@
-select profile ->> '$.medical.fit' as fit from coaches
+select 
+    profile ->> '$.medical.fit' as fit,
+    profile -> '$.tests' as tests
+from coaches

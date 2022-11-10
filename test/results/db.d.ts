@@ -382,7 +382,7 @@ export interface FightersWeightClasses {
 
 export interface FightersQueries {
   common(params: { fighter1: any; fighter2: any; }): Promise<Array<FightersCommon>>;
-  instagram(): Promise<Array<number | string | Buffer | null>>;
+  instagram(): Promise<Array<string | null>>;
   lastFights(params: { id: any; }): Promise<Array<FightersLastFights>>;
   left(): Promise<Array<FightersLeft>>;
   methods(params: { id: any; }): Promise<Array<FightersMethods>>;
@@ -394,7 +394,7 @@ export interface FightersQueries {
 
 export interface FighterQueries {
   common(params: { fighter1: any; fighter2: any; }): Promise<FightersCommon | undefined>;
-  instagram(): Promise<number | string | Buffer | null | undefined>;
+  instagram(): Promise<string | null | undefined>;
   lastFights(params: { id: any; }): Promise<FightersLastFights | undefined>;
   left(): Promise<FightersLeft | undefined>;
   methods(params: { id: any; }): Promise<FightersMethods | undefined>;
@@ -493,15 +493,20 @@ export interface MethodsByFighter {
   count: number;
 }
 
+export interface MethodsCoach {
+  fit: boolean | null;
+  tests: Array<{ id: number, result: number }> | null;
+}
+
 export interface MethodsQueries {
   byFighter(params: { fighterId: any; }): Promise<Array<MethodsByFighter>>;
-  coach(): Promise<Array<number | string | Buffer | null>>;
+  coach(): Promise<Array<MethodsCoach>>;
   topSubmission(): Promise<Array<string | null>>;
 }
 
 export interface MethodQueries {
   byFighter(params: { fighterId: any; }): Promise<MethodsByFighter | undefined>;
-  coach(): Promise<number | string | Buffer | null | undefined>;
+  coach(): Promise<MethodsCoach | undefined>;
   topSubmission(): Promise<string | null | undefined>;
 }
 

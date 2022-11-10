@@ -5,7 +5,7 @@ const getType = (statement, optional) => {
   if (/^\{.+\}$/.test(statement)) {
     statement = statement.substring(1, statement.length - 1);
     const properties = {};
-    const matches = blank(statement, { open: '{', close: '}' }).matchAll(/(^| )(?<property>[^;]+);/gmid);
+    const matches = blank(statement, { open: '{', close: '}' }).matchAll(/(^| )(?<property>[^;,]+)(;|,|$)/gmid);
     for (const match of matches) {
       const [start, end] = match.indices.groups.property;
       const property = statement.substring(start, end).trim();

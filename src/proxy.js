@@ -7,10 +7,12 @@ import {
   all,
   remove
 } from './queries.js';
-import { join } from 'path';
+import { join, parse } from 'path';
 import { parseQuery, isWrite } from './sqlParsers/queries.js';
 import pluralize from 'pluralize';
 import { preprocess } from './sqlParsers/preprocessor.js';
+import { parseExtractor } from './sqlParsers/types.js';
+import { getConverter } from './json.js';
 
 const queries = {
   insert: (database, table, tx) => async (params) => await insert(database, table, params, tx),
@@ -111,6 +113,19 @@ const makeOptions = (columns, db) => {
     }
     const converter = db.getDbToJsConverter(column.type);
     let actualConverter = converter;
+    if (column.jsonExtractor && !converter) {
+      const extractor = column.jsonExtractor;
+      const type = parseExtractor(column, db.interfaces);
+      if (extractor.operator === '->>' && type) {
+        const tsType = type.tsType;
+        if (tsType === 'boolean' || tsType === 'Date') {
+          if (!typeMap) {
+            typeMap = {};
+          }
+          typeMap[column.name] = db.getDbToJsConverter(tsType.toLowerCase());
+        }
+      }
+    }
     if (converter) {
       if (!typeMap) {
         typeMap = {};
@@ -207,6 +222,18 @@ const makeOptions = (columns, db) => {
               convertItem(converted, converters);
               return converted;
             }
+          }
+        }
+      }
+      if (column.jsonExtractor) {
+        const extractor = column.jsonExtractor;
+        const type = parseExtractor(column, db.interfaces);
+        if (extractor.operator === '->' && type) {
+          const jsonConverter = getConverter(type, db);
+          actualConverter = (v) => {
+            let converted = converter(v);
+            converted = jsonConverter(converted);
+            return converted;
           }
         }
       }

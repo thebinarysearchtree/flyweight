@@ -19,7 +19,23 @@ const run = async () => {
   assert.equal(otherNames.some(n => n.otherNames.length === 0), true);
   const instagram = await db.fighters.instagram();
   console.log(instagram);
-  console.log(await db.methods.coach());
+  /*await db.coach.insert({
+    name: 'Test User',
+    city: 'Brisbane',
+    profile: {
+      medical: {
+        age: 21,
+        fit: true,
+        testDate: new Date()
+      },
+      tests: [
+        { id: 1, testDate: new Date(), result: 100 }, 
+        { id: 2, testDate: new Date(), result: 200 }
+      ]
+    }
+  });*/
+  const coach = await db.method.coach();
+  console.log(coach);
 }
 
 export default {

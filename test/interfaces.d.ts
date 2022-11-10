@@ -9,5 +9,5 @@ export interface Profile {
     fit: boolean;
     testDate: Date;
   },
-  tests: Array<{ id: number, result: number }>
+  tests: Array<{ id: number, testDate: Date, result: number }>
 }

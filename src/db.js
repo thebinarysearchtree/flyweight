@@ -11,6 +11,7 @@ import { createTypes } from './sqlParsers/types.js';
 import { watch } from 'chokidar';
 import { migrate } from './migrations.js';
 import { join } from 'path';
+import { parseInterfaces } from './sqlParsers/interfaces.js';
 
 const process = (db, result, options) => {
   if (!options) {
@@ -139,6 +140,7 @@ class Database {
     this.extensions = null;
     this.databases = [];
     this.virtualSet = new Set();
+    this.interfaces = null;
     this.registerTypes([
       {
         name: 'boolean',
@@ -188,9 +190,10 @@ class Database {
     if (views) {
       await this.setViews(views);
     }
+    let interfaceFile;
     if (interfaces) {
-      const file = await readFile(interfaces, 'utf8');
-      const matches = file
+      interfaceFile = await readFile(interfaces, 'utf8');
+      const matches = interfaceFile
         .replaceAll(/\s+/g, ' ')
         .matchAll(/(^| )export (interface|type) (?<name>[a-z0-9_]+) /gmi);
       const json = this.customTypes['json'];
@@ -204,6 +207,13 @@ class Database {
         });
       }
       this.registerTypes(customTypes);
+      try {
+        const parsed = parseInterfaces(interfaceFile);
+        this.interfaces = parsed;
+      }
+      catch {
+        this.interfaces = null;
+      }
     }
     const client = makeClient(this, sql);
     const makeTypes = async (options) => {
@@ -213,7 +223,7 @@ class Database {
           sqlDir: sql,
           destinationPath: types,
           interfaceName,
-          interfaces
+          interfaces: interfaceFile
         });
       }
       if (options && options.watch) {

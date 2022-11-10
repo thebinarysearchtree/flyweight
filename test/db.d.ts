@@ -115,7 +115,7 @@ export interface Profile {
     fit: boolean;
     testDate: Date;
   },
-  tests: Array<{ id: number, result: number }>
+  tests: Array<{ id: number, testDate: Date, result: number }>
 }
 
 export interface WeightClass {
@@ -493,15 +493,20 @@ export interface MethodsByFighter {
   count: number;
 }
 
+export interface MethodsCoach {
+  fit: boolean | null;
+  tests: Array<{ id: number, testDate: Date, result: number }> | null;
+}
+
 export interface MethodsQueries {
   byFighter(params: { fighterId: any; }): Promise<Array<MethodsByFighter>>;
-  coach(): Promise<Array<boolean | null>>;
+  coach(): Promise<Array<MethodsCoach>>;
   topSubmission(): Promise<Array<string | null>>;
 }
 
 export interface MethodQueries {
   byFighter(params: { fighterId: any; }): Promise<MethodsByFighter | undefined>;
-  coach(): Promise<boolean | null | undefined>;
+  coach(): Promise<MethodsCoach | undefined>;
   topSubmission(): Promise<string | null | undefined>;
 }
 
