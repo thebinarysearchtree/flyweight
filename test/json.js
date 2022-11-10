@@ -18,24 +18,28 @@ const run = async () => {
   const otherNames = await db.fighters.otherNames();
   assert.equal(otherNames.some(n => n.otherNames.length === 0), true);
   const instagram = await db.fighters.instagram();
-  console.log(instagram);
-  /*await db.coach.insert({
+  await db.coach.insert({
     name: 'Test User',
     city: 'Brisbane',
     profile: {
       medical: {
         age: 21,
         fit: true,
-        testDate: new Date()
+        testDate: new Date(),
+        nested: {
+          test: [new Date(), new Date()]
+        }
       },
       tests: [
         { id: 1, testDate: new Date(), result: 100 }, 
         { id: 2, testDate: new Date(), result: 200 }
       ]
     }
-  });*/
+  });
   const coach = await db.method.coach();
+  const coach2 = await db.coach.get();
   console.log(coach);
+  console.log(coach2);
 }
 
 export default {

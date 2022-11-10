@@ -237,6 +237,19 @@ const makeOptions = (columns, db) => {
           }
         }
       }
+      else {
+        const definedType = db.interfaces[column.type];
+        if (definedType) {
+          const jsonConverter = getConverter(definedType, db);
+          if (converter) {
+            actualConverter = (v) => {
+              let converted = converter(v);
+              converted = jsonConverter(converted);
+              return converted;
+            }
+          }
+        }
+      }
       typeMap[column.name] = actualConverter;
     }
     if (column.primaryKey) {

@@ -14,13 +14,16 @@ const getConverter = (type, db, keys = []) => {
         }
       }
       else {
-        return dateConverter(v);
+        if (v !== null && v !== undefined) {
+          return dateConverter(v);
+        }
+        return v;
       }
     }
     return converter;
   }
   if (type.arrayType) {
-    const converter = getConverter(type.arrayType, db, [...keys]);
+    const converter = getConverter(type.arrayType, db);
     if (converter) {
       const arrayConverter = (v) => {
         let current = v;
