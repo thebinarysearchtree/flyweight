@@ -369,7 +369,7 @@ as there is no name given to ```max(startTime)```.
 Parameters in SQL files should use the ```$name``` notation. Single quotes in strings should be escaped with ```\```. JSON functions are automatically typed and parsed. For example, the following:
 
 ```sql
-select id, json_object('name', name, 'startTime', startTime) as nest from events;
+select id, object(name, startTime) as nest from events;
 ```
 
 will have the type:
@@ -381,9 +381,9 @@ interface EventQuery {
 }
 ```
 
-Nulls are automatically removed from all ```json_group_array``` results. If ```json_group_array``` is used with a single value, and that value is a number, string, or date, the resulting array will be sorted in order, depending on the type. Dates are sorted in descending order, numbers and strings are sorted in ascending order.
+Nulls are automatically removed from all ```groupArray``` results. If ```groupArray``` is used with a single value, and that value is a number, string, or date, the resulting array will be sorted in order, depending on the type. Dates are sorted in descending order, numbers and strings are sorted in ascending order.
 
-When all of the properties of ```json_object``` are from a left or right join, and there are no matches from that table, instead of returning, for example:
+When all of the properties of ```object``` are from a left or right join, and there are no matches from that table, instead of returning, for example:
 
 ```js
 { name: null, startTime: null }
