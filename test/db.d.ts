@@ -497,9 +497,9 @@ export interface MethodsByFighter {
 }
 
 export interface MethodsCoach {
-  fit: boolean | null;
-  test: Date | null;
-  tests: Array<{ id: number, testDate: Date, result: number }> | null;
+  fit: boolean;
+  test: Date;
+  tests: Array<{ id: number, testDate: Date, result: number }>;
   profile: Profile;
 }
 

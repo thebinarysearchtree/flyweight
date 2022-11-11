@@ -114,8 +114,11 @@ export interface Profile {
     age: number;
     fit: boolean;
     testDate: Date;
+    nested: {
+      test: [Date, Date]
+    }
   },
-  tests: Array<{ id: number, result: number }>
+  tests: Array<{ id: number, testDate: Date, result: number }>
 }
 
 export interface WeightClass {
@@ -494,8 +497,10 @@ export interface MethodsByFighter {
 }
 
 export interface MethodsCoach {
-  fit: boolean | null;
-  tests: Array<{ id: number, result: number }> | null;
+  fit: boolean;
+  test: Date;
+  tests: Array<{ id: number, testDate: Date, result: number }>;
+  profile: Profile;
 }
 
 export interface MethodsQueries {

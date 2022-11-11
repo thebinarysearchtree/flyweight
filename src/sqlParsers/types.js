@@ -99,11 +99,11 @@ const parseExtractor = (column, parsedInterfaces) => {
   if (/^[a-z0-9_]+$/i.test(extractor)) {
     return definedType.objectProperties[extractor];
   }
-  if (/\$(\.[a-z0-9_]+(\[\d+\])?)+/gmi.test(extractor)) {
+  if (/\$(\.[a-z0-9_]+(\[-?\d+\])?)+/gmi.test(extractor)) {
     const properties = extractor.substring(2).split('.');
     let type = definedType;
     for (const property of properties) {
-      const match = /^(?<name>[a-z0-9_]+)(\[(?<index>\d+)\])?$/mi.exec(property);
+      const match = /^(?<name>[a-z0-9_]+)(\[(?<index>-?\d+)\])?$/mi.exec(property);
       const { name, index } = match.groups;
       type = type.objectProperties[name];
       if (index) {
@@ -111,7 +111,7 @@ const parseExtractor = (column, parsedInterfaces) => {
           type = type.arrayType;
         }
         else {
-          type = type.tupleTypes[Number(index)];
+          type = type.tupleTypes.at(Number(index));
         }
       }
     }

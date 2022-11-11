@@ -417,6 +417,13 @@ const processColumn = (column, tables, fromTables, whereColumns, joinColumns) =>
     const tableColumn = tables[fromTable.tableName].find(c => c.name === column.jsonExtractor.columnName);
     if (tableColumn) {
       column.jsonExtractor.type = tableColumn.type;
+      const joinColumn = joinColumns.find(c => c.tableAlias === column.jsonExtractor.tableAlias && c.columnName === column.jsonExtractor.columnName);
+      const whereColumn = whereColumns.find(c => c.tableAlias === column.jsonExtractor.tableAlias && c.columnName === column.jsonExtractor.columnName);
+      primaryKey = tableColumn.primaryKey;
+      foreign = tableColumn.foreign;
+      type = tableColumn.type;
+      notNull = tableColumn.notNull === true || tableColumn.primaryKey || joinColumn !== undefined || whereColumn !== undefined;
+      isOptional = fromTable.isOptional;
     }
     else {
       const { jsonExtractor, ...rest } = column;
