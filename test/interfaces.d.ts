@@ -9,7 +9,7 @@ export interface Profile {
     fit: boolean;
     testDate: Date;
     nested: {
-      test: Array<Date>
+      test: [Date, Date]
     }
   },
   tests: Array<{ id: number, testDate: Date, result: number }>

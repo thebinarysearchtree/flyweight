@@ -82,7 +82,7 @@ const getOptional = (structuredType, optional) => {
 }
 
 const parseExtractor = (column, parsedInterfaces) => {
-  const { operator, extractor } = column.jsonExtractor;
+  const extractor = column.jsonExtractor.extractor;
   const tsType = column.jsonExtractor.type;
   const definedType = parsedInterfaces[tsType];
   if (!definedType) {
@@ -90,26 +90,29 @@ const parseExtractor = (column, parsedInterfaces) => {
   }
   if (/^\d+$/.test(extractor)) {
     if (definedType.arrayType) {
-      if (definedType.arrayType.basicType) {
-        return definedType.arrayType;
-      }
+      return definedType.arrayType;
     }
     if (definedType.tupleTypes) {
       return definedType.tupleTypes[Number(extractor)];
     }
   }
-  if (/^[a-z0-0_]+$/i.test(extractor) && operator === '->>') {
+  if (/^[a-z0-9_]+$/i.test(extractor)) {
     return definedType.objectProperties[extractor];
   }
-  if (/\$(\.[a-z0-9_]+)+/gmi.test(extractor)) {
+  if (/\$(\.[a-z0-9_]+(\[\d+\])?)+/gmi.test(extractor)) {
     const properties = extractor.substring(2).split('.');
-    let type;
+    let type = definedType;
     for (const property of properties) {
-      if (!type) {
-        type = definedType.objectProperties[property];
-      }
-      else {
-        type = type.objectProperties[property];
+      const match = /^(?<name>[a-z0-9_]+)(\[(?<index>\d+)\])?$/mi.exec(property);
+      const { name, index } = match.groups;
+      type = type.objectProperties[name];
+      if (index) {
+        if (type.arrayType) {
+          type = type.arrayType;
+        }
+        else {
+          type = type.tupleTypes[Number(index)];
+        }
       }
     }
     return type;

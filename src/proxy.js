@@ -7,7 +7,7 @@ import {
   all,
   remove
 } from './queries.js';
-import { join, parse } from 'path';
+import { join } from 'path';
 import { parseQuery, isWrite } from './sqlParsers/queries.js';
 import pluralize from 'pluralize';
 import { preprocess } from './sqlParsers/preprocessor.js';

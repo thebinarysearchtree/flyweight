@@ -58,6 +58,30 @@ const getConverter = (type, db, keys = []) => {
       return converter;
     }
   }
+  if (type.tupleTypes) {
+    const converters = [];
+    for (const tupleType of type.tupleTypes) {
+      const converter = getConverter(tupleType, db);
+      converters.push(converter);
+    }
+    if (converters.some(c => c !== undefined)) {
+      const converter = (v) => {
+        let current = v;
+        for (const key of keys) {
+          current = current[key];
+        }
+        let i = 0;
+        for (const converter of converters) {
+          if (converter !== undefined) {
+            current[i] = converter(current[i]);
+          }
+          i++;
+        }
+        return current;
+      }
+      return converter;
+    }
+  }
 }
 
 export {

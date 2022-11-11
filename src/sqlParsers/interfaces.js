@@ -5,7 +5,7 @@ const getType = (statement, optional) => {
   if (/^\{.+\}$/.test(statement)) {
     statement = statement.substring(1, statement.length - 1);
     const properties = {};
-    const matches = blank(statement, { open: '{', close: '}' }).matchAll(/(^| )(?<property>[^;,]+)(;|,|$)/gmid);
+    const matches = blank(blank(statement, { open: '{', close: '}' }), { open: '[', close: ']' }).matchAll(/(^| )(?<property>[^;,]+)(;|,|$)/gmid);
     for (const match of matches) {
       const [start, end] = match.indices.groups.property;
       const property = statement.substring(start, end).trim();
@@ -47,7 +47,7 @@ const getType = (statement, optional) => {
     statement = statement.substring(1, statement.length - 1);
     const matches = statement.matchAll(/(?<type>[^,]+)(,|$)/gmd);
     for (const match of matches) {
-      types.push(getType(match.groups.type));
+      types.push(getType(match.groups.type.trim()));
     }
     return {
       tupleTypes: types,
