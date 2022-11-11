@@ -18,28 +18,33 @@ const run = async () => {
   const otherNames = await db.fighters.otherNames();
   assert.equal(otherNames.some(n => n.otherNames.length === 0), true);
   const instagram = await db.fighters.instagram();
-  await db.coach.insert({
+  compare(instagram, 'fighterInstagram');
+  const dates = ['2022-10-1', '2022-10-2', '2022-7-2', '2022-1-12', '2022-10-3'].map(d => new Date(d));
+  const tx = await db.getTransaction();
+  await tx.coach.insert({
     name: 'Test User',
     city: 'Brisbane',
     profile: {
       medical: {
         age: 21,
         fit: true,
-        testDate: new Date(),
+        testDate: dates[0],
         nested: {
-          test: [new Date(), new Date()]
+          test: [dates[1], dates[2]]
         }
       },
       tests: [
-        { id: 1, testDate: new Date(), result: 100 }, 
-        { id: 2, testDate: new Date(), result: 200 }
+        { id: 1, testDate: dates[3], result: 100 }, 
+        { id: 2, testDate: dates[4], result: 200 }
       ]
     }
   });
-  const coach = await db.method.coach();
-  const coach2 = await db.coach.get();
-  console.log(coach);
-  console.log(coach2);
+  const coach = await tx.method.coach();
+  const coach2 = await tx.coach.get();
+  await tx.coaches.remove();
+  db.release(tx);
+  compare(coach, 'methodCoach');
+  compare(coach2, 'getCoach');
 }
 
 export default {
