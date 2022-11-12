@@ -126,7 +126,39 @@ Now let's look at how Flyweight does this without you having to specify any mapp
 
 Every time you want to create an array within an object (such as the ```cards``` array in the main object), you include a primary key. Every column including and after the primary key forms the keys of the objects inside the array. Flyweight takes the name of the column (eg ```cardId```), removes the ```Id``` part, and then converts the name into its plural form to create the name of the array (eg ```cards```). If the column name doesn't fit this format, Flyweight just uses the name of the table the primary key is from as the array name.
 
-```object(bf.id, bf.name, bf.social) as blue``` is just shorthand for ```json_object('id', bf.id, 'name', bf.name, 'social', bf.social) as blue```. Other commands available are ```groupArray``` which is shorthand for ```json_group_array```, and ```array```, which is shorthand for ```json_array```.
+```sql
+object(
+  bf.id, 
+  bf.name, 
+  bf.social) as blue
+``` 
+
+is just shorthand for 
+
+```sql
+json_object(
+  'id', bf.id, 
+  'name', bf.name, 
+  'social', bf.social) as blue
+```
+
+Other commands available are ```groupArray``` which is shorthand for ```json_group_array```, and ```array```, which is shorthand for ```json_array```.
+
+These functions can also be used like this:
+
+```sql
+select
+  l.id,
+  groupArray(e.*) as events
+from
+  locations l join
+  events e on e.locationId = l.id
+group by l.id
+```
+
+```sql
+select object(*) as method from methods
+```
 
 The ```social``` property is an object because in the ```fighters``` table, it is defined with the type ```json```, which is automatically parsed into an object.
 
@@ -139,7 +171,7 @@ from
   events e on e.locationId = l.id
 ```
 
-will work even though ```locations``` and ```events``` both have a ```name``` property. Flyweight automatically renames columns that clash, and then returns them to their original name during the mapping stage. As this query returns an array of locations that each contain an array of events, the ```name``` property no longer clashes.
+will work even though ```locations``` and ```events``` both have an ```id``` and ```name``` property. Flyweight automatically renames columns that clash, and then returns them to their original name during the mapping stage. As this query returns an array of locations that each contain an array of events, the ```id``` and ```name``` properties no longer clash.
 
 ## Getting started
 

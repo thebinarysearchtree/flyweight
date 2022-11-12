@@ -506,14 +506,12 @@ export interface MethodsCoach {
 export interface MethodsQueries {
   byFighter(params: { fighterId: any; }): Promise<Array<MethodsByFighter>>;
   coach(): Promise<Array<MethodsCoach>>;
-  test(): Promise<Array<{ id: number, name: string, abbreviation: string }>>;
   topSubmission(): Promise<Array<string | null>>;
 }
 
 export interface MethodQueries {
   byFighter(params: { fighterId: any; }): Promise<MethodsByFighter | undefined>;
   coach(): Promise<MethodsCoach | undefined>;
-  test(): Promise<{ id: number, name: string, abbreviation: string } | undefined>;
   topSubmission(): Promise<string | null | undefined>;
 }
 

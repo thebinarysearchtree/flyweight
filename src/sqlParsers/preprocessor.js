@@ -183,14 +183,22 @@ const processGroups = (sql) => {
   const fragments = [];
   let lastEnd = 0;
   const blanked = blank(sql, { stringsOnly: true });
-  const matches = blanked.matchAll(/(^|,|\s|\()(?<groupArray>groupArray\()/gmid);
+  const matches = blanked.matchAll(/(^|,|\s|\()(?<groupArray>groupArray\((?<functionContent>[^)]+)\))/gmid);
   for (const match of matches) {
     const [start, end] = match.indices.groups.groupArray;
     if (lastEnd !== start) {
       fragments.push(sql.substring(lastEnd, start));
     }
     lastEnd = end;
-    fragments.push('json_group_array(');
+    const [contentStart, contentEnd] = match.indices.groups.functionContent;
+    const functionContent = sql.substring(contentStart, contentEnd);
+    const starMatch = /^\s*([a-z0-9_]\.)?\*\s*$/mi.test(functionContent);
+    if (starMatch || blank(functionContent).includes(',')) {
+      fragments.push(`json_group_array(object(${functionContent}))`);
+    }
+    else {
+      fragments.push(`json_group_array(${functionContent})`);
+    }
   }
   fragments.push(sql.substring(lastEnd));
   return fragments.join('');
