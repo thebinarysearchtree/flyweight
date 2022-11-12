@@ -26,7 +26,8 @@ const getTempTables = (query, fromPattern, tables) => {
       structuredType: c.structuredType, 
       functionName: c.functionName, 
       functionContent: c.functionContent,
-      types: c.types
+      types: c.types,
+      jsonExtractor: c.jsonExtractor
     }));
     tempTables[tableName] = columns;
     i++;
@@ -140,7 +141,7 @@ const parsers = [
   },
   {
     name: 'Function pattern',
-    pattern: /^(?<functionName>[a-z0-9_]+)\((?<functionContent>((?<tableAlias>[a-z0-9_]+)\.)?(?<columnName>[a-z0-9_]+)|(.+?))\)( as (?<columnAlias>[a-z0-9_]+))?$/mid,
+    pattern: /^(?<functionName>[a-z0-9_]+)\((?<functionContent>((?<tableAlias>[a-z0-9_]+)\.)?(?<columnName>([a-z0-9_]+)|\*)|(.+?))\)( as (?<columnAlias>[a-z0-9_]+))?$/mid,
     pre: (statement) => blank(statement, { stringsOnly: true }),
     extractor: (groups, tables, indices, statement) => {
       const { functionName, tableAlias, columnName, columnAlias } = groups;
@@ -405,6 +406,7 @@ const processColumn = (column, tables, fromTables, whereColumns, joinColumns) =>
   let notNull = column.notNull || false;
   let isOptional = false;
   let structuredType = null;
+  let starColumns = null;
   let types;
   let functionName = column.functionName;
   if (functionName) {
@@ -527,6 +529,13 @@ const processColumn = (column, tables, fromTables, whereColumns, joinColumns) =>
             const content = column.functionContent.substring(start, end);
             const structured = getStructuredType(content, tables, fromTables, whereColumns, joinColumns);
             structuredType = structured;
+            const match = /^((?<tableAlias>[a-z0-9_]+)\.)?\*$/i.exec(content);
+            if (match) {
+              const tableAlias = match.groups.tableAlias;
+              const fromTable = fromTables.find(t => t.tableAlias === tableAlias);
+              const columns = tables[fromTable.tableName];
+              starColumns = columns.map(c => tableAlias ? `${tableAlias}.${c.name}` : c.name);
+            }
           }
           const arrayMatch = /^\s*json_array\((?<functionContent>[^)]+)\)\s*$/gmid.exec(blank(column.functionContent));
           if (arrayMatch) {
@@ -540,6 +549,13 @@ const processColumn = (column, tables, fromTables, whereColumns, joinColumns) =>
       }
       else if (functionName === 'json_object') {
         structuredType = getStructuredType(column.functionContent, tables, fromTables, whereColumns, joinColumns);
+        const match = /^((?<tableAlias>[a-z0-9_]+)\.)?\*$/i.exec(column.functionContent);
+        if (match) {
+          const tableAlias = match.groups.tableAlias;
+          const fromTable = fromTables.find(t => t.tableAlias === tableAlias);
+          const columns = tables[fromTable.tableName];
+          starColumns = columns.map(c => tableAlias ? `${tableAlias}.${c.name}` : c.name);
+        }
       }
       else if (functionName === 'json_array') {
         const content = column.functionContent;
@@ -603,7 +619,8 @@ const processColumn = (column, tables, fromTables, whereColumns, joinColumns) =>
     structuredType,
     functionName,
     types,
-    jsonExtractor: column.jsonExtractor
+    jsonExtractor: column.jsonExtractor,
+    starColumns
   }
 }
 

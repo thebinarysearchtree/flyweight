@@ -1,6 +1,41 @@
 import { blank } from './utils.js';
 import { parseQuery } from './queries.js';
 
+const objectStar = (sql, tables) => {
+  const fragments = [];
+  const blanked = blank(sql);
+  const [start, end] = /^\s*select\s+(distinct\s)?(?<select>.+?)\s+from\s+.+$/gmids
+    .exec(blanked)
+    .indices
+    .groups
+    .select;
+  const select = sql.substring(start, end);
+  const blankedSelect = blank(select, { stringsOnly: true });
+  let lastEnd = 0;
+  if (/json_object\(([a-z0-9_]+\.)?\*\)/i.test(blankedSelect)) {
+    const columns = parseQuery(sql, tables);
+    const matches = blankedSelect.matchAll(/json_object\((?<functionContent>([a-z0-9_]+\.)?\*)\)\s+as\s+(?<columnName>[a-z0-9_]+)/gmid);
+    for (const match of matches) {
+      const columnName = match.groups.columnName;
+      const [contentStart, contentEnd] = match.indices.groups.functionContent;
+      const column = columns.find(c => c.name === columnName);
+      if (lastEnd !== start + contentStart) {
+        fragments.push(sql.substring(lastEnd, start + contentStart));
+      }
+      const expanded = [];
+      for (const starColumn of column.starColumns) {
+        const split = starColumn.split('.');
+        const name = split.length === 1 ? split[0] : split[1];
+        expanded.push(`'${name}', ${starColumn}`);
+      }
+      fragments.push(expanded.join(', '));
+      lastEnd = start + contentEnd;
+    }
+  }
+  fragments.push(sql.substring(lastEnd));
+  return fragments.join('');
+}
+
 const expandStar = (sql, tables) => {
   const fragments = [];
   const columns = parseQuery(sql, tables);
@@ -126,6 +161,12 @@ const processObjects = (sql, fragments = []) => {
   const processedMatch = /(^|,|\s|\()(?<object>object\s*\((?<columns>[^)]+)\))/gmid.exec(processed);
   const [start, end] = processedMatch.indices.groups.columns;
   const columnsText = sql.substring(objectStart + start, objectStart + end);
+  if (/^([a-z0-9_]+\.)?\*$/i.test(columnsText)) {
+    fragments.push(sql.substring(0, objectStart));
+    fragments.push(`json_object(${columnsText})`);
+    const objectEnd = objectStart + processedMatch.indices.groups.object[1];
+    return processObjects(sql.substring(objectEnd), fragments);
+  }
   const columnMatches = blank(columnsText).matchAll(/(?<column>[^,]+)(,|$)/gmid);
   for (const columnMatch of columnMatches) {
     const [columnStart, columnEnd] = columnMatch.indices.groups.column;
@@ -169,6 +210,7 @@ const preprocess = (sql, tables) => {
   sql = processArrays(sql);
   sql = processObjects(sql);
   sql = expandStar(sql, tables);
+  sql = objectStar(sql, tables);
   return sql;
 }
 
