@@ -1,7 +1,9 @@
 select 
-    object(m.*) as method 
+    object(m.*) as methods,
+    c.card
 from 
-    fights f join 
+    (select id, object(*) as card from cards) c join
+    fights f on f.cardId = c.id join 
     methods m on f.methodId = m.id
-where f.methodId is not null
-limit 5
+group by c.id
+limit 5;

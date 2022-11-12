@@ -16,6 +16,9 @@ const getTempTables = (query, fromPattern, tables) => {
     const subQuery = match.groups.subQuery;
     const processed = from.substring(match.index + 1, match.index + subQuery.length - 1);
     const parsedTable = parseSelect(processed, tables);
+    if (!parsedTable) {
+      continue;
+    }
     const tableName = `flyweight_temp${i}`;
     processedQuery = processedQuery.replace(from.substring(match.index, match.index + subQuery.length), tableName);
     const columns = parsedTable.map(c => ({ 
@@ -657,6 +660,9 @@ const parseSelect = (query, tables) => {
   if (unionMatch) {
     query = query.substring(0, unionMatch.index);
     processed = processed.substring(0, unionMatch.index);
+  }
+  if (!/^\s*select\s/mi.test(processed)) {
+    return;
   }
   const [start, end] = /^\s*select\s(distinct\s)?(?<select>.+?)\sfrom\s.+$/mdi
     .exec(processed)

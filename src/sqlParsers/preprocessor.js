@@ -1,6 +1,67 @@
 import { blank } from './utils.js';
 import { parseQuery } from './queries.js';
 
+const subqueries = (sql, tables) => {
+  const fragments = [];
+  const blanked = blank(sql);
+  const matches = blanked.matchAll(/\((?<query>[^)]+)\)/gmid);
+  let lastEnd = 0;
+  for (const match of matches) {
+    const [start, end] = match.indices.groups.query;
+    const query = sql.substring(start, end);
+    if (/^\s*select\s/mi.test(query)) {
+      const adjusted = objectStar(query, tables);
+      if (adjusted !== query) {
+        if (lastEnd !== start) {
+          fragments.push(sql.substring(lastEnd, start));
+        }
+        fragments.push(adjusted);
+        lastEnd = end;
+      }
+    }
+  }
+  fragments.push(sql.substring(lastEnd));
+  return fragments.join('');
+}
+
+const processObjectStar = (sql, tables) => {
+  const fragments = [];
+  tables = { ...tables };
+  const blanked = blank(sql);
+  let lastEnd = 0;
+  if (/^\s*with\s/mi.test(blanked)) {
+    const matches = blanked.matchAll(/(\s|,)(?<tableName>[a-z0-9_]+)\s(as)\s\((?<query>[^)]+)\)/gmid);
+    for (const match of matches) {
+      const tableName = match.groups.tableName;
+      const [start, end] = match.indices.groups.query;
+      const query = sql.substring(start, end);
+      const columns = parseQuery(query, tables);
+      const adjusted = objectStar(query, tables);
+      tables[tableName] = columns;
+      if (adjusted !== query) {
+        if (lastEnd !== start) {
+          fragments.push(sql.substring(lastEnd, start));
+        }
+        fragments.push(adjusted);
+        lastEnd = end;
+      }
+    }
+    const selectMatch = /\)\s*(?<query>select\s.+$)/gmids.exec(blanked);
+    const [start, end] = selectMatch.indices.groups.query;
+    const query = sql.substring(start, end);
+    if (start !== lastEnd) {
+      fragments.push(sql.substring(lastEnd, start));
+    }
+    const adjusted = objectStar(query, tables);
+    fragments.push(adjusted);
+    return fragments.join('');
+  }
+  if (/^\s*select\s/mi.test(blanked)) {
+    return objectStar(sql, tables);
+  }
+  return sql;
+}
+
 const objectStar = (sql, tables) => {
   const fragments = [];
   const blanked = blank(sql);
@@ -14,7 +75,9 @@ const objectStar = (sql, tables) => {
   let lastEnd = 0;
   if (/json_object\(([a-z0-9_]+\.)?\*\)/i.test(blankedSelect)) {
     const columns = parseQuery(sql, tables);
-    const matches = blankedSelect.matchAll(/json_object\((?<functionContent>([a-z0-9_]+\.)?\*)\)\s+as\s+(?<columnName>[a-z0-9_]+)/gmid);
+    const matches1 = Array.from(blankedSelect.matchAll(/json_object\(\s*(?<functionContent>([a-z0-9_]+\.)?\*)\s*\)\s+as\s+(?<columnName>[a-z0-9_]+)/gmid));
+    const matches2 = Array.from(blankedSelect.matchAll(/json_group_array\(\s*json_object\(\s*(?<functionContent>([a-z0-9_]+\.)?\*)\s*\)\s*\)\s+as\s+(?<columnName>[a-z0-9_]+)/gmid));
+    const matches = matches1.concat(matches2);
     for (const match of matches) {
       const columnName = match.groups.columnName;
       const [contentStart, contentEnd] = match.indices.groups.functionContent;
@@ -33,7 +96,9 @@ const objectStar = (sql, tables) => {
     }
   }
   fragments.push(sql.substring(lastEnd));
-  return fragments.join('');
+  let adjusted = fragments.join('');
+  adjusted = subqueries(adjusted, tables);
+  return adjusted;
 }
 
 const expandStar = (sql, tables) => {
@@ -210,7 +275,7 @@ const preprocess = (sql, tables) => {
   sql = processArrays(sql);
   sql = processObjects(sql);
   sql = expandStar(sql, tables);
-  sql = objectStar(sql, tables);
+  sql = processObjectStar(sql, tables);
   return sql;
 }
 
