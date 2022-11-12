@@ -128,18 +128,18 @@ Every time you want to create an array within an object (such as the ```cards```
 
 ```sql
 object(
-  bf.id, 
-  bf.name, 
-  bf.social) as blue
+    bf.id, 
+    bf.name, 
+    bf.social) as blue
 ``` 
 
 is just shorthand for 
 
 ```sql
 json_object(
-  'id', bf.id, 
-  'name', bf.name, 
-  'social', bf.social) as blue
+    'id', bf.id, 
+    'name', bf.name, 
+    'social', bf.social) as blue
 ```
 
 Other commands available are ```groupArray``` which is shorthand for ```json_group_array```, and ```array```, which is shorthand for ```json_array```.
@@ -148,11 +148,11 @@ These functions can also be used like this:
 
 ```sql
 select
-  l.id,
-  groupArray(e.*) as events
+    l.id,
+    groupArray(e.*) as events
 from
-  locations l join
-  events e on e.locationId = l.id
+    locations l join
+    events e on e.locationId = l.id
 group by l.id
 ```
 
