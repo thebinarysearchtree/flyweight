@@ -1,3 +1,9 @@
-import { createMigration } from './db.js';
+import { createMigration } from '../src/utils.js';
+import { getConfig } from '../src/file.js';
+import Database from '../src/db.js';
 
-await createMigration(process.argv[2]);
+const config = await getConfig();
+const db = new Database();
+await db.initialize();
+
+await createMigration(db, config, process.argv[2]);

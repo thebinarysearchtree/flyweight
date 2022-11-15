@@ -1,7 +1,7 @@
 import { readFile, writeFile } from 'fs/promises';
 import { join } from 'path';
 import { blank } from './sqlParsers/utils.js';
-import { readSql } from './utils.js';
+import { readSql } from './file.js';
 
 const getIndexes = (statements, blanked) => {
   const pattern = /^create\s+(unique\s+)?index\s+(if\s+not\s+exists\s+)?(?<indexName>[a-z0-9_]+)\s+on\s+(?<tableName>[a-z0-9_]+)\([^;]+;/gmid;
@@ -193,45 +193,42 @@ const getViews = (sql) => {
   });
 }
 
-const migrate = async (db, tablesPath, viewsPath, migrationPath, migrationName) => {
-  const outputPath = join(migrationPath, `${migrationName}.sql`);
-  const lastTablesPath = join(migrationPath, 'lastTables.sql');
-  const lastViewsPath = join(migrationPath, 'lastViews.sql');
-  const currentSql = await readSql(tablesPath);
+const migrate = async (db, config, migrationName) => {
+  const outputPath = join(config.migrations, `${migrationName}.sql`);
+  const lastTablesPath = join(config.migrations, 'lastTables.sql');
+  const lastViewsPath = join(config.migrations, 'lastViews.sql');
+  const currentSql = await readSql(config.tables);
   const current = db.convertTables(currentSql);
   const blankedCurrent = blank(current);
   let last;
   let blankedLast;
-  let currentViewsText = '';
   const viewMigrations = [];
-  if (viewsPath) {
-    currentViewsText = await readSql(viewsPath);
-    let lastViewsText;
-    try {
-      lastViewsText = await readSql(lastViewsPath);
-      const currentViews = getViews(currentViewsText);
-      const lastViews = getViews(lastViewsText);
-      const currentViewNames = new Set(currentViews.map(v => v.name));
-      for (const view of currentViews) {
-        const lastView = lastViews.find(v => v.name === view.name);
-        if (!lastView) {
-          viewMigrations.push(view.sql);
-        }
-        if (lastView && lastView.sql !== view.sql) {
-          viewMigrations.push(`drop view ${view.name};`);
-          viewMigrations.push(view.sql);
-        }
+  const currentViewsText = await readSql(config.views);
+  let lastViewsText;
+  try {
+    lastViewsText = await readSql(lastViewsPath);
+    const currentViews = getViews(currentViewsText);
+    const lastViews = getViews(lastViewsText);
+    const currentViewNames = new Set(currentViews.map(v => v.name));
+    for (const view of currentViews) {
+      const lastView = lastViews.find(v => v.name === view.name);
+      if (!lastView) {
+        viewMigrations.push(view.sql);
       }
-      for (const view of lastViews) {
-        if (!currentViewNames.has(view.name)) {
-          viewMigrations.push(`drop view ${view.name};`);
-        }
+      if (lastView && lastView.sql !== view.sql) {
+        viewMigrations.push(`drop view ${view.name};`);
+        viewMigrations.push(view.sql);
       }
     }
-    catch {
-      viewMigrations.push(currentViewsText);
-      await writeFile(lastViewsPath, currentViewsText, 'utf8');
+    for (const view of lastViews) {
+      if (!currentViewNames.has(view.name)) {
+        viewMigrations.push(`drop view ${view.name};`);
+      }
     }
+  }
+  catch {
+    viewMigrations.push(currentViewsText);
+    await writeFile(lastViewsPath, currentViewsText, 'utf8');
   }
   try {
     const lastSql = await readSql(lastTablesPath);

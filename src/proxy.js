@@ -1,4 +1,3 @@
-import { readFileSync } from 'fs';
 import {
   insert,
   insertMany,
@@ -7,12 +6,13 @@ import {
   all,
   remove
 } from './queries.js';
-import { join } from 'path';
 import { parseQuery, isWrite } from './sqlParsers/queries.js';
 import pluralize from 'pluralize';
 import { preprocess } from './sqlParsers/preprocessor.js';
-import { parseExtractor } from './sqlParsers/types.js';
-import { getConverter } from './json.js';
+import { getConverter, parseExtractor } from './json.js';
+import { getConfig, getQueryText } from './file.js';
+
+const config = await getConfig();
 
 const queries = {
   insert: (database, table, tx) => async (params) => await insert(database, table, params, tx),
@@ -304,7 +304,7 @@ const getResultType = (columns, isSingular) => {
   }
 }
 
-const makeQueryHandler = (table, db, sqlDir, tx) => {
+const makeQueryHandler = (table, db, tx) => {
   let isSingular;
   let queries;
   if (pluralize.isSingular(table)) {
@@ -319,53 +319,42 @@ const makeQueryHandler = (table, db, sqlDir, tx) => {
   return {
     get: function(target, query, receiver) {
       if (!target[query]) {
-        if (!sqlDir) {
-          if (!queries[query]) {
-            throw Error(`Query ${query} of table ${table} not found`);
+        let sql;
+        try {
+          sql = getQueryText(config.sql, table, query);
+          sql = preprocess(sql, db.tables);
+        }
+        catch (e) {
+          const makeQuery = isSingular ? singularQueries[query] : multipleQueries[query];
+          if (makeQuery) {
+            target[query] = makeQuery(db, table, tx);
+            return target[query];
           }
           else {
-            target[query] = queries[query](db, table, tx);
+            throw e;
           }
         }
-        else {
-          const path = join(sqlDir, table, `${query}.sql`);
-          let sql;
-          try {
-            sql = readFileSync(path, 'utf8');
-            sql = preprocess(sql, db.tables);
+        const write = isWrite(sql);
+        try {
+          const columns = parseQuery(sql, db.tables);
+          const options = makeOptions(columns, db);
+          options.result = getResultType(columns, isSingular);
+          let run;
+          if (options.result === 'none') {
+            run = db.run;
           }
-          catch (e) {
-            const makeQuery = isSingular ? singularQueries[query] : multipleQueries[query];
-            if (makeQuery) {
-              target[query] = makeQuery(db, table, tx);
-              return target[query];
-            }
-            else {
-              throw e;
-            }
+          else {
+            run = db.all;
           }
-          const write = isWrite(sql);
-          try {
-            const columns = parseQuery(sql, db.tables);
-            const options = makeOptions(columns, db);
-            options.result = getResultType(columns, isSingular);
-            let run;
-            if (options.result === 'none') {
-              run = db.run;
-            }
-            else {
-              run = db.all;
-            }
-            run = run.bind(db);
-            options.cacheName = `${table}.${query}`;
-            target[query] = async (params) => {
-              return await run(sql, params, options, tx, write);
-            }
+          run = run.bind(db);
+          options.cacheName = `${table}.${query}`;
+          target[query] = async (params) => {
+            return await run(sql, params, options, tx, write);
           }
-          catch {
-            target[query] = async (params) => {
-              return await db.all(sql, params, null, tx, write);
-            }
+        }
+        catch {
+          target[query] = async (params) => {
+            return await db.all(sql, params, null, tx, write);
           }
         }
       }
@@ -374,7 +363,7 @@ const makeQueryHandler = (table, db, sqlDir, tx) => {
   }
 }
 
-const makeClient = (db, sqlDir, tx) => {
+const makeClient = (db, tx) => {
   const tableHandler = {
     get: function(target, table, receiver) {
       if (['begin', 'commit', 'rollback'].includes(table)) {
@@ -389,7 +378,7 @@ const makeClient = (db, sqlDir, tx) => {
         return () => db.pool.push(tx);
       }
       if (!target[table]) {
-        target[table] = new Proxy({}, makeQueryHandler(table, db, sqlDir, tx));
+        target[table] = new Proxy({}, makeQueryHandler(table, db, tx));
       }
       return target[table];
     }
