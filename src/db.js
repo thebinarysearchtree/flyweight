@@ -12,6 +12,7 @@ import {
   getTablesText, 
   getViewsText 
 } from './file.js';
+import { preprocess } from './sqlParsers/preprocessor.js';
 
 const process = (db, result, options) => {
   if (!options) {
@@ -253,7 +254,8 @@ class Database {
   }
 
   async setViews() {
-    const sql = await getViewsText(this.config.views);
+    let sql = await getViewsText(this.config.views);
+    sql = preprocess(sql, this.tables);
     const views = getViews(sql, this);
     for (const view of views) {
       this.viewSet.add(view.name);
