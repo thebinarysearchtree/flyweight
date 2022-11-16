@@ -1,5 +1,0 @@
-{
-  "db": "./databases/test.db",
-  "extensions": "./extensions",
-  "root": "./"
-}

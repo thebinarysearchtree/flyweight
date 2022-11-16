@@ -1,17 +1,18 @@
 import sqlite3 from 'sqlite3';
-import { parse, toValues } from './parsers.js';
+import { toValues, readSql } from './utils.js';
+import { parse } from './parsers.js';
 import { mapOne, mapMany } from './map.js';
 import { getTables, getViews, getVirtual } from './sqlParsers/tables.js';
+import { readFile } from 'fs/promises';
+import { getFragments } from './sqlParsers/tables.js';
+import { blank } from './sqlParsers/utils.js';
 import { makeClient } from './proxy.js';
+import { createTypes } from './sqlParsers/types.js';
+import { watch } from 'chokidar';
+import { migrate } from './migrations.js';
+import { join } from 'path';
 import { parseInterfaces } from './sqlParsers/interfaces.js';
 import { getConverter } from './json.js';
-import { 
-  getExtensions, 
-  getConfig, 
-  getInterfaceFile, 
-  getTablesText, 
-  getViewsText 
-} from './file.js';
 
 const process = (db, result, options) => {
   if (!options) {
@@ -141,7 +142,6 @@ class Database {
     this.databases = [];
     this.virtualSet = new Set();
     this.interfaces = null;
-    this.config = null;
     this.registerTypes([
       {
         name: 'boolean',
@@ -179,17 +179,21 @@ class Database {
     ]);
   }
 
-  async initialize() {
-    this.config = await getConfig();
-    this.extensions = await getExtensions(this.config);
+  async initialize(paths, interfaceName) {
+    const { db, sql, tables, views, types, migrations, extensions, interfaces } = paths;
+    this.dbPath = db;
+    this.sqlPath = sql;
+    this.extensions = extensions;
     this.read = await this.createDatabase();
     this.write = await this.createDatabase({ serialize: true });
-    await this.setTables();
-    await this.setVirtual();
-    await this.setViews();
+    await this.setTables(tables);
+    await this.setVirtual(tables);
+    if (views) {
+      await this.setViews(views);
+    }
     let interfaceFile;
-    try {
-      interfaceFile = await getInterfaceFile(this.config.interfaces);
+    if (interfaces) {
+      interfaceFile = await readFile(interfaces, 'utf8');
       const matches = interfaceFile
         .replaceAll(/\s+/g, ' ')
         .matchAll(/(^| )export (interface|type) (?<name>[a-z0-9_]+) /gmi);
@@ -204,24 +208,94 @@ class Database {
         });
       }
       this.registerTypes(customTypes);
-      const parsed = parseInterfaces(interfaceFile);
-      this.interfaces = parsed;
+      try {
+        const parsed = parseInterfaces(interfaceFile);
+        this.interfaces = parsed;
+      }
+      catch {
+        this.interfaces = null;
+      }
     }
-    catch {
-      this.interfaces = null;
+    const client = makeClient(this, sql);
+    const makeTypes = async (options) => {
+      const run = async () => {
+        await createTypes({
+          db: this,
+          sqlDir: sql,
+          destinationPath: types,
+          interfaceName,
+          interfaces: interfaceFile
+        });
+      }
+      if (options && options.watch) {
+        const watchRun = async (path) => {
+          try {
+            await run();
+          }
+          catch {
+            if (path) {
+              console.log(`Error trying to parse ${path}`);
+            }
+          }
+        }
+        await watchRun();
+        const paths = [sql, tables, views].filter(p => p !== undefined);
+        watch(paths)
+          .on('add', watchRun)
+          .on('change', watchRun);
+      }
+      else {
+        await run();
+      }
     }
-    return makeClient(this);
+    const getTables = async () => {
+      const sql = await readFile(tables, 'utf8');
+      return this.convertTables(sql);
+    }
+    const createMigration = async (name) => {
+      await migrate(this, tables, views, migrations, name);
+    }
+    const runMigration = async (name) => {
+      const path = join(migrations, `${name}.sql`);
+      const sql = await readFile(path, 'utf8');
+      this.disableForeignKeys();
+      try {
+        await this.begin();
+        await this.exec(sql);
+        await this.commit();
+        console.log('Migration ran successfully.');
+      }
+      catch (e) {
+        console.log(e);
+        await this.rollback();
+      }
+      this.enableForeignKeys();
+    }
+    return {
+      db: client,
+      makeTypes,
+      getTables,
+      createMigration,
+      runMigration
+    }
   }
 
   async createDatabase(options) {
     const serialize = options ? options.serialize : false;
-    const db = new sqlite3.Database(this.config.db);
+    const db = new sqlite3.Database(this.dbPath);
     if (serialize) {
       db.serialize();
     }
     this.enableForeignKeys(db);
-    for (const extension of this.extensions) {
-      await this.loadExtension(extension, db);
+    if (this.extensions) {
+      if (typeof this.extensions === 'string') {
+        await this.loadExtension(this.extensions, db);
+      }
+      else {
+        for (const extension of this.extensions) {
+          await this.loadExtension(extension, db);
+        }
+      }
     }
     this.databases.push(db);
     return db;
@@ -246,14 +320,14 @@ class Database {
     }
   }
 
-  async setTables() {
-    const sql = await getTablesText(this.config.tables);
+  async setTables(path) {
+    const sql = await readSql(path);
     const tables = getTables(sql);
     this.addTables(tables);
   }
 
-  async setViews() {
-    const sql = await getViewsText(this.config.views);
+  async setViews(path) {
+    const sql = await readSql(path);
     const views = getViews(sql, this);
     for (const view of views) {
       this.viewSet.add(view.name);
@@ -261,8 +335,8 @@ class Database {
     this.addTables(views);
   }
 
-  async setVirtual() {
-    const sql = await getTablesText(this.config.tables);
+  async setVirtual(path) {
+    const sql = await readSql(path);
     const tables = getVirtual(sql);
     this.addTables(tables);
     for (const table of tables) {
@@ -278,6 +352,57 @@ class Database {
 
       this.customTypes[name] = options;
     }
+  }
+
+  addStrict(sql) {
+    const matches = blank(sql, { stringsOnly: true }).matchAll(/^\s*create table (?<tableName>[^\s]+)\s+\((?<columns>[^;]+?)(?<without>\s+without\s+rowid\s*)?(?<ending>;)/gmid);
+    let lastIndex = 0;
+    const fragments = [];
+    for (const match of matches) {
+      const [index] = match.indices.groups.ending;
+      const fragment = sql.substring(lastIndex, index);
+      fragments.push(fragment);
+      if (match.groups.without) {
+        fragments.push(', strict');
+      }
+      else {
+        fragments.push(' strict');
+      }
+      lastIndex = index;
+    }
+    const fragment = sql.substring(lastIndex);
+    fragments.push(fragment);
+    return fragments.join('');
+  }
+
+  convertTables(sql) {
+    const fragments = getFragments(sql);
+    let converted = '';
+    for (const fragment of fragments) {
+      if (!fragment.isColumn) {
+        converted += fragment.sql;
+        continue;
+      }
+      const customType = this.customTypes[fragment.type];
+      if (!customType) {
+        converted += fragment.sql;
+        continue;
+      }
+      const match = /^\s*(?<name>[a-z0-9_]+)((\s+not\s+)|(\s+primary\s+)|(\s+references\s+)|(\s+check(\s+|\())|\s*$)/gmi.exec(fragment.sql);
+      if (match) {
+        fragment.sql = fragment.sql.replace(/(^\s*[a-z0-9_]+)(\s+|$)/gmi, `$1 ${customType.dbType}$2`);
+      }
+      else {
+        fragment.sql = fragment.sql.replace(/(^\s*[a-z0-9_]+\s+)([a-z0-9_]+)((\s+)|$)/gmi, `$1${customType.dbType}$3`);
+      }
+      if (customType.makeConstraint) {
+        const constraint = customType.makeConstraint(fragment.columnName);
+        fragment.sql += ' ';
+        fragment.sql += constraint;
+      }
+      converted += fragment.sql;
+    }
+    return this.addStrict(converted);
   }
 
   convertToDb(value) {
@@ -373,7 +498,7 @@ class Database {
       if (this.databases.length < this.poolSize) {
         const db = await this.createDatabase({ serialize: true });
         const tx = { name: `tx${this.databases.length}`, db };
-        const client = makeClient(this, tx);
+        const client = makeClient(this, this.sqlPath, tx);
         return client;
       }
       await wait();

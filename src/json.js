@@ -84,45 +84,6 @@ const getConverter = (type, db, keys = []) => {
   }
 }
 
-const parseExtractor = (column, parsedInterfaces) => {
-  const extractor = column.jsonExtractor.extractor;
-  const tsType = column.jsonExtractor.type;
-  const definedType = parsedInterfaces[tsType];
-  if (!definedType) {
-    return;
-  }
-  if (/^\d+$/.test(extractor)) {
-    if (definedType.arrayType) {
-      return definedType.arrayType;
-    }
-    if (definedType.tupleTypes) {
-      return definedType.tupleTypes[Number(extractor)];
-    }
-  }
-  if (/^[a-z0-9_]+$/i.test(extractor)) {
-    return definedType.objectProperties[extractor];
-  }
-  if (/\$(\.[a-z0-9_]+(\[-?\d+\])?)+/gmi.test(extractor)) {
-    const properties = extractor.substring(2).split('.');
-    let type = definedType;
-    for (const property of properties) {
-      const match = /^(?<name>[a-z0-9_]+)(\[(?<index>-?\d+)\])?$/mi.exec(property);
-      const { name, index } = match.groups;
-      type = type.objectProperties[name];
-      if (index) {
-        if (type.arrayType) {
-          type = type.arrayType;
-        }
-        else {
-          type = type.tupleTypes.at(Number(index));
-        }
-      }
-    }
-    return type;
-  }
-}
-
 export {
-  getConverter,
-  parseExtractor
+  getConverter
 }
