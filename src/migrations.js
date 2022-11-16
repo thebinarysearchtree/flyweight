@@ -3,6 +3,7 @@ import { join } from 'path';
 import { blank } from './sqlParsers/utils.js';
 import { readSql } from './file.js';
 import { convertTables } from './utils.js';
+import { preprocess } from './sqlParsers/preprocessor.js';
 
 const getIndexes = (statements, blanked) => {
   const pattern = /^create\s+(unique\s+)?index\s+(if\s+not\s+exists\s+)?(?<indexName>[a-z0-9_]+)\s+on\s+(?<tableName>[a-z0-9_]+)\([^;]+;/gmid;
@@ -199,7 +200,7 @@ const migrate = async (db, config, migrationName) => {
   const lastTablesPath = join(config.migrations, 'lastTables.sql');
   const lastViewsPath = join(config.migrations, 'lastViews.sql');
   const currentSql = await readSql(config.tables);
-  const current = db.convertTables(currentSql);
+  const current = convertTables(db, currentSql);
   const blankedCurrent = blank(current);
   let last;
   let blankedLast;
@@ -235,7 +236,7 @@ const migrate = async (db, config, migrationName) => {
   }
   try {
     const lastSql = await readSql(lastTablesPath);
-    last = db.convertTables(lastSql);
+    last = convertTables(db, lastSql);
     blankedLast = blank(last);
   }
   catch {
