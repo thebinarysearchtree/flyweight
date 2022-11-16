@@ -258,7 +258,9 @@ const makeUnique = (name) => {
     name = `${name}${i}`;
     i++;
   }
-  typeSet.add(name);
+  else {
+    typeSet.add(name);
+  }
   return name;
 }
 
