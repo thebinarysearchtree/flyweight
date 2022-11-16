@@ -6,9 +6,9 @@ import {
   all,
   remove
 } from './queries.js';
-import { parseQuery, isWrite } from './parsers/queries.js';
+import { parseQuery, isWrite } from './sqlParsers/queries.js';
 import pluralize from 'pluralize';
-import { preprocess } from './parsers/preprocessor.js';
+import { preprocess } from './sqlParsers/preprocessor.js';
 import { getConverter, parseExtractor } from './json.js';
 import { getConfig, getQueryText } from './file.js';
 
