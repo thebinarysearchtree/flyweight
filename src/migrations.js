@@ -1,9 +1,9 @@
 import { readFile, writeFile } from 'fs/promises';
 import { join } from 'path';
-import { blank } from './sqlParsers/utils.js';
+import { blank } from './parsers/utils.js';
 import { readSql } from './file.js';
-import { convertTables } from './utils.js';
-import { preprocess } from './sqlParsers/preprocessor.js';
+import { convertTables } from './parsers/tables.js';
+import { preprocess } from './parsers/preprocessor.js';
 
 const getIndexes = (statements, blanked) => {
   const pattern = /^create\s+(unique\s+)?index\s+(if\s+not\s+exists\s+)?(?<indexName>[a-z0-9_]+)\s+on\s+(?<tableName>[a-z0-9_]+)\([^;]+;/gmid;
