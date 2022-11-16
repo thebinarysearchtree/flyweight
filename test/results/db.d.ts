@@ -694,7 +694,7 @@ export interface WhereOpponent {
   methodId?: number | Array<number> | null;
 }
 
-export interface TypedDb {
+export interface Flyweight {
   [key: string]: any,
   weightClasses: MultipleQueries<WeightClass, InsertWeightClass, WhereWeightClass>,
   weightClass: SingularQueries<WeightClass, InsertWeightClass, WhereWeightClass, number>,
@@ -729,12 +729,12 @@ export interface TypedDb {
   begin(): Promise<void>,
   commit(): Promise<void>,
   rollback(): Promise<void>,
-  getTransaction(): Promise<TypedDb>,
-  release(transaction: TypedDb): void
+  getTransaction(): Promise<Flyweight>,
+  release(transaction: Flyweight): void
 }
 
 declare const database: Database;
-declare const db: TypedDb;
+declare const db: Flyweight;
 
 export {
   database,
