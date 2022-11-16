@@ -8,10 +8,10 @@ import {
   remove
 } from './queries.js';
 import { join } from 'path';
-import { parseQuery, isWrite } from './sqlParsers/queries.js';
+import { parseQuery, isWrite } from './parsers/queries.js';
 import pluralize from 'pluralize';
-import { preprocess } from './sqlParsers/preprocessor.js';
-import { parseExtractor } from './sqlParsers/types.js';
+import { preprocess } from './parsers/preprocessor.js';
+import { parseExtractor } from './parsers/types.js';
 import { getConverter } from './json.js';
 
 const queries = {

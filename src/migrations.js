@@ -1,6 +1,6 @@
 import { readFile, writeFile } from 'fs/promises';
 import { join } from 'path';
-import { blank } from './sqlParsers/utils.js';
+import { blank } from './parsers/utils.js';
 import { readSql } from './utils.js';
 
 const getIndexes = (statements, blanked) => {

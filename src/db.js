@@ -2,17 +2,18 @@ import sqlite3 from 'sqlite3';
 import { toValues, readSql } from './utils.js';
 import { parse } from './parsers.js';
 import { mapOne, mapMany } from './map.js';
-import { getTables, getViews, getVirtual } from './sqlParsers/tables.js';
+import { getTables, getViews, getVirtual } from './parsers/tables.js';
 import { readFile } from 'fs/promises';
-import { getFragments } from './sqlParsers/tables.js';
-import { blank } from './sqlParsers/utils.js';
+import { getFragments } from './parsers/tables.js';
+import { blank } from './parsers/utils.js';
 import { makeClient } from './proxy.js';
-import { createTypes } from './sqlParsers/types.js';
+import { createTypes } from './parsers/types.js';
 import { watch } from 'chokidar';
 import { migrate } from './migrations.js';
 import { join } from 'path';
-import { parseInterfaces } from './sqlParsers/interfaces.js';
+import { parseInterfaces } from './parsers/interfaces.js';
 import { getConverter } from './json.js';
+import { preprocess } from './parsers/preprocessor.js';
 
 const process = (db, result, options) => {
   if (!options) {
@@ -327,7 +328,8 @@ class Database {
   }
 
   async setViews(path) {
-    const sql = await readSql(path);
+    let sql = await readSql(path);
+    sql = preprocess(sql, this.tables);
     const views = getViews(sql, this);
     for (const view of views) {
       this.viewSet.add(view.name);

@@ -11,6 +11,17 @@ const capitalize = (word) => word[0].toUpperCase() + word.substring(1);
 
 const definitions = await readFile(new URL('../../interfaces.d.ts', import.meta.url), 'utf8');
 
+let i = 1;
+
+const typeSet = new Set();
+typeSet.add('database');
+typeSet.add('typeddb');
+
+const matches = definitions.matchAll(/^export interface (?<name>[a-z0-9_]+)/gmi);
+for (const match of matches) {
+  typeSet.add(match.groups.name.toLowerCase());
+}
+
 const typeMap = {
   integer: 'number',
   real: 'number',
@@ -242,6 +253,15 @@ const parseParams = (sql) => {
   return Object.keys(params);
 }
 
+const makeUnique = (name) => {
+  if (typeSet.has(name)) {
+    name = `${name}${i}`;
+    i++;
+  }
+  typeSet.add(name);
+  return name;
+}
+
 const getQueries = async (db, sqlDir, tableName) => {
   const path = join(sqlDir, tableName);
   let fileNames;
@@ -289,7 +309,7 @@ const getQueries = async (db, sqlDir, tableName) => {
       });
       continue;
     }
-    const interfaceName = capitalize(tableName) + capitalize(queryName);
+    const interfaceName = makeUnique(capitalize(tableName) + capitalize(queryName));
     let interfaceString = `export interface ${interfaceName} {\n`;
     const sample = {};
     for (const column of columns) {
@@ -361,8 +381,8 @@ const getQueries = async (db, sqlDir, tableName) => {
       params
     });
   }
-  const multipleInterfaceName = capitalize(tableName) + 'Queries';
-  const singularInterfaceName = capitalize(pluralize.singular(tableName)) + 'Queries';
+  const multipleInterfaceName = makeUnique(capitalize(tableName) + 'Queries');
+  const singularInterfaceName = makeUnique(capitalize(pluralize.singular(tableName)) + 'Queries');
   let multipleInterfaceString = `export interface ${multipleInterfaceName} {\n`;
   let singularInterfaceString = `export interface ${singularInterfaceName} {\n`;
   for (const query of parsedQueries) {
@@ -404,6 +424,9 @@ const createTypes = async (options) => {
     sqlDir,
     destinationPath
   } = options;
+  for (const name of Object.keys(db.interfaces)) {
+    typeSet.add(name);
+  }
   const tables = Object.entries(db.tables).map(([key, value]) => ({ name: key, columns: value }));
   let types = '';
   if (/\.d\.ts/.test(destinationPath)) {
@@ -418,7 +441,10 @@ const createTypes = async (options) => {
   const returnTypes = [];
   for (const table of tables) {
     const singular = pluralize.singular(table.name);
-    const interfaceName = capitalize(singular);
+    const capitalized = capitalize(singular);
+    const interfaceName = makeUnique(capitalized);
+    const insertInterfaceName = makeUnique(`Insert${interfaceName}`);
+    const whereInterfaceName = makeUnique(`Where${interfaceName}`);
     const multipleTableName = table.name;
     const singularTableName = singular;
     let multipleReturnType;
@@ -435,16 +461,16 @@ const createTypes = async (options) => {
       tsType = 'undefined';
     }
     if (db.viewSet.has(table.name)) {
-      multipleReturnType = `  ${multipleTableName}: Pick<MultipleQueries<${interfaceName}, Insert${interfaceName}, Where${interfaceName}>, "get">`;
-      singularReturnType = `  ${singularTableName}: Pick<SingularQueries<${interfaceName}, Insert${interfaceName}, Where${interfaceName}, ${tsType}>, "get">`;
+      multipleReturnType = `  ${multipleTableName}: Pick<MultipleQueries<${interfaceName}, ${insertInterfaceName}, ${whereInterfaceName}>, "get">`;
+      singularReturnType = `  ${singularTableName}: Pick<SingularQueries<${interfaceName}, ${insertInterfaceName}, ${whereInterfaceName}, ${tsType}>, "get">`;
     }
     else if (db.virtualSet.has(table.name)) {
-      multipleReturnType = `  ${multipleTableName}: MultipleVirtualQueries<${interfaceName}, Where${interfaceName}>`;
-      singularReturnType = `  ${singularTableName}: SingularVirtualQueries<${interfaceName}, Where${interfaceName}>`;
+      multipleReturnType = `  ${multipleTableName}: MultipleVirtualQueries<${interfaceName}, ${whereInterfaceName}>`;
+      singularReturnType = `  ${singularTableName}: SingularVirtualQueries<${interfaceName}, ${whereInterfaceName}>`;
     }
     else {
-      multipleReturnType = `  ${multipleTableName}: MultipleQueries<${interfaceName}, Insert${interfaceName}, Where${interfaceName}>`;
-      singularReturnType = `  ${singularTableName}: SingularQueries<${interfaceName}, Insert${interfaceName}, Where${interfaceName}, ${tsType}>`;
+      multipleReturnType = `  ${multipleTableName}: MultipleQueries<${interfaceName}, ${insertInterfaceName}, ${whereInterfaceName}>`;
+      singularReturnType = `  ${singularTableName}: SingularQueries<${interfaceName}, ${insertInterfaceName}, ${whereInterfaceName}, ${tsType}>`;
     }
     let queries;
     if (sqlDir) {
@@ -469,7 +495,7 @@ const createTypes = async (options) => {
       types += property;
     }
     types += '}\n\n';
-    types += `export interface Insert${interfaceName} {\n`;
+    types += `export interface ${insertInterfaceName} {\n`;
     for (const column of table.columns) {
       const { name, type, primaryKey, notNull, hasDefault } = column;
       const tsType = toTsType({
