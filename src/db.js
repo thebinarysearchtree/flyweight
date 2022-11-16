@@ -1,9 +1,9 @@
 import sqlite3 from 'sqlite3';
 import { parse, toValues } from './parsers.js';
 import { mapOne, mapMany } from './map.js';
-import { getTables, getViews, getVirtual } from './parsers/tables.js';
+import { getTables, getViews, getVirtual } from './sqlParsers/tables.js';
 import { makeClient } from './proxy.js';
-import { parseInterfaces } from './parsers/interfaces.js';
+import { parseInterfaces } from './sqlParsers/interfaces.js';
 import { getConverter } from './json.js';
 import { 
   getExtensions, 
@@ -12,7 +12,7 @@ import {
   getTablesText, 
   getViewsText 
 } from './file.js';
-import { preprocess } from './parsers/preprocessor.js';
+import { preprocess } from './sqlParsers/preprocessor.js';
 
 const process = (db, result, options) => {
   if (!options) {
@@ -215,8 +215,9 @@ class Database {
   }
 
   async createDatabase(options) {
+    const serialize = options ? options.serialize : false;
     const db = new sqlite3.Database(this.config.db);
-    if (options?.serialize) {
+    if (serialize) {
       db.serialize();
     }
     this.enableForeignKeys(db);
