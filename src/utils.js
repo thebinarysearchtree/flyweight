@@ -113,6 +113,5 @@ export {
   makeTypes,
   getTables,
   createMigration,
-  runMigration,
-  convertTables
+  runMigration
 }

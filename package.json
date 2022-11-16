@@ -15,5 +15,8 @@
     "pluralize": "8.0.0",
     "sqlite3": "5.1.2",
     "node-fetch": "3.2.10"
+  },
+  "bin": {
+    "flyweightjs": "./src/cli.js"
   }
 }
