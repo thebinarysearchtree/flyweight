@@ -142,7 +142,7 @@ class Database {
     this.extensions = null;
     this.databases = [];
     this.virtualSet = new Set();
-    this.interfaces = null;
+    this.interfaces = {};
     this.registerTypes([
       {
         name: 'boolean',
