@@ -1,4 +1,4 @@
-import Database from 'flyweightjs';
+import { Database } from 'flyweightjs';
 
 export interface Keywords<T> {
   select: T;
@@ -735,6 +735,7 @@ export interface TypedDb {
 
 declare const database: Database;
 declare const db: TypedDb;
+export function makeTypes(options?: { watch: true }): Promise<void>;
 export function getTables(): Promise<string>;
 export function createMigration(name: string): Promise<void>;
 export function runMigration(name: string): Promise<void>;

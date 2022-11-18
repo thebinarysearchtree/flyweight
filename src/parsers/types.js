@@ -13,13 +13,7 @@ const definitions = await readFile(new URL('../../interfaces.d.ts', import.meta.
 
 let i = 1;
 
-const typeSet = new Set();
-typeSet.add('database');
-
-const matches = definitions.matchAll(/^export interface (?<name>[a-z0-9_]+)/gmi);
-for (const match of matches) {
-  typeSet.add(match.groups.name.toLowerCase());
-}
+let typeSet;
 
 const typeMap = {
   integer: 'number',
@@ -221,6 +215,10 @@ const toTsType = (column, customTypes, parsedInterfaces) => {
       tsType = typeMap[type];
     }
     else {
+      const customType = customTypes[type];
+      if (!customType) {
+        throw Error(`The type "${type}" has not been registered.`);
+      }
       tsType = customTypes[type].tsType;
     }
   }
@@ -425,13 +423,19 @@ const createTypes = async (options) => {
     sqlDir,
     destinationPath
   } = options;
+  typeSet = new Set();
+  typeSet.add('database');
+  const matches = definitions.matchAll(/^export interface (?<name>[a-z0-9_]+)/gmi);
+  for (const match of matches) {
+    typeSet.add(match.groups.name.toLowerCase());
+  }
   for (const name of Object.keys(db.interfaces)) {
     typeSet.add(name);
   }
   const tables = Object.entries(db.tables).map(([key, value]) => ({ name: key, columns: value }));
   let types = '';
   if (/\.d\.ts/.test(destinationPath)) {
-    types += `import Database from 'flyweightjs';\n\n`;
+    types += `import { Database } from 'flyweightjs';\n\n`;
   }
   types += definitions;
   types += '\n\n';
@@ -567,6 +571,7 @@ const createTypes = async (options) => {
   if (/\.d\.ts/.test(destinationPath)) {
     types += `declare const database: Database;\n`;
     types += `declare const db: ${interfaceName};\n`;
+    types += 'export function makeTypes(options?: { watch: true }): Promise<void>;\n';
     types += 'export function getTables(): Promise<string>;\n';
     types += 'export function createMigration(name: string): Promise<void>;\n';
     types += 'export function runMigration(name: string): Promise<void>;\n\n';

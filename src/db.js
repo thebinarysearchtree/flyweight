@@ -233,9 +233,9 @@ class Database {
           try {
             await run();
           }
-          catch {
+          catch (e) {
             if (path) {
-              console.log(`Error trying to parse ${path}`);
+              console.log(`Error trying to parse ${path}: ${e.message}`);
             }
           }
         }
