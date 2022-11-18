@@ -323,12 +323,18 @@ class Database {
 
   async setTables(path) {
     const sql = await readSql(path);
+    if (!sql.trim()) {
+      return;
+    }
     const tables = getTables(sql);
     this.addTables(tables);
   }
 
   async setViews(path) {
     let sql = await readSql(path);
+    if (!sql.trim()) {
+      return;
+    }
     sql = preprocess(sql, this.tables);
     const views = getViews(sql, this);
     for (const view of views) {
@@ -339,6 +345,9 @@ class Database {
 
   async setVirtual(path) {
     const sql = await readSql(path);
+    if (!sql.trim()) {
+      return;
+    }
     const tables = getVirtual(sql);
     this.addTables(tables);
     for (const table of tables) {
