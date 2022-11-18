@@ -15,7 +15,6 @@ let i = 1;
 
 const typeSet = new Set();
 typeSet.add('database');
-typeSet.add('typeddb');
 
 const matches = definitions.matchAll(/^export interface (?<name>[a-z0-9_]+)/gmi);
 for (const match of matches) {
