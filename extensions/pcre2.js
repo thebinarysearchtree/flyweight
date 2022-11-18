@@ -1,5 +1,4 @@
 import { execSync } from 'child_process';
-import fetch from 'node-fetch';
 import { readdir } from 'fs/promises';
 import { createWriteStream } from 'fs';
 import { pipeline } from 'stream/promises';
