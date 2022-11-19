@@ -65,11 +65,11 @@ const processObjectStar = (sql, tables) => {
 const objectStar = (sql, tables) => {
   const fragments = [];
   const blanked = blank(sql);
-  const [start, end] = /^\s*select\s+(distinct\s)?(?<select>.+?)\s+from\s+.+$/gmids
-    .exec(blanked)
-    .indices
-    .groups
-    .select;
+  const match = /^\s*select\s+(distinct\s)?(?<select>.+?)\s+from\s+.+$/gmids.exec(blanked);
+  if (!match) {
+    return sql;
+  }
+  const [start, end] = match.indices.groups.select;
   const select = sql.substring(start, end);
   const blankedSelect = blank(select, { stringsOnly: true });
   let lastEnd = 0;
@@ -104,12 +104,15 @@ const objectStar = (sql, tables) => {
 const expandStar = (sql, tables) => {
   const fragments = [];
   const columns = parseQuery(sql, tables);
+  if (!columns) {
+    return sql;
+  }
   const blanked = blank(sql);
-  const [start, end] = /^\s*select\s+(distinct\s)?(?<select>.+?)\s+from\s+.+$/gmids
-    .exec(blanked)
-    .indices
-    .groups
-    .select;
+  const match = /^\s*select\s+(distinct\s)?(?<select>.+?)\s+from\s+.+$/gmids.exec(blanked);
+  if (!match) {
+    return sql;
+  }
+  const [start, end] = match.indices.groups.select;
   const select = sql.substring(start, end);
   const matches = blank(select).matchAll(/(?<statement>[^,]+)(,|$)/gmd);
   let lastEnd = 0;
@@ -140,7 +143,7 @@ const expandStar = (sql, tables) => {
           adjusted = column.name;
           duplicates.add(column.name);
         }
-        const statement = tableAlias ? `${tableAlias}.${adjusted}` : adjusted;
+        const statement = tableAlias ? `${tableAlias}.${column.name} as ${adjusted}` : `${column.name} as ${adjusted}`;
         expanded.push(statement);
       }
       fragments.push(expanded.join(', '));

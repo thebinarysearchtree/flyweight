@@ -56,7 +56,11 @@ const getViews = (sql, db) => {
     const name = match.groups.viewName;
     const [start, end] = match.indices.groups.select;
     const selectSql = sql.substring(start, end);
-    const columns = parseQuery(selectSql, db.tables).map(column => {
+    const parsed = parseQuery(selectSql, db.tables);
+    if (!parsed) {
+      continue;
+    }
+    const columns = parsed.map(column => {
       const { name, type, primaryKey, foreign, notNull, isOptional } = column;
       return {
         name,

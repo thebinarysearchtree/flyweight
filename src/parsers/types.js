@@ -283,6 +283,9 @@ const getQueries = async (db, sqlDir, tableName) => {
     let columns;
     try {
       columns = parseQuery(sql, db.tables);
+      if (!columns) {
+        throw Error('Error parsing query.');
+      }
     }
     catch {
       parsedQueries.push({
