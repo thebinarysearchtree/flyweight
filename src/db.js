@@ -241,7 +241,7 @@ class Database {
         }
         await watchRun();
         const paths = [sql, tables, views].filter(p => p !== undefined);
-        watch(paths)
+        watch(paths, { ignoreInitial: true })
           .on('add', watchRun)
           .on('change', watchRun);
       }

@@ -11,10 +11,6 @@ const capitalize = (word) => word[0].toUpperCase() + word.substring(1);
 
 const definitions = await readFile(new URL('../../interfaces.d.ts', import.meta.url), 'utf8');
 
-let i = 1;
-
-let typeSet;
-
 const typeMap = {
   integer: 'number',
   real: 'number',
@@ -250,7 +246,7 @@ const parseParams = (sql) => {
   return Object.keys(params);
 }
 
-const makeUnique = (name) => {
+const makeUnique = (name, typeSet, i) => {
   if (typeSet.has(name)) {
     name = `${name}${i}`;
     i++;
@@ -261,7 +257,7 @@ const makeUnique = (name) => {
   return name;
 }
 
-const getQueries = async (db, sqlDir, tableName) => {
+const getQueries = async (db, sqlDir, tableName, typeSet, i) => {
   const path = join(sqlDir, tableName);
   let fileNames;
   try {
@@ -311,7 +307,7 @@ const getQueries = async (db, sqlDir, tableName) => {
       });
       continue;
     }
-    const interfaceName = makeUnique(capitalize(tableName) + capitalize(queryName));
+    const interfaceName = makeUnique(capitalize(tableName) + capitalize(queryName), typeSet, i);
     let interfaceString = `export interface ${interfaceName} {\n`;
     const sample = {};
     for (const column of columns) {
@@ -361,7 +357,7 @@ const getQueries = async (db, sqlDir, tableName) => {
       keys.push(arrayName);
       interfaceString += makeProperties(sliced);
       const result = getMappedTypes(sample, primaryKeys.slice(1), subInterfaces, [...keys]);
-      const subInterfaceName = interfaceName + keys.map(k => capitalize(k)).join('');
+      const subInterfaceName = makeUnique(interfaceName + keys.map(k => capitalize(k)).join(''), typeSet, i);
       const subInterface = `export interface ${subInterfaceName} {\n${result}};`;
       subInterfaces.push(subInterface);
       interfaceString += `  ${arrayName}: Array<${subInterfaceName}>;\n`;
@@ -383,8 +379,8 @@ const getQueries = async (db, sqlDir, tableName) => {
       params
     });
   }
-  const multipleInterfaceName = makeUnique(capitalize(tableName) + 'Queries');
-  const singularInterfaceName = makeUnique(capitalize(pluralize.singular(tableName)) + 'Queries');
+  const multipleInterfaceName = makeUnique(capitalize(tableName) + 'Queries', typeSet, i);
+  const singularInterfaceName = makeUnique(capitalize(pluralize.singular(tableName)) + 'Queries', typeSet, i);
   let multipleInterfaceString = `export interface ${multipleInterfaceName} {\n`;
   let singularInterfaceString = `export interface ${singularInterfaceName} {\n`;
   for (const query of parsedQueries) {
@@ -426,8 +422,9 @@ const createTypes = async (options) => {
     sqlDir,
     destinationPath
   } = options;
-  typeSet = new Set();
+  const typeSet = new Set();
   typeSet.add('database');
+  let i = 1;
   const matches = definitions.matchAll(/^export interface (?<name>[a-z0-9_]+)/gmi);
   for (const match of matches) {
     typeSet.add(match.groups.name.toLowerCase());
@@ -450,9 +447,9 @@ const createTypes = async (options) => {
   for (const table of tables) {
     const singular = pluralize.singular(table.name);
     const capitalized = capitalize(singular);
-    const interfaceName = makeUnique(capitalized);
-    const insertInterfaceName = makeUnique(`Insert${interfaceName}`);
-    const whereInterfaceName = makeUnique(`Where${interfaceName}`);
+    const interfaceName = makeUnique(capitalized, typeSet, i);
+    const insertInterfaceName = makeUnique(`Insert${interfaceName}`, typeSet, i);
+    const whereInterfaceName = makeUnique(`Where${interfaceName}`, typeSet, i);
     const multipleTableName = table.name;
     const singularTableName = singular;
     let multipleReturnType;
@@ -482,7 +479,7 @@ const createTypes = async (options) => {
     }
     let queries;
     if (sqlDir) {
-      queries = await getQueries(db, sqlDir, table.name);
+      queries = await getQueries(db, sqlDir, table.name, typeSet, i);
       if (queries) {
         multipleReturnType += ` & ${queries.multipleInterfaceName}`;
         singularReturnType += ` & ${queries.singularInterfaceName}`;
@@ -522,7 +519,7 @@ const createTypes = async (options) => {
       types += property;
     }
     types += '}\n\n';
-    types += `export interface Where${interfaceName} {\n`;
+    types += `export interface ${whereInterfaceName} {\n`;
     for (const column of table.columns) {
       const { name, type, primaryKey, notNull } = column;
       const tsType = toTsType({
