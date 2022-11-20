@@ -8,7 +8,6 @@ import { getFragments } from './parsers/tables.js';
 import { blank } from './parsers/utils.js';
 import { makeClient } from './proxy.js';
 import { createTypes } from './parsers/types.js';
-import { watch } from 'chokidar';
 import { migrate } from './migrations.js';
 import { join } from 'path';
 import { parseInterfaces } from './parsers/interfaces.js';
@@ -218,36 +217,14 @@ class Database {
       }
     }
     const client = makeClient(this, sql);
-    const makeTypes = async (options) => {
-      const run = async () => {
-        await createTypes({
-          db: this,
-          sqlDir: sql,
-          destinationPath: types,
-          interfaceName,
-          interfaces: interfaceFile
-        });
-      }
-      if (options && options.watch) {
-        const watchRun = async (path) => {
-          try {
-            await run();
-          }
-          catch (e) {
-            if (path) {
-              console.log(`Error trying to parse ${path}: ${e.message}`);
-            }
-          }
-        }
-        await watchRun();
-        const paths = [sql, tables, views].filter(p => p !== undefined);
-        watch(paths, { ignoreInitial: true })
-          .on('add', watchRun)
-          .on('change', watchRun);
-      }
-      else {
-        await run();
-      }
+    const makeTypes = async () => {
+      await createTypes({
+        db: this,
+        sqlDir: sql,
+        destinationPath: types,
+        interfaceName,
+        interfaces: interfaceFile
+      });
     }
     const getTables = async () => {
       const sql = await readFile(tables, 'utf8');

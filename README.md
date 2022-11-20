@@ -223,13 +223,7 @@ After you have done this:
 await makeTypes();
 ```
 
-or as 
-
-```js
-await makeTypes({ watch: true });
-``` 
-
-if you want it to stay open and run every time a SQL file is changed. This should create a ```db.d.ts``` file that will type the exported ```db``` variable.
+This should create a ```db.d.ts``` file that will type the exported ```db``` variable.
 
 For TypeScript, create a file with the following code:
 
