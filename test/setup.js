@@ -1,13 +1,21 @@
 import { execSync } from 'child_process';
 import { readdir } from 'fs/promises';
 import { chdir } from 'process';
+import { createWriteStream } from 'fs';
+import { pipeline } from 'stream/promises';
+import { join } from 'path';
 
 const exec = (command) => execSync(command, { stdio: 'inherit' });
 
 const getDatabase = async () => {
-  const filenames = await readdir(new URL('databases', import.meta.url));
+  const folder = new URL('databases', import.meta.url); 
+  const filenames = await readdir(folder);
   if (!filenames.includes('test.db')) {
-    exec('cp ../test.db ./databases/.');
+    console.log('Downloading database.');
+    const res = await fetch('https://github.com/thebinarysearchtree/flyweight/raw/4b24a1882de3deb8077ef1333310cfde939c3149/test.db');
+    const path = join(folder, 'test.db');
+    const file = createWriteStream(path);
+    await pipeline(res.body, file);
   }
 }
 
