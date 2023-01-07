@@ -571,7 +571,7 @@ const createTypes = async (options) => {
   if (/\.d\.ts/.test(destinationPath)) {
     types += `declare const database: Database;\n`;
     types += `declare const db: ${interfaceName};\n`;
-    types += 'export function makeTypes(options?: { watch: true }): Promise<void>;\n';
+    types += 'export function makeTypes(): Promise<void>;\n';
     types += 'export function getTables(): Promise<string>;\n';
     types += 'export function createMigration(name: string): Promise<void>;\n';
     types += 'export function runMigration(name: string): Promise<void>;\n\n';
