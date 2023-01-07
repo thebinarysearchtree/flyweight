@@ -1,6 +1,49 @@
-import Database from 'flyweightjs';
+interface QueryOptions {
+  parse: boolean;
+}
 
-export interface Keywords<T> {
+interface CustomType {
+  name: string;
+  valueTest?: (v: any) => boolean;
+  makeConstraint?: (column: string) => string;
+  dbToJs?: (v: any) => any;
+  jsToDb?: (v: any) => any;
+  tsType: string;
+  dbType: string;
+}
+
+interface Paths {
+  db: string | URL;
+  sql?: string | URL;
+  tables: string | URL;
+  views?: string | URL;
+  types?: string | URL;
+  migrations?: string | URL;
+  extensions?: string | URL | Array<string | URL>;
+}
+
+interface Initialize<T> {
+  db: T;
+  makeTypes(): Promise<void>;
+  getTables(): Promise<string>;
+  createMigration(name: string): Promise<void>;
+  runMigration(name: string): Promise<void>;
+}
+
+class Database {
+  constructor();
+  initialize<T>(paths: Paths, interfaceName?: string): Promise<Initialize<T>>;
+  registerTypes(customTypes: Array<CustomType>): void;
+  begin(): Promise<void>;
+  commit(): Promise<void>;
+  rollback(): Promise<void>;
+  run(query: any, params?: any): Promise<number>;
+  all<T>(query: any, params?: any, options?: QueryOptions): Promise<Array<T>>;
+  exec(query: string): Promise<void>;
+  close(): Promise<void>;
+}
+
+interface Keywords<T> {
   select: T;
   orderBy?: Array<string> | string;
   desc?: boolean;
@@ -9,7 +52,7 @@ export interface Keywords<T> {
   distinct?: boolean;
 }
 
-export interface KeywordsWithExclude<T> {
+interface KeywordsWithExclude<T> {
   exclude: T;
   orderBy?: Array<string> | string;
   desc?: boolean;
@@ -18,7 +61,7 @@ export interface KeywordsWithExclude<T> {
   distinct?: boolean;
 }
 
-export interface KeywordsWithoutSelect {
+interface KeywordsWithoutSelect {
   orderBy?: Array<string> | string;
   desc?: boolean;
   limit?: number;
@@ -26,12 +69,12 @@ export interface KeywordsWithoutSelect {
   distinct?: boolean;
 }
 
-export interface KeywordsWithCount {
+interface KeywordsWithCount {
   distinct?: boolean;
   count: true;
 }
 
-export interface VirtualKeywordsSelect<T, K> {
+interface VirtualKeywordsSelect<T, K> {
   select: K;
   rank?: true;
   bm25?: Record<keyof Omit<T, "rowid">, number>;
@@ -39,7 +82,7 @@ export interface VirtualKeywordsSelect<T, K> {
   offset?: number;
 }
 
-export interface VirtualKeywordsHighlight<T> {
+interface VirtualKeywordsHighlight<T> {
   rank?: true;
   bm25?: Record<keyof Omit<T, "rowid">, number>;
   highlight: { column: keyof T, tags: [string, string] };
@@ -47,7 +90,7 @@ export interface VirtualKeywordsHighlight<T> {
   offset?: number;
 }
 
-export interface VirtualKeywordsSnippet<T> {
+interface VirtualKeywordsSnippet<T> {
   rank?: true;
   bm25?: Record<keyof Omit<T, "rowid">, number>;
   snippet: { column: keyof T, tags: [string, string], trailing: string, tokens: number };
@@ -55,7 +98,7 @@ export interface VirtualKeywordsSnippet<T> {
   offset?: number;
 }
 
-export interface SingularVirtualQueries<T, W> {
+interface SingularVirtualQueries<T, W> {
   [key: string]: any;
   get(params?: W | null): Promise<T | undefined>;
   get<K extends keyof T>(params: W | null, column: K): Promise<T[K] | undefined>;
@@ -64,7 +107,7 @@ export interface SingularVirtualQueries<T, W> {
   get(params: W | null, keywords: VirtualKeywordsSnippet<T>): Promise<{ id: number, snippet: string } | undefined>;
 }
 
-export interface MultipleVirtualQueries<T, W> {
+interface MultipleVirtualQueries<T, W> {
   [key: string]: any;
   get(params?: W): Promise<Array<T>>;
   get<K extends keyof T>(params: W | null, columns: K[]): Promise<Array<Pick<T, K>>>;
@@ -74,7 +117,7 @@ export interface MultipleVirtualQueries<T, W> {
   get(params: W | null, keywords: VirtualKeywordsSnippet<T>): Promise<Array<{ id: number, snippet: string }>>;
 }
 
-export interface SingularQueries<T, I, W, R> {
+interface SingularQueries<T, I, W, R> {
   [key: string]: any;
   insert(params: I): Promise<R>;
   update(query: W | null, params: Partial<T>): Promise<number>;
@@ -89,7 +132,7 @@ export interface SingularQueries<T, I, W, R> {
   remove(params?: W): Promise<number>;
 }
 
-export interface MultipleQueries<T, I, W> {
+interface MultipleQueries<T, I, W> {
   [key: string]: any;
   insert(params: Array<I>): Promise<void>;
   update(query: W | null, params: Partial<T>): Promise<number>;
@@ -104,12 +147,12 @@ export interface MultipleQueries<T, I, W> {
   remove(params?: W): Promise<number>;
 }
 
-export interface Social {
+interface Social {
   instagram?: string;
   twitter?: string;
 }
 
-export interface Profile {
+interface Profile {
   medical: {
     age: number;
     fit: boolean;
@@ -121,28 +164,28 @@ export interface Profile {
   tests: Array<{ id: number, testDate: Date, result: number }>
 }
 
-export interface WeightClass {
+interface WeightClass {
   id: number;
   name: string;
   weightLbs: number;
   gender: string;
 }
 
-export interface InsertWeightClass {
+interface InsertWeightClass {
   id?: number;
   name: string;
   weightLbs: number;
   gender: string;
 }
 
-export interface WhereWeightClass {
+interface WhereWeightClass {
   id?: number | Array<number>;
   name?: string | Array<string> | RegExp;
   weightLbs?: number | Array<number>;
   gender?: string | Array<string> | RegExp;
 }
 
-export interface Location {
+interface Location {
   id: number;
   name: string;
   address: string;
@@ -150,7 +193,7 @@ export interface Location {
   long: number;
 }
 
-export interface InsertLocation {
+interface InsertLocation {
   id?: number;
   name: string;
   address: string;
@@ -158,7 +201,7 @@ export interface InsertLocation {
   long: number;
 }
 
-export interface WhereLocation {
+interface WhereLocation {
   id?: number | Array<number>;
   name?: string | Array<string> | RegExp;
   address?: string | Array<string> | RegExp;
@@ -166,97 +209,97 @@ export interface WhereLocation {
   long?: number | Array<number>;
 }
 
-export interface LocationsByMethod {
+interface LocationsByMethod {
   id: number;
   name: string;
   count: number;
 }
 
-export interface LocationsEventsEvents {
+interface LocationsEventsEvents {
   id: number;
   name: string;
   startTime: Date;
 };
 
-export interface LocationsEvents {
+interface LocationsEvents {
   id: number;
   name: string;
   events: Array<LocationsEventsEvents>;
 }
 
-export interface LocationsWinners {
+interface LocationsWinners {
   location: string;
   fighter: string;
   wins: number;
 }
 
-export interface LocationsQueries {
+interface LocationsQueries {
   byMethod(params: { id: any; }): Promise<Array<LocationsByMethod>>;
   events(): Promise<Array<LocationsEvents>>;
   winners(): Promise<Array<LocationsWinners>>;
 }
 
-export interface LocationQueries {
+interface LocationQueries {
   byMethod(params: { id: any; }): Promise<LocationsByMethod | undefined>;
   events(): Promise<LocationsEvents | undefined>;
   winners(): Promise<LocationsWinners | undefined>;
 }
 
-export interface Event {
+interface Event {
   id: number;
   name: string;
   startTime: Date;
   locationId: number | null;
 }
 
-export interface InsertEvent {
+interface InsertEvent {
   id?: number;
   name: string;
   startTime: Date;
   locationId?: number;
 }
 
-export interface WhereEvent {
+interface WhereEvent {
   id?: number | Array<number>;
   name?: string | Array<string> | RegExp;
   startTime?: Date | Array<Date> | RegExp;
   locationId?: number | Array<number> | null;
 }
 
-export interface EventsGetByIdCardsFights {
+interface EventsGetByIdCardsFights {
   id: number;
   blue: { id: number, name: string, social: Social | null };
   red: { id: number, name: string, social: Social | null };
 };
 
-export interface EventsGetByIdCards {
+interface EventsGetByIdCards {
   id: number;
   cardName: string;
   fights: Array<EventsGetByIdCardsFights>;
 };
 
-export interface EventsGetById {
+interface EventsGetById {
   id: number;
   name: string;
   cards: Array<EventsGetByIdCards>;
 }
 
-export interface EventsTest {
+interface EventsTest {
   id: number;
   nest: { name: string, startTime: Date };
 }
 
-export interface EventsQueries {
+interface EventsQueries {
   getById(params: { id: any; }): Promise<Array<EventsGetById>>;
   test(): Promise<Array<EventsTest>>;
 }
 
-export interface EventQueries {
+interface EventQueries {
   getById(params: { id: any; }): Promise<EventsGetById | undefined>;
   test(): Promise<EventsTest | undefined>;
 }
 
-export interface Card {
+interface Card {
   id: number;
   eventId: number;
   cardName: string;
@@ -264,7 +307,7 @@ export interface Card {
   startTime: Date | null;
 }
 
-export interface InsertCard {
+interface InsertCard {
   id?: number;
   eventId: number;
   cardName: string;
@@ -272,7 +315,7 @@ export interface InsertCard {
   startTime?: Date;
 }
 
-export interface WhereCard {
+interface WhereCard {
   id?: number | Array<number>;
   eventId?: number | Array<number>;
   cardName?: string | Array<string> | RegExp;
@@ -280,28 +323,28 @@ export interface WhereCard {
   startTime?: Date | Array<Date> | RegExp | null;
 }
 
-export interface Coach {
+interface Coach {
   id: number;
   name: string;
   city: string;
   profile: Profile | null;
 }
 
-export interface InsertCoach {
+interface InsertCoach {
   id?: number;
   name: string;
   city: string;
   profile?: Profile;
 }
 
-export interface WhereCoach {
+interface WhereCoach {
   id?: number | Array<number>;
   name?: string | Array<string> | RegExp;
   city?: string | Array<string> | RegExp;
   profile?: Profile | Array<Profile> | RegExp | null;
 }
 
-export interface Fighter {
+interface Fighter {
   id: number;
   name: string;
   nickname: string | null;
@@ -313,7 +356,7 @@ export interface Fighter {
   isActive: boolean;
 }
 
-export interface InsertFighter {
+interface InsertFighter {
   id?: number;
   name: string;
   nickname?: string;
@@ -325,7 +368,7 @@ export interface InsertFighter {
   isActive: boolean;
 }
 
-export interface WhereFighter {
+interface WhereFighter {
   id?: number | Array<number>;
   name?: string | Array<string> | RegExp;
   nickname?: string | Array<string> | RegExp | null;
@@ -337,7 +380,7 @@ export interface WhereFighter {
   isActive?: boolean | Array<boolean>;
 }
 
-export interface FightersCommon {
+interface FightersCommon {
   red: { id: number, name: string };
   blue: { id: number, name: string };
   winnerId: number | null;
@@ -346,44 +389,44 @@ export interface FightersCommon {
   event: { id: number, name: string, date: Date };
 }
 
-export interface FightersLastFights {
+interface FightersLastFights {
   name: string;
   dates: Array<Date>;
 }
 
-export interface FightersLeft {
+interface FightersLeft {
   id: number;
   winnerId: number | null;
   winnerName: string | null;
 }
 
-export interface FightersMethods {
+interface FightersMethods {
   method: string;
   count: number;
 }
 
-export interface FightersOpponents {
+interface FightersOpponents {
   opponentId: number;
   name: string;
 }
 
-export interface FightersOtherNames {
+interface FightersOtherNames {
   name: string;
   otherNames: Array<string>;
 }
 
-export interface FightersRight {
+interface FightersRight {
   id: number;
   winnerId: number;
   winnerName: string;
 }
 
-export interface FightersWeightClasses {
+interface FightersWeightClasses {
   name: string;
   weightClasses: Array<{ id: number, name: string, test: boolean, nest: { id: number, age: boolean } }>;
 }
 
-export interface FightersQueries {
+interface FightersQueries {
   common(params: { fighter1: any; fighter2: any; }): Promise<Array<FightersCommon>>;
   instagram(): Promise<Array<string | null>>;
   lastFights(params: { id: any; }): Promise<Array<FightersLastFights>>;
@@ -395,7 +438,7 @@ export interface FightersQueries {
   weightClasses(params: { fighterId: any; }): Promise<Array<FightersWeightClasses>>;
 }
 
-export interface FighterQueries {
+interface FighterQueries {
   common(params: { fighter1: any; fighter2: any; }): Promise<FightersCommon | undefined>;
   instagram(): Promise<string | null | undefined>;
   lastFights(params: { id: any; }): Promise<FightersLastFights | undefined>;
@@ -407,25 +450,25 @@ export interface FighterQueries {
   weightClasses(params: { fighterId: any; }): Promise<FightersWeightClasses | undefined>;
 }
 
-export interface OtherName {
+interface OtherName {
   id: number;
   fighterId: number;
   name: string;
 }
 
-export interface InsertOtherName {
+interface InsertOtherName {
   id?: number;
   fighterId: number;
   name: string;
 }
 
-export interface WhereOtherName {
+interface WhereOtherName {
   id?: number | Array<number>;
   fighterId?: number | Array<number>;
   name?: string | Array<string> | RegExp;
 }
 
-export interface FighterCoach {
+interface FighterCoach {
   id: number;
   coachId: number;
   fighterId: number;
@@ -433,7 +476,7 @@ export interface FighterCoach {
   endDate: string | null;
 }
 
-export interface InsertFighterCoach {
+interface InsertFighterCoach {
   id?: number;
   coachId: number;
   fighterId: number;
@@ -441,7 +484,7 @@ export interface InsertFighterCoach {
   endDate?: string;
 }
 
-export interface WhereFighterCoach {
+interface WhereFighterCoach {
   id?: number | Array<number>;
   coachId?: number | Array<number>;
   fighterId?: number | Array<number>;
@@ -449,7 +492,7 @@ export interface WhereFighterCoach {
   endDate?: string | Array<string> | RegExp | null;
 }
 
-export interface Ranking {
+interface Ranking {
   id: number;
   fighterId: number;
   weightClassId: number;
@@ -457,7 +500,7 @@ export interface Ranking {
   isInterim: boolean;
 }
 
-export interface InsertRanking {
+interface InsertRanking {
   id?: number;
   fighterId: number;
   weightClassId: number;
@@ -465,7 +508,7 @@ export interface InsertRanking {
   isInterim: boolean;
 }
 
-export interface WhereRanking {
+interface WhereRanking {
   id?: number | Array<number>;
   fighterId?: number | Array<number>;
   weightClassId?: number | Array<number>;
@@ -473,49 +516,49 @@ export interface WhereRanking {
   isInterim?: boolean | Array<boolean>;
 }
 
-export interface Method {
+interface Method {
   id: number;
   name: string;
   abbreviation: string;
 }
 
-export interface InsertMethod {
+interface InsertMethod {
   id?: number;
   name: string;
   abbreviation: string;
 }
 
-export interface WhereMethod {
+interface WhereMethod {
   id?: number | Array<number>;
   name?: string | Array<string> | RegExp;
   abbreviation?: string | Array<string> | RegExp;
 }
 
-export interface MethodsByFighter {
+interface MethodsByFighter {
   method: string;
   count: number;
 }
 
-export interface MethodsCoach {
+interface MethodsCoach {
   fit: boolean;
   test: Date;
   tests: Array<{ id: number, testDate: Date, result: number }>;
   profile: Profile;
 }
 
-export interface MethodsQueries {
+interface MethodsQueries {
   byFighter(params: { fighterId: any; }): Promise<Array<MethodsByFighter>>;
   coach(): Promise<Array<MethodsCoach>>;
   topSubmission(): Promise<Array<string | null>>;
 }
 
-export interface MethodQueries {
+interface MethodQueries {
   byFighter(params: { fighterId: any; }): Promise<MethodsByFighter | undefined>;
   coach(): Promise<MethodsCoach | undefined>;
   topSubmission(): Promise<string | null | undefined>;
 }
 
-export interface Fight {
+interface Fight {
   id: number;
   cardId: number;
   fightOrder: number;
@@ -534,7 +577,7 @@ export interface Fight {
   catchweightLbs: number | null;
 }
 
-export interface InsertFight {
+interface InsertFight {
   id?: number;
   cardId: number;
   fightOrder: number;
@@ -553,7 +596,7 @@ export interface InsertFight {
   catchweightLbs?: number;
 }
 
-export interface WhereFight {
+interface WhereFight {
   id?: number | Array<number>;
   cardId?: number | Array<number>;
   fightOrder?: number | Array<number>;
@@ -572,7 +615,7 @@ export interface WhereFight {
   catchweightLbs?: number | Array<number> | null;
 }
 
-export interface FightsByFighter {
+interface FightsByFighter {
   opponent: string;
   win: boolean | null;
   winnerId: number | null;
@@ -586,15 +629,15 @@ export interface FightsByFighter {
   name: string;
 }
 
-export interface FightsQueries {
+interface FightsQueries {
   byFighter(params: { id: any; }): Promise<Array<FightsByFighter>>;
 }
 
-export interface FightQueries {
+interface FightQueries {
   byFighter(params: { id: any; }): Promise<FightsByFighter | undefined>;
 }
 
-export interface CancelledFight {
+interface CancelledFight {
   id: number;
   cardId: number;
   cardOrder: number;
@@ -604,7 +647,7 @@ export interface CancelledFight {
   cancellationReason: string | null;
 }
 
-export interface InsertCancelledFight {
+interface InsertCancelledFight {
   id?: number;
   cardId: number;
   cardOrder: number;
@@ -614,7 +657,7 @@ export interface InsertCancelledFight {
   cancellationReason?: string;
 }
 
-export interface WhereCancelledFight {
+interface WhereCancelledFight {
   id?: number | Array<number>;
   cardId?: number | Array<number>;
   cardOrder?: number | Array<number>;
@@ -624,7 +667,7 @@ export interface WhereCancelledFight {
   cancellationReason?: string | Array<string> | RegExp | null;
 }
 
-export interface TitleRemoval {
+interface TitleRemoval {
   id: number;
   fighterId: number;
   weightClassId: number;
@@ -633,7 +676,7 @@ export interface TitleRemoval {
   reason: string;
 }
 
-export interface InsertTitleRemoval {
+interface InsertTitleRemoval {
   id?: number;
   fighterId: number;
   weightClassId: number;
@@ -642,7 +685,7 @@ export interface InsertTitleRemoval {
   reason: string;
 }
 
-export interface WhereTitleRemoval {
+interface WhereTitleRemoval {
   id?: number | Array<number>;
   fighterId?: number | Array<number>;
   weightClassId?: number | Array<number>;
@@ -651,26 +694,26 @@ export interface WhereTitleRemoval {
   reason?: string | Array<string> | RegExp;
 }
 
-export interface FighterProfile {
+interface FighterProfile {
   rowid: number;
   name: string;
   hometown: string;
 }
 
-export interface InsertFighterProfile {
+interface InsertFighterProfile {
   rowid?: number;
   name: string;
   hometown: string;
 }
 
-export interface WhereFighterProfile {
+interface WhereFighterProfile {
   rowid?: number | Array<number>;
   name?: string | Array<string> | RegExp;
   hometown?: string | Array<string> | RegExp;
   fighterProfiles?: string;
 }
 
-export interface Opponent {
+interface Opponent {
   fightId: number;
   startTime: Date;
   fighterId: number;
@@ -678,7 +721,7 @@ export interface Opponent {
   methodId: number | null;
 }
 
-export interface InsertOpponent {
+interface InsertOpponent {
   fightId: number;
   startTime: Date;
   fighterId: number;
@@ -686,7 +729,7 @@ export interface InsertOpponent {
   methodId?: number;
 }
 
-export interface WhereOpponent {
+interface WhereOpponent {
   fightId?: number | Array<number>;
   startTime?: Date | Array<Date> | RegExp;
   fighterId?: number | Array<number>;
@@ -694,7 +737,7 @@ export interface WhereOpponent {
   methodId?: number | Array<number> | null;
 }
 
-export interface TypedDb {
+interface TypedDb {
   [key: string]: any,
   weightClasses: MultipleQueries<WeightClass, InsertWeightClass, WhereWeightClass>,
   weightClass: SingularQueries<WeightClass, InsertWeightClass, WhereWeightClass, number>,
@@ -735,14 +778,15 @@ export interface TypedDb {
 
 declare const database: Database;
 declare const db: TypedDb;
-export function makeTypes(): Promise<void>;
-export function getTables(): Promise<string>;
-export function createMigration(name: string): Promise<void>;
-export function runMigration(name: string): Promise<void>;
+function makeTypes(): Promise<void>;
+function getTables(): Promise<string>;
+function createMigration(name: string): Promise<void>;
+function runMigration(name: string): Promise<void>;
 
 export {
   database,
   db,
+  makeTypes,
   getTables,
   createMigration,
   runMigration

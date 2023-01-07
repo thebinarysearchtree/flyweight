@@ -1,10 +1,8 @@
-import { Statement } from 'sqlite3';
-
-export interface QueryOptions {
+interface QueryOptions {
   parse: boolean;
 }
 
-export interface CustomType {
+interface CustomType {
   name: string;
   valueTest?: (v: any) => boolean;
   makeConstraint?: (column: string) => string;
@@ -14,7 +12,7 @@ export interface CustomType {
   dbType: string;
 }
 
-export interface Paths {
+interface Paths {
   db: string | URL;
   sql?: string | URL;
   tables: string | URL;
@@ -24,7 +22,7 @@ export interface Paths {
   extensions?: string | URL | Array<string | URL>;
 }
 
-export interface Initialize<T> {
+interface Initialize<T> {
   db: T;
   makeTypes(): Promise<void>;
   getTables(): Promise<string>;
@@ -32,15 +30,15 @@ export interface Initialize<T> {
   runMigration(name: string): Promise<void>;
 }
 
-export class Database {
+export default class Database {
   constructor();
   initialize<T>(paths: Paths, interfaceName?: string): Promise<Initialize<T>>;
   registerTypes(customTypes: Array<CustomType>): void;
   begin(): Promise<void>;
   commit(): Promise<void>;
   rollback(): Promise<void>;
-  run(query: string | Statement, params?: any): Promise<number>;
-  all<T>(query: string | Statement, params?: any, options?: QueryOptions): Promise<Array<T>>;
+  run(query: any, params?: any): Promise<number>;
+  all<T>(query: any, params?: any, options?: QueryOptions): Promise<Array<T>>;
   exec(query: string): Promise<void>;
   close(): Promise<void>;
 }

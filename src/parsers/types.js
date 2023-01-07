@@ -9,6 +9,9 @@ import { preprocess } from './preprocessor.js';
 
 const capitalize = (word) => word[0].toUpperCase() + word.substring(1);
 
+let index = await readFile(new URL('../../index.d.ts', import.meta.url), 'utf8');
+index = index.replace('export default class Database', 'export class Database');
+
 const definitions = await readFile(new URL('../../interfaces.d.ts', import.meta.url), 'utf8');
 
 const typeMap = {
@@ -423,9 +426,8 @@ const createTypes = async (options) => {
     destinationPath
   } = options;
   const typeSet = new Set();
-  typeSet.add('database');
   let i = 1;
-  const matches = definitions.matchAll(/^export interface (?<name>[a-z0-9_]+)/gmi);
+  const matches = (index + '\n' + definitions).matchAll(/^(export )?(default )?(interface|class) (?<name>[a-z0-9_]+)/gmi);
   for (const match of matches) {
     typeSet.add(match.groups.name.toLowerCase());
   }
@@ -435,7 +437,8 @@ const createTypes = async (options) => {
   const tables = Object.entries(db.tables).map(([key, value]) => ({ name: key, columns: value }));
   let types = '';
   if (/\.d\.ts/.test(destinationPath)) {
-    types += `import Database from 'flyweightjs';\n\n`;
+    types += index;
+    types += '\n';
   }
   types += definitions;
   types += '\n\n';
@@ -569,13 +572,14 @@ const createTypes = async (options) => {
   types += `  release(transaction: ${interfaceName}): void`;
   types += '\n}\n\n';
   if (/\.d\.ts/.test(destinationPath)) {
+    types = types.replaceAll(/^export /gm, '');
     types += `declare const database: Database;\n`;
     types += `declare const db: ${interfaceName};\n`;
-    types += 'export function makeTypes(): Promise<void>;\n';
-    types += 'export function getTables(): Promise<string>;\n';
-    types += 'export function createMigration(name: string): Promise<void>;\n';
-    types += 'export function runMigration(name: string): Promise<void>;\n\n';
-    types += 'export {\n  database,\n  db,\n  getTables,\n  createMigration,\n  runMigration\n}\n';
+    types += 'function makeTypes(): Promise<void>;\n';
+    types += 'function getTables(): Promise<string>;\n';
+    types += 'function createMigration(name: string): Promise<void>;\n';
+    types += 'function runMigration(name: string): Promise<void>;\n\n';
+    types += 'export {\n  database,\n  db,\n  makeTypes,\n  getTables,\n  createMigration,\n  runMigration\n}\n';
   }
   await writeFile(destinationPath, types, 'utf8');
 }
