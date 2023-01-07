@@ -1,4 +1,4 @@
-import { Database } from 'flyweightjs';
+import Database from 'flyweightjs';
 
 export interface Keywords<T> {
   select: T;

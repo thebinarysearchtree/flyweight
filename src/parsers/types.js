@@ -435,7 +435,7 @@ const createTypes = async (options) => {
   const tables = Object.entries(db.tables).map(([key, value]) => ({ name: key, columns: value }));
   let types = '';
   if (/\.d\.ts/.test(destinationPath)) {
-    types += `import { Database } from 'flyweightjs';\n\n`;
+    types += `import Database from 'flyweightjs';\n\n`;
   }
   types += definitions;
   types += '\n\n';
