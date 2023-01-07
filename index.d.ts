@@ -26,7 +26,7 @@ export interface Paths {
 
 export interface Initialize<T> {
   db: T;
-  makeTypes(options?: { watch: boolean }): Promise<void>;
+  makeTypes(): Promise<void>;
   getTables(): Promise<string>;
   createMigration(name: string): Promise<void>;
   runMigration(name: string): Promise<void>;
