@@ -735,7 +735,7 @@ export interface TypedDb {
 
 declare const database: Database;
 declare const db: TypedDb;
-export function makeTypes(options?: { watch: true }): Promise<void>;
+export function makeTypes(): Promise<void>;
 export function getTables(): Promise<string>;
 export function createMigration(name: string): Promise<void>;
 export function runMigration(name: string): Promise<void>;
