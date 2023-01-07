@@ -1,4 +1,4 @@
-import { Database } from '../index.js';
+import Database from '../index.js';
 
 const path = (subPath) => {
   const url = new URL(subPath, import.meta.url);

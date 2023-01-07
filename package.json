@@ -1,6 +1,6 @@
 {
   "name": "flyweightjs",
-  "version": "0.9.97",
+  "version": "0.9.98",
   "description": "An ORM for SQLite",
   "main": "index.js",
   "types": "index.d.ts",
@@ -12,6 +12,6 @@
   "license": "MIT",
   "dependencies": {
     "pluralize": "8.0.0",
-    "sqlite3": "5.1.2"
+    "sqlite3": "5.1.4"
   }
 }
