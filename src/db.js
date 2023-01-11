@@ -363,7 +363,30 @@ class Database {
     return fragments.join('');
   }
 
+  convertDefaults(sql) {
+    let lastIndex = 0;
+    let fragments = [];
+    const blanked = blank(sql, { stringsOnly: true });
+    const matches = blanked.matchAll(/\sdefault\s+(?<value>true|false|now\(\))(\s|,|$)/gmid);
+    for (const match of matches) {
+      const [start, end] = match.indices.groups.value;
+      if (lastIndex !== start) {
+        fragments.push(sql.substring(lastIndex, start));
+      }
+      lastIndex = end;
+      const map = {
+        'true': '1',
+        'false': '0',
+        'now()': `(date() || 'T' || time() || '.000Z')`
+      };
+      fragments.push(map[match.groups.value]);
+    }
+    fragments.push(sql.substring(lastIndex));
+    return fragments.join('');
+  }
+
   convertTables(sql) {
+    sql = this.convertDefaults(sql);
     const fragments = getFragments(sql);
     let converted = '';
     for (const fragment of fragments) {

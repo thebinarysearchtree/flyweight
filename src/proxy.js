@@ -3,6 +3,8 @@ import {
   insert,
   insertMany,
   update,
+  exists,
+  count,
   get,
   all,
   remove
@@ -18,6 +20,8 @@ const queries = {
   insert: (database, table, tx) => async (params) => await insert(database, table, params, tx),
   insertMany: (database, table, tx) => async (items) => await insertMany(database, table, items, tx),
   update: (database, table, tx) => async (params, query) => await update(database, table, params, query, tx),
+  exists: (database, table, tx) => async (query) => await exists(database, table, query, tx),
+  count: (database, table, tx) => async (query, keywords) => await count(database, table, query, keywords, tx),
   get: (database, table, tx) => async (query, columns) => await get(database, table, query, columns, tx),
   all: (database, table, tx) => async (query, columns) => await all(database, table, query, columns, tx),
   remove: (database, table, tx) => async (query) => await remove(database, table, query, tx)
@@ -26,6 +30,7 @@ const queries = {
 const singularQueries = {
   insert: queries.insert,
   update: queries.update,
+  exists: queries.exists,
   get: queries.get,
   remove: queries.remove
 }
@@ -33,6 +38,7 @@ const singularQueries = {
 const multipleQueries = {
   insert: queries.insertMany,
   update: queries.update,
+  count: queries.count,
   get: queries.all,
   remove: queries.remove
 }

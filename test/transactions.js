@@ -52,7 +52,7 @@ const run = async () => {
   await tx.coaches.remove();
   db.release(tx);
 
-  const methodCount = await db.fights.get({ methodId: null }, { count: true });
+  const methodCount = await db.fights.count({ methodId: null });
   assert.equal(methodCount, 45);
 
   const wait = async () => {

@@ -24,11 +24,6 @@ export interface KeywordsWithoutSelect {
   distinct?: boolean;
 }
 
-export interface KeywordsWithCount {
-  distinct?: boolean;
-  count: true;
-}
-
 export interface VirtualKeywordsSelect<T, K> {
   select: K;
   rank?: true;
@@ -80,10 +75,10 @@ export interface SingularQueries<T, I, W, R> {
   get<K extends keyof T>(params: W | null, columns: K[]): Promise<Pick<T, K> | undefined>;
   get<K extends keyof T>(params: W | null, column: K): Promise<T[K] | undefined>;
   get(params: W | null, keywords: KeywordsWithoutSelect): Promise<T | undefined>;
-  get(params: W | null, keywords: KeywordsWithCount): Promise<number>;
   get<K extends keyof T>(params: W | null, keywords: Keywords<K>): Promise<T[K] | undefined>;
   get<K extends keyof T>(params: W | null, keywords: Keywords<K[]>): Promise<Pick<T, K> | undefined>;
   get<K extends keyof T>(params: W | null, keywords: KeywordsWithExclude<K[]>): Promise<Omit<T, K> | undefined>;
+  exists(params: W | null): Promise<boolean>;
   remove(params?: W): Promise<number>;
 }
 
@@ -95,9 +90,9 @@ export interface MultipleQueries<T, I, W> {
   get<K extends keyof T>(params: W | null, columns: K[]): Promise<Array<Pick<T, K>>>;
   get<K extends keyof T>(params: W | null, column: K): Promise<Array<T[K]>>;
   get(params: W | null, keywords: KeywordsWithoutSelect): Promise<Array<T>>;
-  get(params: W | null, keywords: KeywordsWithCount): Promise<number>;
   get<K extends keyof T>(params: W | null, keywords: Keywords<K>): Promise<Array<T[K]>>;
   get<K extends keyof T>(params: W | null, keywords: Keywords<K[]>): Promise<Array<Pick<T, K>>>;
   get<K extends keyof T>(params: W | null, keywords: KeywordsWithExclude<K[]>): Promise<Array<Omit<T, K>>>;
+  count(params: W | null, keywords?: { distinct: true }): Promise<number>;
   remove(params?: W): Promise<number>;
 }

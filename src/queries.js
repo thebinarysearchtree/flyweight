@@ -142,9 +142,6 @@ const toSelect = (columns, keywords, table, db, verify) => {
       verify(columns);
       return columns.join(', ');
     }
-    if (keywords && keywords.count) {
-      return 'count(*) as count';
-    }
     if (keywords && keywords.select) {
       const select = keywords.select;
       if (typeof select === 'string') {
@@ -278,12 +275,49 @@ const getVirtual = async (db, table, query, tx, keywords, select, returnValue, v
   return results;
 }
 
+const exists = async (db, table, query, tx) => {
+  const columnSet = db.columnSets[table];
+  const verify = makeVerify(table, columnSet);
+  let sql = `select exists(select 1 from ${table}`;
+  const where = toClause(query, verify);
+  query = removeNulls(query);
+  if (where) {
+    sql += ` where ${where}`;
+  }
+  sql += ') as result';
+  const results = await db.all(sql, query, null, tx);
+  if (results.length > 0) {
+    return Boolean(results[0].result);
+  }
+  return undefined;
+}
+
+const count = async (db, table, query, keywords, tx) => {
+  const columnSet = db.columnSets[table];
+  const verify = makeVerify(table, columnSet);
+  let sql = 'select ';
+  if (keywords && keywords.distinct) {
+    sql += 'distinct ';
+  }
+  sql += `count(*) as count from ${table}`;
+  const where = toClause(query, verify);
+  query = removeNulls(query);
+  if (where) {
+    sql += ` where ${where}`;
+  }
+  const results = await db.all(sql, query, null, tx);
+  if (results.length > 0) {
+    return results[0].count;
+  }
+  return undefined;
+}
+
 const get = async (db, table, query, columns, tx) => {
   const columnSet = db.columnSets[table];
   const verify = makeVerify(table, columnSet);
   const keywords = columns && typeof columns !== 'string' && !Array.isArray(columns) ? columns : null;
   const select = toSelect(columns, keywords, table, db, verify);
-  const returnValue = typeof columns === 'string' || (keywords && typeof keywords.select === 'string') || (keywords && keywords.count);
+  const returnValue = typeof columns === 'string' || (keywords && typeof keywords.select === 'string');
   if (db.virtualSet.has(table)) {
     return await getVirtual(db, table, query, tx, keywords, select, returnValue, verify, true);
   }
@@ -304,10 +338,6 @@ const get = async (db, table, query, columns, tx) => {
     const adjusted = {};
     const entries = Object.entries(result);
     for (const [key, value] of entries) {
-      if (key === 'count') {
-        adjusted[key] = value;
-        continue;
-      }
       adjusted[key] = db.convertToJs(table, key, value);
     }
     if (returnValue) {
@@ -385,6 +415,8 @@ export {
   insert,
   insertMany,
   update,
+  exists,
+  count,
   get,
   all,
   remove

@@ -372,6 +372,18 @@ create table fighters (
 
 The ```social``` column is typed with the ```Social``` type. This is because any column without a type is assumed to have the type name of the column, and any type that hasn't been registered as a custom type is assumed to be of the type ```json``` if it matches the lowercase name of one of the interfaces defined in the ```interfaces.d.ts```.
 
+Default values can be set for boolean and date columns using the following syntax:
+
+```sql
+create table users (
+  id integer primary key,
+  isDisabled boolean not null default false,
+  createdAt date not null default now()
+);
+```
+
+```current_timestamp``` will not work properly when wanting to set the default date to the current time. This is because ```current_timestamp``` does not include timezone information and therefore when parsing the date string from the database, JavaScript will assume it is in local time when it is in fact in UTC time.
+
 Once you have created your tables, you can run the ```getTables``` function mentioned earlier with no arguments to convert the tables into a form that can be run by the database to create the tables. ```getTables``` returns a string of SQL. You can also just use the migration tools mentioned later on, as the first migration will include everything in your ```tables.sql```.
 
 ## Creating SQL queries
@@ -496,6 +508,16 @@ const fighters = await db.fighters.get({ isActive: true }, {
   limit: 10
 });
 ```
+
+### Exists and Count
+
+These functions take one argument representing the where clause.
+
+```js
+const count = await db.fighters.count({ hometown: 'Brisbane, Australia' });
+const exists = await db.fighter.exists({ name: 'Israel Adesanya' });
+```
+
 
 ### Remove
 
