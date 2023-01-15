@@ -244,8 +244,8 @@ class Database {
         console.log('Migration ran successfully.');
       }
       catch (e) {
-        console.log(e);
         await this.rollback();
+        throw e;
       }
       this.enableForeignKeys();
     }

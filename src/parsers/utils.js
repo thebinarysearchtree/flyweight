@@ -34,23 +34,34 @@ const blank = (s, options) => {
     if (char === close && !inString) {
       count--;
     }
-    if ((!stringsOnly && count > 0) || inString) {
-      if (count === 0 && inString && stringStart) {
+    if (stringsOnly) {
+      if (!inString || stringStart) {
         processed += char;
         stringStart = false;
       }
       else {
-        if (count !== 0 && bracketStart) {
-          processed += char;
-          bracketStart = false;
-        }
-        else {
-          processed += ' ';
-        }
+        processed += ' ';
       }
     }
     else {
-      processed += char;
+      if (count > 0 || inString) {
+        if (count === 0 && inString && stringStart) {
+          processed += char;
+          stringStart = false;
+        }
+        else {
+          if (count !== 0 && bracketStart) {
+            processed += char;
+            bracketStart = false;
+          }
+          else {
+            processed += ' ';
+          }
+        }
+      }
+      else {
+        processed += char;
+      }
     }
     previous = char;
     i++;
