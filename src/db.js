@@ -461,7 +461,10 @@ class Database {
         return converted;
       }
     }
-    return customType.dbToJs(value);
+    if (customType.dbToJs) {
+      return customType.dbToJs(value);
+    }
+    return value;
   }
 
   getJsToDbConverter(value) {
