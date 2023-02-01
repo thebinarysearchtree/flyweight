@@ -1,3 +1,57 @@
+const isSpecial = (char) => ['.', '+', '*', '^', '$', '(', ')', '{', '}', '[', ']', '|'].includes(char);
+
+const convert = (regexp) => {
+  const dotAll = regexp.flags.includes('s');
+  const chars = regexp.source.split('');
+  let escape = false;
+  let processed = [];
+  for (let i = 0; i < chars.length; i++) {
+    const isLastChar = i === chars.length - 1;
+    const nextChar = isLastChar ? null : chars[i + 1];
+    const char = chars[i];
+    if (i === 0 && char !== '^') {
+      processed.push('%');
+    }
+    if (i === 0 && char === '^') {
+      continue;
+    }
+    if (isLastChar && char === '$') {
+      continue;
+    }
+    if (char === '\\') {
+      escape = !escape;
+      if (!isLastChar && nextChar !== '\'' && nextChar !== '\\' && escape) {
+        if (isSpecial(nextChar)) {
+          escape = false;
+          continue;
+        }
+        return null;
+      }
+    }
+    if (char === '.' && !escape && dotAll) {
+      if (nextChar === '*') {
+        processed.push('%');
+        i++;
+      }
+      if (!isSpecial(nextChar)) {
+        processed.push('_');
+      }
+      continue;
+    }
+    if (char === '_' || char === '%') {
+      processed.push('\\');
+    }
+    processed.push(char);
+    if (isLastChar && char !== '$') {
+      processed.push('%');
+    }
+    if (char !== '\\') {
+      escape = false;
+    }
+  }
+  return processed.join('');
+}
+
 const insert = async (db, table, params, tx) => {
   const columnSet = db.columnSets[table];
   const verify = makeVerify(table, columnSet);
@@ -60,7 +114,7 @@ const insertMany = async (db, table, items, tx) => {
   await db.run(sql, params, null, tx);
 }
 
-const toClause = (query, verify) => {
+const toClause = (query, converted, verify) => {
   if (!query) {
     return null;
   }
@@ -74,6 +128,12 @@ const toClause = (query, verify) => {
       return `${column} in (select json_each.value from json_each($${column}))`;
     }
     if (param instanceof RegExp) {
+      if (converted[column] !== undefined) {
+        if (param.flags.includes('i')) {
+          return `lower(${column}) like lower($${column})`;
+        }
+        return `${column} like $${column}`;
+      }
       return `${column} regexp $${column}`;
     }
     if (param === null) {
@@ -96,6 +156,22 @@ const removeNulls = (query) => {
   return result;
 }
 
+const convertPatterns = (params) => {
+  const processed = {};
+  if (!params) {
+    return processed;
+  }
+  for (const [key, value] of Object.entries(params)) {
+    if (value instanceof RegExp) {
+      const converted = convert(value);
+      if (converted !== null) {
+        processed[key] = converted;
+      }
+    }
+  }
+  return processed;
+}
+
 const update = async (db, table, query, params, tx) => {
   const columnSet = db.columnSets[table];
   const verify = makeVerify(table, columnSet);
@@ -103,15 +179,17 @@ const update = async (db, table, query, params, tx) => {
   verify(keys);
   const set = keys.map(param => `${param} = $${param}`).join(', ');
   let sql;
+  let converted = {};
   if (query) {
-    const where = toClause(query, verify);
+    converted = convertPatterns(query);
+    const where = toClause(query, converted, verify);
     query = removeNulls(query);
     sql = `update ${table} set ${set} where ${where}`;
   }
   else {
     sql = `update ${table} set ${set}`;
   }
-  return await db.run(sql, { ...params, ...query }, null, tx);
+  return await db.run(sql, { ...params, ...query, ...converted }, null, tx);
 }
 
 const makeVerify = (table, columnSet) => {
@@ -279,13 +357,14 @@ const exists = async (db, table, query, tx) => {
   const columnSet = db.columnSets[table];
   const verify = makeVerify(table, columnSet);
   let sql = `select exists(select 1 from ${table}`;
-  const where = toClause(query, verify);
+  const converted = convertPatterns(query);
+  const where = toClause(query, converted, verify);
   query = removeNulls(query);
   if (where) {
     sql += ` where ${where}`;
   }
   sql += ') as result';
-  const results = await db.all(sql, query, null, tx);
+  const results = await db.all(sql, { ...query, ...converted }, null, tx);
   if (results.length > 0) {
     return Boolean(results[0].result);
   }
@@ -300,12 +379,13 @@ const count = async (db, table, query, keywords, tx) => {
     sql += 'distinct ';
   }
   sql += `count(*) as count from ${table}`;
-  const where = toClause(query, verify);
+  const converted = convertPatterns(query);
+  const where = toClause(query, converted, verify);
   query = removeNulls(query);
   if (where) {
     sql += ` where ${where}`;
   }
-  const results = await db.all(sql, query, null, tx);
+  const results = await db.all(sql, { ...query, ...converted }, null, tx);
   if (results.length > 0) {
     return results[0].count;
   }
@@ -326,13 +406,14 @@ const get = async (db, table, query, columns, tx) => {
     sql += 'distinct ';
   }
   sql += `${select} from ${table}`;
-  const where = toClause(query, verify);
+  const converted = convertPatterns(query);
+  const where = toClause(query, converted, verify);
   query = removeNulls(query);
   if (where) {
     sql += ` where ${where}`;
   }
   sql += toKeywords(keywords, verify);
-  const results = await db.all(sql, query, null, tx);
+  const results = await db.all(sql, { ...query, ...converted }, null, tx);
   if (results.length > 0) {
     const result = results[0];
     const adjusted = {};
@@ -362,13 +443,14 @@ const all = async (db, table, query, columns, tx) => {
     sql += 'distinct ';
   }
   sql += `${select} from ${table}`;
-  const where = toClause(query, verify);
+  const converted = convertPatterns(query);
+  const where = toClause(query, converted, verify);
   query = removeNulls(query);
   if (where) {
     sql += ` where ${where}`;
   }
   sql += toKeywords(keywords, verify);
-  const rows = await db.all(sql, query, null, tx);
+  const rows = await db.all(sql, { ...query, ...converted }, null, tx);
   if (rows.length === 0) {
     return rows;
   }
@@ -403,12 +485,13 @@ const remove = async (db, table, query, tx) => {
   const columnSet = db.columnSets[table];
   const verify = makeVerify(table, columnSet);
   let sql = `delete from ${table}`;
-  const where = toClause(query, verify);
+  const converted = convertPatterns(query);
+  const where = toClause(query, converted, verify);
   query = removeNulls(query);
   if (where) {
     sql += ` where ${where}`;
   }
-  return await db.run(sql, query, null, tx);
+  return await db.run(sql, { ...query, ...converted }, null, tx);
 }
 
 export {
