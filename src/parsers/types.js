@@ -439,6 +439,7 @@ const createTypes = async (options) => {
   if (/\.d\.ts/.test(destinationPath)) {
     types += index;
     types += '\n';
+    types = types.replace(/^export class Database {/gm, 'declare class Database {');
   }
   types += definitions;
   types += '\n\n';
@@ -575,10 +576,10 @@ const createTypes = async (options) => {
     types = types.replaceAll(/^export /gm, '');
     types += `declare const database: Database;\n`;
     types += `declare const db: ${interfaceName};\n`;
-    types += 'function makeTypes(): Promise<void>;\n';
-    types += 'function getTables(): Promise<string>;\n';
-    types += 'function createMigration(name: string): Promise<void>;\n';
-    types += 'function runMigration(name: string): Promise<void>;\n\n';
+    types += 'declare function makeTypes(): Promise<void>;\n';
+    types += 'declare function getTables(): Promise<string>;\n';
+    types += 'declare function createMigration(name: string): Promise<void>;\n';
+    types += 'declare function runMigration(name: string): Promise<void>;\n\n';
     types += 'export {\n  database,\n  db,\n  makeTypes,\n  getTables,\n  createMigration,\n  runMigration\n}\n';
   }
   await writeFile(destinationPath, types, 'utf8');

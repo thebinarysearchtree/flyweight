@@ -30,7 +30,7 @@ interface Initialize<T> {
   runMigration(name: string): Promise<void>;
 }
 
-class Database {
+declare class Database {
   constructor();
   initialize<T>(paths: Paths, interfaceName?: string): Promise<Initialize<T>>;
   registerTypes(customTypes: Array<CustomType>): void;
@@ -773,10 +773,10 @@ interface TypedDb {
 
 declare const database: Database;
 declare const db: TypedDb;
-function makeTypes(): Promise<void>;
-function getTables(): Promise<string>;
-function createMigration(name: string): Promise<void>;
-function runMigration(name: string): Promise<void>;
+declare function makeTypes(): Promise<void>;
+declare function getTables(): Promise<string>;
+declare function createMigration(name: string): Promise<void>;
+declare function runMigration(name: string): Promise<void>;
 
 export {
   database,
