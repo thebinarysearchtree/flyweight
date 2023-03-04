@@ -8,7 +8,7 @@ interface CustomType {
   makeConstraint?: (column: string) => string;
   dbToJs?: (v: any) => any;
   jsToDb?: (v: any) => any;
-  tsType: string;
+  tsType?: string;
   dbType: string;
 }
 

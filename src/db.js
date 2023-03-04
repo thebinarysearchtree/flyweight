@@ -347,14 +347,15 @@ class Database {
       if (options.dbType && !options.tsType) {
         options.tsType = typeMap[options.dbType];
       }
-      validateCustomType(customType);
       if (name.includes(',')) {
         const names = name.split(',').map(n => n.trim());
         for (const name of names) {
+          validateCustomType({ name, ...options });
           this.customTypes[name] = options;
         }
       }
       else {
+        validateCustomType({ name, ...options });
         this.customTypes[name] = options;
       }
     }
