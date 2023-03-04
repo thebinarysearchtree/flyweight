@@ -68,6 +68,14 @@ const dbTypes = {
   any: true
 }
 
+const typeMap = {
+  integer: 'Number',
+  real: 'Number',
+  text: 'String',
+  blob: 'Buffer',
+  any: 'Number | String | Buffer | null'
+}
+
 const validateCustomType = (customType) => {
   const error = `Error trying to register type '${customType.name}': `;
   if (!customType.name || !customType.tsType || !customType.dbType) {
@@ -336,9 +344,19 @@ class Database {
   registerTypes(customTypes) {
     for (const customType of customTypes) {
       const { name, ...options } = customType;
+      if (options.dbType && !options.tsType) {
+        options.tsType = typeMap[options.dbType];
+      }
       validateCustomType(customType);
-
-      this.customTypes[name] = options;
+      if (name.includes(',')) {
+        const names = name.split(',').map(n => n.trim());
+        for (const name of names) {
+          this.customTypes[name] = options;
+        }
+      }
+      else {
+        this.customTypes[name] = options;
+      }
     }
   }
 
