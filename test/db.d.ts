@@ -285,11 +285,13 @@ interface EventsTest {
 }
 
 interface EventsQueries {
+  from(): Promise<Array<number | null>>;
   getById(params: { id: any; }): Promise<Array<EventsGetById>>;
   test(): Promise<Array<EventsTest>>;
 }
 
 interface EventQueries {
+  from(): Promise<number | null | undefined>;
   getById(params: { id: any; }): Promise<EventsGetById | undefined>;
   test(): Promise<EventsTest | undefined>;
 }

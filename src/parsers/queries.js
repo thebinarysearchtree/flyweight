@@ -664,6 +664,21 @@ const parseSelect = (query, tables) => {
   if (!/^\s*select\s/mi.test(processed)) {
     return;
   }
+  if (!/^\s*select\s(distinct\s)?(?<select>.+?)\sfrom\s.+$/md.test(processed)) {
+    const [start, end] = /^\s*select\s(distinct\s)?(?<select>.+?)$/mdi
+      .exec(processed)
+      .indices
+      .groups
+      .select;
+    const select = query.substring(start, end);
+    const selectColumns = getSelectColumns(select, tables);
+    const results = [];
+    for (const column of selectColumns) {
+      const processed = processColumn(column, tables, [], [], []);
+      results.push(processed);
+    }
+    return results.flat();
+  }
   const [start, end] = /^\s*select\s(distinct\s)?(?<select>.+?)\sfrom\s.+$/mdi
     .exec(processed)
     .indices
