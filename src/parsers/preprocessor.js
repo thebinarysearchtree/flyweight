@@ -30,7 +30,7 @@ const processObjectStar = (sql, tables) => {
   const blanked = blank(sql);
   let lastEnd = 0;
   if (/^\s*with\s/mi.test(blanked)) {
-    const matches = blanked.matchAll(/(\s|,)(?<tableName>[a-z0-9_]+)\s(as)\s\((?<query>[^)]+)\)/gmid);
+    const matches = blanked.matchAll(/(\s|,)(?<tableName>[a-z0-9_]+)\s((as)|(as materialized)|(as not materialized))\s\((?<query>[^)]+)\)/gmid);
     for (const match of matches) {
       const tableName = match.groups.tableName;
       const [start, end] = match.indices.groups.query;

@@ -632,7 +632,7 @@ const parseSelect = (query, tables) => {
   const isCte = /^\s*with\s/mi.test(processed);
   if (isCte) {
     let lastIndex;
-    const matches = processed.matchAll(/(\s|,)(?<tableName>[a-z0-9_]+)\s(as)\s\((?<query>[^)]+)\)/gmi);
+    const matches = processed.matchAll(/(\s|,)(?<tableName>[a-z0-9_]+)\s((as)|(as materialized)|(as not materialized))\s\((?<query>[^)]+)\)/gmi);
     for (const match of matches) {
       const tableName = match.groups.tableName;
       const processed = match.groups.query;
