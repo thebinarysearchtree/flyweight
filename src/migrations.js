@@ -156,7 +156,7 @@ const getTables = (sql) => {
       const [start, end] = columnMatch.indices.groups.column;
       const text = columnText.substring(start, end);
       let adjusted = text.replaceAll(/\s+/gm, ' ').replace(/,$/, '').trim();
-      const columnName = adjusted.split(' ')[0];
+      const columnName = adjusted.split(/ |\(/)[0];
       const rest = adjusted.replace(columnName, '').trim();
       if (['unique', 'check', 'primary', 'foreign'].includes(columnName)) {
         constraints.push(adjusted);
@@ -369,7 +369,7 @@ const migrate = async (db, tablesPath, viewsPath, migrationPath, migrationName) 
       migration += table.sql.replace(/(^\s*create\s+table\s+)([a-zA-Z0-9_]+)(\s*\()/gmi, '$1$2_new$3');
       migration += '\n\n';
       const columns = sameName.columns.filter(c => currentColumns.includes(c.name)).map(c => `    ${c.name}`);
-      migration += `insert into ${tempName} select\n${columns.join(',\n')}\nfrom ${table.name};\n\n`;
+      migration += `insert into ${tempName} (\n${columns.join(',\n')})\nselect\n${columns.join(',\n')}\nfrom ${table.name};\n\n`;
       migration += `drop table ${table.name};\n`;
       migration += `alter table ${tempName} rename to ${table.name};\n`;
       for (const index of indexes) {
