@@ -392,7 +392,7 @@ const makeClient = (db, sqlDir, tx) => {
         return db[table];
       }
       if (table === 'release') {
-        return () => db.pool.push(tx);
+        return (tx) => db.pool.push(tx);
       }
       if (!target[table]) {
         target[table] = new Proxy({}, makeQueryHandler(table, db, sqlDir, tx));
