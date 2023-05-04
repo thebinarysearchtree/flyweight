@@ -121,7 +121,7 @@ const getFragments = (sql) => {
       const fragment = sql.substring(start, end).replace(/\n$/, '');
       fragments.push({
         columnName: result ? result.name : null,
-        type: result.type,
+        type: result ? result.type : null,
         isColumn: result !== undefined,
         start,
         end,
