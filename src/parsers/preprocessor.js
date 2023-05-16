@@ -159,7 +159,7 @@ const expandStar = (sql, tables, isView) => {
         expanded.push(statement);
       }
       let fragment = '';
-      if (!fragments.at(-1).endsWith('\n')) {
+      if (!/\n\s*$/.test(fragments.at(-1))) {
         fragment += '\n    ';
       }
       fragment += expanded.join(',\n    ');
