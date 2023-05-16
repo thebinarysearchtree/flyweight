@@ -101,14 +101,14 @@ const objectStar = (sql, tables) => {
   return adjusted;
 }
 
-const expandStar = (sql, tables) => {
+const expandStar = (sql, tables, isView) => {
   const fragments = [];
   const columns = parseQuery(sql, tables);
   if (!columns) {
     return sql;
   }
   const blanked = blank(sql);
-  const match = /^\s*select\s+(distinct\s)?(?<select>.+?)\s+from\s+.+$/gmids.exec(blanked);
+  const match = /^\s*(create\s+view\s+[^\s]+\s+as\s+)?select\s+(distinct\s)?(?<select>.+?)\s+from\s+.+$/gmids.exec(blanked);
   if (!match) {
     return sql;
   }
@@ -136,6 +136,9 @@ const expandStar = (sql, tables) => {
       for (const column of tableColumns) {
         let adjusted;
         if (duplicates.has(column.name)) {
+          if (isView) {
+            continue;
+          }
           adjusted = `flyweight${i}_${column.name}`;
           i++;
         }
@@ -143,10 +146,19 @@ const expandStar = (sql, tables) => {
           adjusted = column.name;
           duplicates.add(column.name);
         }
-        const statement = tableAlias ? `${tableAlias}.${column.name} as ${adjusted}` : `${column.name} as ${adjusted}`;
+        let statement = '';
+        if (tableAlias) {
+          statement += tableAlias + '.';
+        }
+        if (adjusted !== column.name) {
+          statement += `${column.name} as ${adjusted}`;
+        }
+        else {
+          statement += column.name;
+        }
         expanded.push(statement);
       }
-      fragments.push(expanded.join(', '));
+      fragments.push('\n    ' + expanded.join(',\n    '));
     }
     else {
       let name;
@@ -281,12 +293,30 @@ const processObjects = (sql, fragments = []) => {
   return processObjects(sql.substring(objectEnd), fragments);
 }
 
-const preprocess = (sql, tables) => {
+const processInClause = (sql) => {
+  const fragments = [];
+  let lastEnd = 0;
+  const blanked = blank(sql, { stringsOnly: true });
+  const matches = blanked.matchAll(/\s(?<clause>in\s+\(\s*\$(?<param>[a-z0-9_]+)\s*\))/gmid);
+  for (const match of matches) {
+    const [start, end] = match.indices.groups.clause;
+    if (lastEnd !== start) {
+      fragments.push(sql.substring(lastEnd, start));
+    }
+    lastEnd = end;
+    fragments.push(`in (select json_each.value from json_each($${match.groups.param}))`);
+  }
+  fragments.push(sql.substring(lastEnd));
+  return fragments.join('');
+}
+
+const preprocess = (sql, tables, isView) => {
   sql = processGroups(sql);
   sql = processArrays(sql);
   sql = processObjects(sql);
-  sql = expandStar(sql, tables);
+  sql = expandStar(sql, tables, isView);
   sql = processObjectStar(sql, tables);
+  sql = processInClause(sql);
   return sql;
 }
 

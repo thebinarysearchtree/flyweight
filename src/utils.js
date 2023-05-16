@@ -23,12 +23,17 @@ const readSql = async (path) => {
     const names = await readdir(path);
     for (const name of names) {
       if (name.endsWith('.sql')) {
-        sql += await readFile(join(path, name), 'utf8');
-        sql += '\n';
+        let text = await readFile(join(path, name), 'utf8');
+        text = text.trim();
+        if (!text.endsWith(';')) {
+          text += ';';
+        }
+        text += '\n\n';
+        sql += text;
       }
     }
   }
-  return sql;
+  return sql.trim() + '\n';
 }
 
 export {

@@ -42,6 +42,9 @@ const getTempTables = (query, fromPattern, tables) => {
 }
 
 const getQueryType = (query) => {
+  if (/^\s*create view /gmi.test(query)) {
+    return 'select';
+  }
   if (/^\s*select /gmi.test(query)) {
     return 'select';
   }
@@ -55,6 +58,9 @@ const getQueryType = (query) => {
     return 'delete';
   }
   if (/^\s*with /gmi.test(query)) {
+    return 'cte';
+  }
+  if (/^\s*create view [^\s]+ as with /gmi.test(query)) {
     return 'cte';
   }
   if (/^\s*pragma /gmi.test(query)) {
@@ -629,7 +635,7 @@ const processColumn = (column, tables, fromTables, whereColumns, joinColumns) =>
 
 const parseSelect = (query, tables) => {
   let processed = blank(query);
-  const isCte = /^\s*with\s/mi.test(processed);
+  const isCte = /^\s*(create\s+view\s+[^\s]+\s+as\s+)?with\s/mi.test(processed);
   if (isCte) {
     let lastIndex;
     const matches = processed.matchAll(/(\s|,)(?<tableName>[a-z0-9_]+)(?<asType>\s(as|as materialized|as not materialized)\s\()(?<query>[^)]+)\)/gmi);
@@ -661,10 +667,10 @@ const parseSelect = (query, tables) => {
     query = query.substring(0, unionMatch.index);
     processed = processed.substring(0, unionMatch.index);
   }
-  if (!/^\s*select\s/mi.test(processed)) {
+  if (!/^\s*(create\s+view\s+[^\s]+\s+as\s+)?select\s/mi.test(processed)) {
     return;
   }
-  if (!/^\s*select\s(distinct\s)?(?<select>.+?)\sfrom\s.+$/md.test(processed)) {
+  if (!/^\s*(create\s+view\s+[^\s]+\s+as\s+)?select\s(distinct\s)?(?<select>.+?)\sfrom\s.+$/md.test(processed)) {
     const [start, end] = /^\s*select\s(distinct\s)?(?<select>.+?)$/mdi
       .exec(processed)
       .indices
@@ -679,7 +685,7 @@ const parseSelect = (query, tables) => {
     }
     return results.flat();
   }
-  const [start, end] = /^\s*select\s(distinct\s)?(?<select>.+?)\sfrom\s.+$/mdi
+  const [start, end] = /^\s*(create\s+view\s+[^\s]+\s+as\s+)?select\s(distinct\s)?(?<select>.+?)\sfrom\s.+$/mdi
     .exec(processed)
     .indices
     .groups

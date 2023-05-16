@@ -2,6 +2,7 @@ import { readFile, writeFile } from 'fs/promises';
 import { join } from 'path';
 import { blank } from './parsers/utils.js';
 import { readSql } from './utils.js';
+import { preprocess } from './parsers/preprocessor.js';
 
 const getIndexes = (statements, blanked) => {
   const pattern = /^create\s+(unique\s+)?index\s+(if\s+not\s+exists\s+)?(?<indexName>[a-z0-9_]+)\s+on\s+(?<tableName>[a-z0-9_]+)\([^;]+;/gmid;
@@ -206,9 +207,11 @@ const migrate = async (db, tablesPath, viewsPath, migrationPath, migrationName) 
   const viewMigrations = [];
   if (viewsPath) {
     currentViewsText = await readSql(viewsPath);
+    currentViewsText = currentViewsText.split(';').map(s => preprocess(s.trim(), db.tables, true)).join(';\n\n').slice(0, -1);
     let lastViewsText;
     try {
       lastViewsText = await readSql(lastViewsPath);
+      lastViewsText = lastViewsText.split(';').map(s => preprocess(s.trim(), db.tables, true)).join(';\n\n').slice(0, -1);
       const currentViews = getViews(currentViewsText);
       const lastViews = getViews(lastViewsText);
       const currentViewNames = new Set(currentViews.map(v => v.name));
@@ -390,7 +393,7 @@ const migrate = async (db, tablesPath, viewsPath, migrationPath, migrationName) 
     console.log('No changes were detected.');
     process.exit();
   }
-  const sql = migrations.join('\n');
+  const sql = migrations.join('\n').trim() + '\n';
   try {
     await readFile(outputPath, 'utf8');
     console.log(`${outputPath} already exists.`);

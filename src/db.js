@@ -320,7 +320,7 @@ class Database {
     if (!sql.trim()) {
       return;
     }
-    sql = preprocess(sql, this.tables);
+    sql = sql.split(';').map(s => preprocess(s.trim(), this.tables, true)).join(';\n\n').slice(0, -1);
     const views = getViews(sql, this);
     for (const view of views) {
       this.viewSet.add(view.name);

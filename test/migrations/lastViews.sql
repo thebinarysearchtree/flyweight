@@ -26,4 +26,3 @@ select
     redId as opponentId,
     methodId
 from eventFights;
-
