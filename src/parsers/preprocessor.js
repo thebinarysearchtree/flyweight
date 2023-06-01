@@ -302,7 +302,7 @@ const processInClause = (sql) => {
   const fragments = [];
   let lastEnd = 0;
   const blanked = blank(sql, { stringsOnly: true });
-  const matches = blanked.matchAll(/\s(?<clause>in\s+\(\s*\$(?<param>[a-z0-9_]+)\s*\))/gmid);
+  const matches = blanked.matchAll(/\s(?<clause>in\s+\$(?<param>[a-z0-9_]+))/gmid);
   for (const match of matches) {
     const [start, end] = match.indices.groups.clause;
     if (lastEnd !== start) {
