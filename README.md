@@ -193,7 +193,6 @@ const result = await database.initialize({
   views: '/path/views',
   types: '/path/db.d.ts',
   migrations: '/path/migrations',
-  extensions: '/path/regexp.dylib',
   interfaces: '/path/interfaces.d.ts'
 });
 
@@ -240,7 +239,6 @@ const result = await database.initialize<TypedDb>({
   views: '/path/views',
   types: '/path/types.ts',
   migrations: '/path/migrations',
-  extensions: '/path/regexp.dylib',
   interfaces: '/path/interfaces.d.ts'
 });
 
@@ -286,23 +284,15 @@ The ```initialize``` method's ```path``` object has the following properties:
 
 ## Regular expressions
 
-Flyweight supports regular expressions in some of its methods. To enable this functionality, there is a ```pcre2.js``` file located in ```node_modules/flyweightjs/extensions```. You can run this with ```node pcre2.js``` and it will generate a ```pcre2.so``` or ```pcre2.dylib``` file depending on your operating system. You should then copy this file to the location where you keep your extensions.
-
-The regular expression software used by this extension is PCRE2 10.40. You can even use ```i```, ```m```, and ```s``` flags in your regular expressions. Unicode is on by default, whether or not you pass it in as a flag.
+Flyweight supports regular expressions in some of its methods. These regular expressions are converted to ```like``` statements, which limits what kind of regular expressions you can make.
 
 ```js
-const coach = await db.coach.get({ city: /\p{Script=Greek}+/ });
-```
-
-When wanting to using regular expressions in SQL, you should write them more like PCRE2 regular expressions than JavaScript regular expressions.
-
-```sql
-select * from coaches where city regexp '\p{Greek}+';
+const coach = await db.coach.get({ name: /^Eugene.+/ });
 ```
 
 ## Creating tables
 
-Tables are created the same way as they are in SQL. Flyweight converts the custom types in these tables to native types, and converts the tables to strict mode. The native types available in strict mode are ```integer```, ```real```, ```text```, ```blob```, and ```any```. In addition to these types, four custom types are included by default: ```boolean```, ```date```, ```json```, and ```regexp```. ```boolean``` is a column in which the values are restricted to 1 or 0, ```date``` is a JavaScript ```Date``` stored as an ISO8601 string, ```json``` is json stored as text, and ```regexp``` is mostly just used for querying.
+Tables are created the same way as they are in SQL. Flyweight converts the custom types in these tables to native types, and converts the tables to strict mode. The native types available in strict mode are ```integer```, ```real```, ```text```, ```blob```, and ```any```. In addition to these types, four custom types are included by default: ```boolean```, ```date```, and ```json```. ```boolean``` is a column in which the values are restricted to 1 or 0, ```date``` is a JavaScript ```Date``` stored as an ISO8601 string, and ```json``` is json stored as text.
 
 To add your own types, you can use the ```registerTypes``` method on the ```database``` object mentioned earlier. ```registerTypes``` takes an array of ```CustomType``` objects that have the following properties:
 
@@ -479,7 +469,7 @@ which translates to
 select * from fights where cardId in (1, 2, 3);
 ```
 
-If null is passed in as the value, the SQL will use ```is null```. If a regular expression is passed in, the SQL will use ```regexp```.
+If null is passed in as the value, the SQL will use ```is null```. If a regular expression is passed in, the SQL will use ```like```.
 
 All of the arguments are passed in as parameters for security reasons.
 

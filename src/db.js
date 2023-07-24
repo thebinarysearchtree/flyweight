@@ -95,34 +95,6 @@ const validateCustomType = (customType) => {
   }
 }
 
-const regexpJsToDb = (v) => {
-  const flags = v
-    .flags
-    .split('')
-    .filter(f => ['i', 's', 'm'].includes(f))
-    .join('');
-  let source;
-  if (flags !== '') {
-    source = `(?${flags})${v.source}`;
-  }
-  else {
-    source = v.source;
-  }
-  source = source.replaceAll(/(\\p{)Script=/g, '$1');
-  return source;
-}
-
-const regexpDbToJs = (v) => {
-  const match = v.match(/^\(\?(?<flags>[smi]+)\)/);
-  let flags = 'u';
-  if (match) {
-    v = v.replace(/^\(\?[smi]+\)/, '');
-    flags += match.groups.flags;
-  }
-  v = v.replaceAll(/\\p{([^}]{3,})\}/gi, '\\p{Script=$1}');
-  return new RegExp(v, flags);
-}
-
 const wait = async () => {
   return new Promise((resolve, reject) => {
     setTimeout(() => resolve(), 100);
@@ -174,14 +146,6 @@ class Database {
         dbToJs: (v) => JSON.parse(v),
         jsToDb: (v) => JSON.stringify(v),
         tsType: 'any',
-        dbType: 'text'
-      },
-      {
-        name: 'regexp',
-        valueTest: (v) => v instanceof RegExp,
-        dbToJs: regexpDbToJs,
-        jsToDb: regexpJsToDb,
-        tsType: 'RegExp',
         dbType: 'text'
       }
     ]);

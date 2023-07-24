@@ -20,16 +20,11 @@ const run = async () => {
   await db.coach.update({ id: 1 }, { city: 'Brisbane' });
   const updated = await db.coach.get({ id: 1 });
   assert.equal(updated.city, 'Brisbane');
-  await db.coach.update({ id: 1 }, { city: 'δδδδδ' });
-  const greek = await db.coach.get({ city: /\p{Script=Greek}+/u });
-  assert.equal(greek.id, 1);
   await db.coach.remove({ id: 1 });
   const removed = await db.coach.get({ id: 1 });
   assert.equal(removed, undefined);
   const limited = await db.fighters.get(null, { limit: 10 });
   assert.equal(limited.length, 10);
-  const israel = await db.fighter.get({ name: /israel/i }, ['name', 'id']);
-  assert.equal(israel.id, 17);
   const profiles = await db.fighterProfiles.get({ fighterProfiles: 'Sao' }, 
   { 
     highlight: { 

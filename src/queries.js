@@ -25,7 +25,7 @@ const convert = (regexp) => {
           escape = false;
           continue;
         }
-        return null;
+        throw Error('Cannot convert RegExp to LIKE statement.');
       }
     }
     if (char === '.' && !escape && dotAll) {
@@ -128,13 +128,7 @@ const toClause = (query, converted, verify) => {
       return `${column} in (select json_each.value from json_each($${column}))`;
     }
     if (param instanceof RegExp) {
-      if (converted[column] !== undefined) {
-        if (param.flags.includes('i')) {
-          return `lower(${column}) like lower($${column})`;
-        }
-        return `${column} like $${column}`;
-      }
-      return `${column} regexp $${column}`;
+      return `${column} like $${column}`;
     }
     if (param === null) {
       return `${column} is null`;
@@ -163,10 +157,7 @@ const convertPatterns = (params) => {
   }
   for (const [key, value] of Object.entries(params)) {
     if (value instanceof RegExp) {
-      const converted = convert(value);
-      if (converted !== null) {
-        processed[key] = converted;
-      }
+      processed[key] = convert(value);
     }
   }
   return processed;

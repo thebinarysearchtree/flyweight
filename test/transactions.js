@@ -46,7 +46,7 @@ const run = async () => {
   ]);
   let coaches = await tx.coaches.get();
   assert.equal(coaches.length, 2);
-  await tx.coach.remove({ name: /^[e-u]+\s[a-r]+$/i });
+  await tx.coach.remove({ name: 'Eugene Bareman' });
   coaches = await tx.coaches.get();
   assert.equal(coaches.length, 1);
   await tx.coaches.remove();
