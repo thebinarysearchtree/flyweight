@@ -573,4 +573,4 @@ The SQL created by the migration may need adjusting, so make sure you check the 
 
 ## Running tests
 
-To run the tests, first go into the ```test``` folder and run ```node setup.js``` to move the test database to the right location and create the PCRE2 extension. You can then run the tests with ```node test.js``` or ```npm test```.
+To run the tests, first go into the ```test``` folder and run ```node setup.js``` to move the test database to the right location. You can then run the tests with ```node test.js``` or ```npm test```.
