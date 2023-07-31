@@ -52,7 +52,6 @@ const convert = (regexp) => {
       escape = false;
     }
   }
-  console.log(processed.join(''));
   return processed.join('');
 }
 
