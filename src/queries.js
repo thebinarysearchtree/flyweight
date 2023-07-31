@@ -1,7 +1,6 @@
 const isSpecial = (char) => ['.', '+', '*', '^', '$', '(', ')', '{', '}', '[', ']', '|'].includes(char);
 
 const convert = (regexp) => {
-  const dotAll = regexp.flags.includes('s');
   const chars = regexp.source.split('');
   let escape = false;
   let processed = [];
@@ -28,9 +27,13 @@ const convert = (regexp) => {
         throw Error('Cannot convert RegExp to LIKE statement.');
       }
     }
-    if (char === '.' && !escape && dotAll) {
+    if (char === '.' && !escape) {
       if (nextChar === '*') {
         processed.push('%');
+        i++;
+      }
+      if (nextChar === '+') {
+        processed.push('_%');
         i++;
       }
       if (!isSpecial(nextChar)) {
@@ -49,6 +52,7 @@ const convert = (regexp) => {
       escape = false;
     }
   }
+  console.log(processed.join(''));
   return processed.join('');
 }
 

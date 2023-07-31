@@ -1,6 +1,6 @@
 {
   "name": "flyweightjs",
-  "version": "1.0.22",
+  "version": "1.0.23",
   "description": "An ORM for SQLite",
   "main": "index.js",
   "types": "index.d.ts",
