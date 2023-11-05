@@ -125,19 +125,21 @@ const toClause = (query, converted, verify) => {
   if (entries.length === 0) {
     return null;
   }
-  return entries.map(([column, param]) => {
-    verify(column);
-    if (Array.isArray(param)) {
-      return `${column} in (select json_each.value from json_each($${column}))`;
-    }
-    if (param instanceof RegExp) {
-      return `${column} like $${column}`;
-    }
-    if (param === null) {
-      return `${column} is null`;
-    }
-    return `${column} = $${column}`;
-  }).join(' and ');
+  return entries
+    .filter(entry => entry[1] !== undefined)
+    .map(([column, param]) => {
+      verify(column);
+      if (Array.isArray(param)) {
+        return `${column} in (select json_each.value from json_each($${column}))`;
+      }
+      if (param instanceof RegExp) {
+        return `${column} like $${column}`;
+      }
+      if (param === null) {
+        return `${column} is null`;
+      }
+      return `${column} = $${column}`;
+    }).join(' and ');
 }
 
 const removeNulls = (query) => {
