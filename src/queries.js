@@ -117,7 +117,7 @@ const insertMany = async (db, table, items, tx) => {
   await db.run(sql, params, null, tx);
 }
 
-const toClause = (query, converted, verify) => {
+const toClause = (query, verify) => {
   if (!query) {
     return null;
   }
@@ -125,21 +125,19 @@ const toClause = (query, converted, verify) => {
   if (entries.length === 0) {
     return null;
   }
-  return entries
-    .filter(entry => entry[1] !== undefined)
-    .map(([column, param]) => {
-      verify(column);
-      if (Array.isArray(param)) {
-        return `${column} in (select json_each.value from json_each($${column}))`;
-      }
-      if (param instanceof RegExp) {
-        return `${column} like $${column}`;
-      }
-      if (param === null) {
-        return `${column} is null`;
-      }
-      return `${column} = $${column}`;
-    }).join(' and ');
+  return entries.map(([column, param]) => {
+    verify(column);
+    if (Array.isArray(param)) {
+      return `${column} in (select json_each.value from json_each($${column}))`;
+    }
+    if (param instanceof RegExp) {
+      return `${column} like $${column}`;
+    }
+    if (param === null) {
+      return `${column} is null`;
+    }
+    return `${column} = $${column}`;
+  }).join(' and ');
 }
 
 const removeNulls = (query) => {
@@ -149,6 +147,19 @@ const removeNulls = (query) => {
   const result = {};
   for (const [key, value] of Object.entries(query)) {
     if (value !== null) {
+      result[key] = value;
+    }
+  }
+  return result;
+}
+
+const removeUndefined = (query) => {
+  if (!query) {
+    return query;
+  }
+  const result = {};
+  for (const [key, value] of Object.entries(query)) {
+    if (value !== undefined) {
       result[key] = value;
     }
   }
@@ -177,8 +188,9 @@ const update = async (db, table, query, params, tx) => {
   let sql;
   let converted = {};
   if (query) {
+    query = removeUndefined(query);
     converted = convertPatterns(query);
-    const where = toClause(query, converted, verify);
+    const where = toClause(query, verify);
     query = removeNulls(query);
     sql = `update ${table} set ${set} where ${where}`;
   }
@@ -353,8 +365,9 @@ const exists = async (db, table, query, tx) => {
   const columnSet = db.columnSets[table];
   const verify = makeVerify(table, columnSet);
   let sql = `select exists(select 1 from ${table}`;
+  query = removeUndefined(query);
   const converted = convertPatterns(query);
-  const where = toClause(query, converted, verify);
+  const where = toClause(query, verify);
   query = removeNulls(query);
   if (where) {
     sql += ` where ${where}`;
@@ -375,8 +388,9 @@ const count = async (db, table, query, keywords, tx) => {
     sql += 'distinct ';
   }
   sql += `count(*) as count from ${table}`;
+  query = removeUndefined(query);
   const converted = convertPatterns(query);
-  const where = toClause(query, converted, verify);
+  const where = toClause(query, verify);
   query = removeNulls(query);
   if (where) {
     sql += ` where ${where}`;
@@ -402,8 +416,9 @@ const get = async (db, table, query, columns, tx) => {
     sql += 'distinct ';
   }
   sql += `${select} from ${table}`;
+  query = removeUndefined(query);
   const converted = convertPatterns(query);
-  const where = toClause(query, converted, verify);
+  const where = toClause(query, verify);
   query = removeNulls(query);
   if (where) {
     sql += ` where ${where}`;
@@ -439,8 +454,9 @@ const all = async (db, table, query, columns, tx) => {
     sql += 'distinct ';
   }
   sql += `${select} from ${table}`;
+  query = removeUndefined(query);
   const converted = convertPatterns(query);
-  const where = toClause(query, converted, verify);
+  const where = toClause(query, verify);
   query = removeNulls(query);
   if (where) {
     sql += ` where ${where}`;
@@ -481,8 +497,9 @@ const remove = async (db, table, query, tx) => {
   const columnSet = db.columnSets[table];
   const verify = makeVerify(table, columnSet);
   let sql = `delete from ${table}`;
+  query = removeUndefined(query);
   const converted = convertPatterns(query);
-  const where = toClause(query, converted, verify);
+  const where = toClause(query, verify);
   query = removeNulls(query);
   if (where) {
     sql += ` where ${where}`;
