@@ -182,7 +182,7 @@ npm install flyweightjs
 For JavaScript, create a file called db.js with the following code:
 
 ```js
-import Database from 'flyweightjs';
+import { Database } from 'flyweightjs';
 
 const database = new Database();
 
@@ -227,7 +227,7 @@ This should create a ```db.d.ts``` file that will type the exported ```db``` var
 For TypeScript, create a file with the following code:
 
 ```ts
-import Database from 'flyweightjs';
+import { Database } from 'flyweightjs';
 import { TypedDb } from './types.ts';
 
 const database = new Database();

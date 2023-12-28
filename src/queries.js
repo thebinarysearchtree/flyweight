@@ -1,3 +1,5 @@
+import { Modifier } from './modifiers.js';
+
 const isSpecial = (char) => ['.', '+', '*', '^', '$', '(', ')', '{', '}', '[', ']', '|'].includes(char);
 
 const convert = (regexp) => {
@@ -127,6 +129,19 @@ const toClause = (query, verify) => {
   }
   return entries.map(([column, param]) => {
     verify(column);
+    if (param instanceof Modifier) {
+      const value = param.value;
+      if (Array.isArray(value)) {
+        return `${column} not in (select json_each.value from json_each($${column}))`;
+      }
+      if (value instanceof RegExp) {
+        return `${column} not like $${column}`;
+      }
+      if (value === null) {
+        return `${column} is not null`;
+      }
+      return `${column} ${param.operator} $${column}`;
+    }
     if (Array.isArray(param)) {
       return `${column} in (select json_each.value from json_each($${column}))`;
     }
@@ -138,6 +153,22 @@ const toClause = (query, verify) => {
     }
     return `${column} = $${column}`;
   }).join(' and ');
+}
+
+const convertModifiers = (query) => {
+  if (!query) {
+    return query;
+  }
+  const result = {};
+  for (const [key, param] of Object.entries(query)) {
+    if (param instanceof Modifier) {
+      result[key] = param.value;
+    }
+    else {
+      result[key] = param;
+    }
+  }
+  return result;
 }
 
 const removeNulls = (query) => {
@@ -192,6 +223,7 @@ const update = async (db, table, query, params, tx) => {
     converted = convertPatterns(query);
     const where = toClause(query, verify);
     query = removeNulls(query);
+    query = convertModifiers(query);
     sql = `update ${table} set ${set} where ${where}`;
   }
   else {
@@ -369,6 +401,7 @@ const exists = async (db, table, query, tx) => {
   const converted = convertPatterns(query);
   const where = toClause(query, verify);
   query = removeNulls(query);
+  query = convertModifiers(query);
   if (where) {
     sql += ` where ${where}`;
   }
@@ -392,6 +425,7 @@ const count = async (db, table, query, keywords, tx) => {
   const converted = convertPatterns(query);
   const where = toClause(query, verify);
   query = removeNulls(query);
+  query = convertModifiers(query);
   if (where) {
     sql += ` where ${where}`;
   }
@@ -420,6 +454,7 @@ const get = async (db, table, query, columns, tx) => {
   const converted = convertPatterns(query);
   const where = toClause(query, verify);
   query = removeNulls(query);
+  query = convertModifiers(query);
   if (where) {
     sql += ` where ${where}`;
   }
@@ -458,6 +493,7 @@ const all = async (db, table, query, columns, tx) => {
   const converted = convertPatterns(query);
   const where = toClause(query, verify);
   query = removeNulls(query);
+  query = convertModifiers(query);
   if (where) {
     sql += ` where ${where}`;
   }
@@ -501,6 +537,7 @@ const remove = async (db, table, query, tx) => {
   const converted = convertPatterns(query);
   const where = toClause(query, verify);
   query = removeNulls(query);
+  query = convertModifiers(query);
   if (where) {
     sql += ` where ${where}`;
   }

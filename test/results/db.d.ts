@@ -43,6 +43,28 @@ declare class Database {
   close(): Promise<void>;
 }
 
+declare class Modifier {
+  constructor(name: string, value: any, operator: string);
+  name: string;
+  value: any;
+  operator: string
+}
+
+function not(value: any): Modifier;
+function gt(value: any): Modifier;
+function gte(value: any): Modifier;
+function lt(value: any): Modifier;
+function lte(value: any): Modifier;
+
+{
+  Database,
+  not,
+  gt,
+  gte,
+  lt,
+  lte
+}
+
 interface Keywords<T> {
   select: T;
   orderBy?: Array<string> | string;

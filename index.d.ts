@@ -30,7 +30,7 @@ interface Initialize<T> {
   runMigration(name: string): Promise<void>;
 }
 
-export default class Database {
+declare class Database {
   constructor();
   initialize<T>(paths: Paths, interfaceName?: string): Promise<Initialize<T>>;
   registerTypes(customTypes: Array<CustomType>): void;
@@ -41,4 +41,26 @@ export default class Database {
   all<T>(query: any, params?: any, options?: QueryOptions): Promise<Array<T>>;
   exec(query: string): Promise<void>;
   close(): Promise<void>;
+}
+
+declare class Modifier {
+  constructor(name: string, value: any, operator: string);
+  name: string;
+  value: any;
+  operator: string
+}
+
+function not(value: any): Modifier;
+function gt(value: any): Modifier;
+function gte(value: any): Modifier;
+function lt(value: any): Modifier;
+function lte(value: any): Modifier;
+
+export {
+  Database,
+  not,
+  gt,
+  gte,
+  lt,
+  lte
 }
