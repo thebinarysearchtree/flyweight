@@ -50,11 +50,11 @@ declare class Modifier {
   operator: string
 }
 
-function not(value: any): Modifier;
-function gt(value: any): Modifier;
-function gte(value: any): Modifier;
-function lt(value: any): Modifier;
-function lte(value: any): Modifier;
+function not(value: any): Modifier | undefined;
+function gt(value: any): Modifier | undefined;
+function gte(value: any): Modifier | undefined;
+function lt(value: any): Modifier | undefined;
+function lte(value: any): Modifier | undefined;
 
 export {
   Database,
