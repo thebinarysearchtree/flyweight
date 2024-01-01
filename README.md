@@ -499,6 +499,17 @@ const fighters = await db.fighters.get({ isActive: true }, {
 });
 ```
 
+While the default interpretation of the query parameters is ```=```, you can modify the meaning by importing ```not```, ```gt```, ```gte```, ```lt```, and ```lte```.
+
+For example:
+
+```js
+import { not } from 'flyweightjs';
+
+const excluded = [1, 2, 3];
+const users = await db.users.get({ id: not(excluded) });
+```
+
 ### Exists and Count
 
 These functions take one argument representing the where clause.
