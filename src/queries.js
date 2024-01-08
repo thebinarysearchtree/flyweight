@@ -222,8 +222,8 @@ const update = async (db, table, query, params, tx) => {
     query = removeUndefined(query);
     converted = convertPatterns(query);
     const where = toClause(query, verify);
-    query = removeNulls(query);
     query = convertModifiers(query);
+    query = removeNulls(query);
     sql = `update ${table} set ${set} where ${where}`;
   }
   else {
@@ -400,8 +400,8 @@ const exists = async (db, table, query, tx) => {
   query = removeUndefined(query);
   const converted = convertPatterns(query);
   const where = toClause(query, verify);
-  query = removeNulls(query);
   query = convertModifiers(query);
+  query = removeNulls(query);
   if (where) {
     sql += ` where ${where}`;
   }
@@ -424,8 +424,8 @@ const count = async (db, table, query, keywords, tx) => {
   query = removeUndefined(query);
   const converted = convertPatterns(query);
   const where = toClause(query, verify);
-  query = removeNulls(query);
   query = convertModifiers(query);
+  query = removeNulls(query);
   if (where) {
     sql += ` where ${where}`;
   }
@@ -453,8 +453,8 @@ const get = async (db, table, query, columns, tx) => {
   query = removeUndefined(query);
   const converted = convertPatterns(query);
   const where = toClause(query, verify);
-  query = removeNulls(query);
   query = convertModifiers(query);
+  query = removeNulls(query);
   if (where) {
     sql += ` where ${where}`;
   }
@@ -492,8 +492,8 @@ const all = async (db, table, query, columns, tx) => {
   query = removeUndefined(query);
   const converted = convertPatterns(query);
   const where = toClause(query, verify);
-  query = removeNulls(query);
   query = convertModifiers(query);
+  query = removeNulls(query);
   if (where) {
     sql += ` where ${where}`;
   }
@@ -536,8 +536,8 @@ const remove = async (db, table, query, tx) => {
   query = removeUndefined(query);
   const converted = convertPatterns(query);
   const where = toClause(query, verify);
-  query = removeNulls(query);
   query = convertModifiers(query);
+  query = removeNulls(query);
   if (where) {
     sql += ` where ${where}`;
   }
