@@ -12,6 +12,6 @@
   "license": "MIT",
   "dependencies": {
     "pluralize": "8.0.0",
-    "sqlite3": "5.1.6"
+    "sqlite3": "5.1.7"
   }
 }
