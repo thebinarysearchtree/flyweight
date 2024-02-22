@@ -574,6 +574,12 @@ class Database {
     });
   }
 
+  async finalize(statement) {
+    return new Promise((resolve) => {
+      statement.finalize(() => resolve());
+    });
+  }
+
   async run(query, params, options, tx) {
     if (params === null) {
       params = undefined;
@@ -687,6 +693,13 @@ class Database {
           }
         });
       });
+    }
+    for (const key of this.statements.keys()) {
+      const map = this.statements[key];
+      const statements = map.values();
+      for (const statement of statements) {
+        await this.finalize(statement);
+      }
     }
     const promises = this.databases.map(db => makePromise(db));
     await Promise.all(promises);

@@ -85,11 +85,12 @@ const insertMany = async (db, table, items, tx) => {
       tx = await db.getTransaction();
       createdTransaction = true;
     }
+    let statement;
     try {
       await tx.begin();
       const placeholders = columns.map(c => `$${c}`);
       const sql = `insert into ${table}(${columns.join(', ')}) values(${placeholders.join(', ')})`;
-      const statement = await db.prepare(sql, tx.db);
+      statement = await db.prepare(sql, tx.db);
       const promises = [];
       for (const item of items) {
         const promise = db.run(statement, item, null, tx);
@@ -106,6 +107,7 @@ const insertMany = async (db, table, items, tx) => {
       if (createdTransaction) {
         db.release(tx);
       }
+      await db.finalize(statement);
       return;
     }
   }
