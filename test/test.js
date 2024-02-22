@@ -3,8 +3,9 @@ import queries from './queries.js';
 import sql from './sql.js';
 import types from './types.js';
 import transactions from './transactions.js';
+import close from './close.js';
 
-let tests = [json, queries, sql, types, transactions];
+let tests = [json, queries, sql, types, transactions, close];
 
 const argument = process.argv[2];
 

@@ -122,6 +122,7 @@ class Database {
     this.databases = [];
     this.virtualSet = new Set();
     this.interfaces = {};
+    this.prepared = [];
     this.registerTypes([
       {
         name: 'boolean',
@@ -568,6 +569,7 @@ class Database {
           reject(err);
         }
         else {
+          this.prepared.push(statement);
           resolve(statement);
         }
       });
@@ -694,12 +696,8 @@ class Database {
         });
       });
     }
-    for (const key of this.statements.keys()) {
-      const map = this.statements[key];
-      const statements = map.values();
-      for (const statement of statements) {
-        await this.finalize(statement);
-      }
+    for (const statement of this.prepared) {
+      await this.finalize(statement);
     }
     const promises = this.databases.map(db => makePromise(db));
     await Promise.all(promises);
