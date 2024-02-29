@@ -696,9 +696,8 @@ class Database {
         });
       });
     }
-    for (const statement of this.prepared) {
-      await this.finalize(statement);
-    }
+    const finalizePromises = this.prepared.map(statement => this.finalize(statement));
+    await Promise.all(finalizePromises);
     const promises = this.databases.map(db => makePromise(db));
     await Promise.all(promises);
   }
