@@ -1,10 +1,13 @@
 {
   "name": "flyweightjs",
-  "version": "1.0.33",
+  "version": "1.0.34",
   "description": "An ORM for SQLite",
-  "main": "index.js",
   "types": "index.d.ts",
   "type": "module",
+  "exports": {
+    "import": "index.js",
+    "require": "./dist/index.js"
+  },
   "scripts": {
     "test": "node ./test/test.js"
   },
@@ -13,5 +16,8 @@
   "dependencies": {
     "pluralize": "8.0.0",
     "sqlite3": "5.1.7"
+  },
+  "devDependencies": {
+    "esbuild": "0.20.1"
   }
 }

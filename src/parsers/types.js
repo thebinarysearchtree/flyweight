@@ -6,6 +6,7 @@ import { renameColumns, toArrayName, sliceProps } from '../map.js';
 import { makeOptions } from '../proxy.js';
 import { blank } from './utils.js';
 import { preprocess } from './preprocessor.js';
+import files from './files.js';
 
 const capitalize = (word) => word[0].toUpperCase() + word.substring(1);
 
@@ -420,10 +421,10 @@ const createTypes = async (options) => {
     sqlDir,
     destinationPath
   } = options;
-  let index = await readFile(new URL('../../index.d.ts', import.meta.url), 'utf8');
+  let index = files.index;
   index = index.replace('export default class Database', 'export class Database');
   index = index.replace(/export \{[^\}]+\}/, '');
-  const definitions = await readFile(new URL('../../interfaces.d.ts', import.meta.url), 'utf8');
+  const definitions = files.interfaces;
   
   const typeSet = new Set();
   let i = 1;
