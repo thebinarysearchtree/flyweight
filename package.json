@@ -1,12 +1,12 @@
 {
   "name": "flyweightjs",
-  "version": "1.0.36",
+  "version": "1.0.37",
   "description": "An ORM for SQLite",
   "types": "index.d.ts",
   "type": "module",
   "exports": {
     "import": "./index.js",
-    "require": "./main.js"
+    "require": "./index.cjs"
   },
   "scripts": {
     "test": "node ./test/test.js"
