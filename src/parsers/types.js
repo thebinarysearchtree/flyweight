@@ -9,11 +9,6 @@ import { preprocess } from './preprocessor.js';
 
 const capitalize = (word) => word[0].toUpperCase() + word.substring(1);
 
-let index = await readFile(new URL('../../index.d.ts', import.meta.url), 'utf8');
-index = index.replace('export default class Database', 'export class Database');
-
-const definitions = await readFile(new URL('../../interfaces.d.ts', import.meta.url), 'utf8');
-
 const typeMap = {
   integer: 'number',
   real: 'number',
@@ -425,6 +420,11 @@ const createTypes = async (options) => {
     sqlDir,
     destinationPath
   } = options;
+  let index = await readFile(new URL('../../index.d.ts', import.meta.url), 'utf8');
+  index = index.replace('export default class Database', 'export class Database');
+  index = index.replace(/export \{[^\}]+\}/, '');
+  const definitions = await readFile(new URL('../../interfaces.d.ts', import.meta.url), 'utf8');
+  
   const typeSet = new Set();
   let i = 1;
   const matches = (index + '\n' + definitions).matchAll(/^(export )?(default )?(interface|class) (?<name>[a-z0-9_]+)/gmi);

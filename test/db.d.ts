@@ -50,20 +50,13 @@ declare class Modifier {
   operator: string
 }
 
-function not(value: any): Modifier | undefined;
-function gt(value: any): Modifier | undefined;
-function gte(value: any): Modifier | undefined;
-function lt(value: any): Modifier | undefined;
-function lte(value: any): Modifier | undefined;
+declare function not(value: any): Modifier | undefined;
+declare function gt(value: any): Modifier | undefined;
+declare function gte(value: any): Modifier | undefined;
+declare function lt(value: any): Modifier | undefined;
+declare function lte(value: any): Modifier | undefined;
 
-{
-  Database,
-  not,
-  gt,
-  gte,
-  lt,
-  lte
-}
+
 
 interface Keywords<T> {
   select: T;
