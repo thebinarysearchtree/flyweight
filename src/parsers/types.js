@@ -2,7 +2,7 @@ import { readFile, writeFile, readdir } from 'fs/promises';
 import pluralize from 'pluralize';
 import { join } from 'path';
 import { parseQuery } from './queries.js';
-import { renameColumns, toArrayName, sliceProps } from '../map.js';
+import { renameColumns } from '../map.js';
 import { makeOptions } from '../proxy.js';
 import { blank } from './utils.js';
 import { preprocess } from './preprocessor.js';
@@ -47,11 +47,11 @@ const convertOptional = (tsType) => {
   return tsType.replace(/ \| optional$/, ' | null');
 }
 
-const getTsType = (column, customTypes, parsedInterfaces) => {
+const getTsType = (column, customTypes) => {
   if (column.types) {
     const types = [];
     for (const item of column.types) {
-      types.push(toTsType(item, customTypes, parsedInterfaces));
+      types.push(toTsType(item, customTypes));
     }
     let split = types.join(' | ').split(' | ');
     const optional = split.find(s => s === 'optional');
@@ -65,7 +65,7 @@ const getTsType = (column, customTypes, parsedInterfaces) => {
     }
     return joined;
   }
-  return toTsType(column, customTypes, parsedInterfaces);
+  return toTsType(column, customTypes);
 }
 
 const getOptional = (structuredType, optional) => {
@@ -80,52 +80,8 @@ const getOptional = (structuredType, optional) => {
   }
 }
 
-const parseExtractor = (column, parsedInterfaces) => {
-  const extractor = column.jsonExtractor.extractor;
-  const tsType = column.jsonExtractor.type;
-  const definedType = parsedInterfaces[tsType];
-  if (!definedType) {
-    return;
-  }
-  if (/^\d+$/.test(extractor)) {
-    if (definedType.arrayType) {
-      return definedType.arrayType;
-    }
-    if (definedType.tupleTypes) {
-      return definedType.tupleTypes[Number(extractor)];
-    }
-  }
-  if (/^[a-z0-9_]+$/i.test(extractor)) {
-    return definedType.objectProperties[extractor];
-  }
-  if (/\$(\.[a-z0-9_]+(\[-?\d+\])?)+/gmi.test(extractor)) {
-    const properties = extractor.substring(2).split('.');
-    let type = definedType;
-    for (const property of properties) {
-      const match = /^(?<name>[a-z0-9_]+)(\[(?<index>-?\d+)\])?$/mi.exec(property);
-      const { name, index } = match.groups;
-      type = type.objectProperties[name];
-      if (index) {
-        if (type.arrayType) {
-          type = type.arrayType;
-        }
-        else {
-          type = type.tupleTypes.at(Number(index));
-        }
-      }
-    }
-    return type;
-  }
-}
-
-const toTsType = (column, customTypes, parsedInterfaces) => {
+const toTsType = (column, customTypes) => {
   let tsType;
-  if (column.jsonExtractor && parsedInterfaces) {
-    const extracted = parseExtractor(column, parsedInterfaces);
-    if (extracted) {
-      tsType = extracted.tsType.replace(/ undefined$/, ' null');
-    }
-  }
   const { type, functionName, notNull, isOptional, structuredType } = column;
   if (structuredType) {
     if (functionName === 'json_group_array') {
@@ -137,7 +93,7 @@ const toTsType = (column, customTypes, parsedInterfaces) => {
           const isOptional = !optional.some(o => o === false);
           const types = [];
           for (const value of structured.type) {
-            let type = getTsType(value, customTypes, parsedInterfaces);
+            let type = getTsType(value, customTypes);
             if (isOptional) {
               type = removeOptional(type);
             }
@@ -153,7 +109,7 @@ const toTsType = (column, customTypes, parsedInterfaces) => {
         const isOptional = !optional.some(o => o === false);
         const types = [];
         for (const [key, value] of Object.entries(structured.type)) {
-          let type = getTsType(value, customTypes, parsedInterfaces);
+          let type = getTsType(value, customTypes);
           if (isOptional) {
             type = removeOptional(type);
           }
@@ -182,7 +138,7 @@ const toTsType = (column, customTypes, parsedInterfaces) => {
       getOptional(structuredType, optional);
       const isOptional = !optional.some(o => o === false);
       for (const [key, value] of Object.entries(structured)) {
-        let type = getTsType(value, customTypes, parsedInterfaces);
+        let type = getTsType(value, customTypes);
         if (isOptional) {
           type = removeOptional(type);
         }
@@ -200,7 +156,7 @@ const toTsType = (column, customTypes, parsedInterfaces) => {
     else if (functionName === 'json_array') {
       const types = [];
       for (const type of structuredType) {
-        types.push(convertOptional(getTsType(type, customTypes, parsedInterfaces)));
+        types.push(convertOptional(getTsType(type, customTypes)));
       }
       return `[${types.join(', ')}]`;
     }
@@ -298,7 +254,7 @@ const getQueries = async (db, sqlDir, tableName, typeSet, i) => {
       continue;
     }
     if (columns.length === 1) {
-      const tsType = getTsType(columns[0], db.customTypes, db.interfaces);
+      const tsType = getTsType(columns[0], db.customTypes);
       parsedQueries.push({
         queryName,
         interfaceName: convertOptional(tsType),
@@ -310,7 +266,7 @@ const getQueries = async (db, sqlDir, tableName, typeSet, i) => {
     let interfaceString = `export interface ${interfaceName} {\n`;
     const sample = {};
     for (const column of columns) {
-      const tsType = getTsType(column, db.customTypes, db.interfaces);
+      const tsType = getTsType(column, db.customTypes);
       sample[column.name] = tsType;
     }
     const options = makeOptions(columns, db);
@@ -343,34 +299,8 @@ const getQueries = async (db, sqlDir, tableName, typeSet, i) => {
       }
       return interfaceString;
     }
-    const getMappedTypes = (sample, primaryKeys, subInterfaces, keys = []) => {
-      let interfaceString = '';
-      const currentKey = primaryKeys[0];
-      const nextKey = primaryKeys[1];
-      const sliced = sliceProps(sample, currentKey ? currentKey.index : 0, nextKey ? nextKey.index : undefined);
-      if (!nextKey) {
-        interfaceString += makeProperties(sliced);
-        return interfaceString;
-      }
-      const arrayName = toArrayName(nextKey);
-      keys.push(arrayName);
-      interfaceString += makeProperties(sliced);
-      const result = getMappedTypes(sample, primaryKeys.slice(1), subInterfaces, [...keys]);
-      const subInterfaceName = makeUnique(interfaceName + keys.map(k => capitalize(k)).join(''), typeSet, i);
-      const subInterface = `export interface ${subInterfaceName} {\n${result}};`;
-      subInterfaces.push(subInterface);
-      interfaceString += `  ${arrayName}: Array<${subInterfaceName}>;\n`;
-      return interfaceString;
-    }
-    const subInterfaces = [];
-    interfaceString += getMappedTypes(sample, options.primaryKeys, subInterfaces);
+    interfaceString += makeProperties(sample);
     interfaceString += `}\n`;
-    if (subInterfaces.length > 0) {
-      const temp = interfaceString;
-      interfaceString = subInterfaces.join('\n\n');
-      interfaceString += '\n\n';
-      interfaceString += temp;
-    }
     parsedQueries.push({
       queryName,
       interfaceName,
@@ -432,9 +362,6 @@ const createTypes = async (options) => {
   for (const match of matches) {
     typeSet.add(match.groups.name.toLowerCase());
   }
-  for (const name of Object.keys(db.interfaces)) {
-    typeSet.add(name);
-  }
   const tables = Object.entries(db.tables).map(([key, value]) => ({ name: key, columns: value }));
   let types = '';
   if (/\.d\.ts/.test(destinationPath)) {
@@ -444,10 +371,6 @@ const createTypes = async (options) => {
   }
   types += definitions;
   types += '\n\n';
-  if (options.interfaces) {
-    types += options.interfaces.trim();
-    types += '\n\n';
-  }
   const returnTypes = [];
   for (const table of tables) {
     const singular = pluralize.singular(table.name);
@@ -465,7 +388,7 @@ const createTypes = async (options) => {
       tsType = toTsType({
         type: primaryKey.type,
         notNull: true
-      }, db.customTypes, db.interfaces);
+      }, db.customTypes);
     }
     else {
       tsType = 'undefined';
@@ -497,7 +420,7 @@ const createTypes = async (options) => {
       const tsType = toTsType({
         type,
         notNull: notNull || primaryKey
-      }, db.customTypes, db.interfaces);
+      }, db.customTypes);
       let property = `  ${name}`;
       property += ': ';
       property += tsType;
@@ -511,7 +434,7 @@ const createTypes = async (options) => {
       const tsType = toTsType({
         type,
         notNull: true
-      }, db.customTypes, db.interfaces);
+      }, db.customTypes);
       let property = `  ${name}`;
       if (primaryKey || !notNull || hasDefault) {
         property += '?: ';
@@ -530,7 +453,7 @@ const createTypes = async (options) => {
       const tsType = toTsType({
         type,
         notNull: true
-      }, db.customTypes, db.interfaces);
+      }, db.customTypes);
       const customType = db.customTypes[type];
       const dbType = customType ? customType.dbType : type;
       let property = `  ${name}`;
@@ -561,8 +484,7 @@ const createTypes = async (options) => {
       types += '\n';
     }
   }
-  const interfaceName = options.interfaceName || 'TypedDb';
-  types += `export interface ${interfaceName} {\n`;
+  types += `export interface TypedDb {\n`;
   types += '  [key: string]: any,\n';
   for (const returnType of returnTypes) {
     types += returnType + ',\n';
@@ -570,13 +492,13 @@ const createTypes = async (options) => {
   types += '  begin(): Promise<void>,\n';
   types += '  commit(): Promise<void>,\n';
   types += '  rollback(): Promise<void>,\n';
-  types += `  getTransaction(): Promise<${interfaceName}>,\n`;
-  types += `  release(transaction: ${interfaceName}): void`;
+  types += `  getTransaction(): Promise<TypedDb>,\n`;
+  types += `  release(transaction: TypedDb): void`;
   types += '\n}\n\n';
   if (/\.d\.ts/.test(destinationPath)) {
     types = types.replaceAll(/^export /gm, '');
     types += `declare const database: Database;\n`;
-    types += `declare const db: ${interfaceName};\n`;
+    types += `declare const db: TypedDb;\n`;
     types += 'declare function makeTypes(): Promise<void>;\n';
     types += 'declare function getTables(): Promise<string>;\n';
     types += 'declare function createMigration(name: string): Promise<void>;\n';
@@ -587,6 +509,5 @@ const createTypes = async (options) => {
 }
 
 export {
-  createTypes,
-  parseExtractor
+  createTypes
 }

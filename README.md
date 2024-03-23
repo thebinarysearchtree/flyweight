@@ -16,9 +16,7 @@ create table events (
 );
 ```
 
-Tables are created with SQL, not with a custom API. Even though SQLite only has a few types built in, Flyweight allows you to create your own types, which are converted to and from the database. In this example, the ```startTime``` column is using the new ```date``` type.
-
-Flyweight parses your sql statements and tables, and creates an API that is typed with TypeScript. Each table has a singular and plural form. If you want to get one row with the basic API, you can use:
+Tables are created with SQL, not with a custom API. Flyweight parses your sql statements and tables, and creates an API that is typed with TypeScript. Each table has a singular and plural form. If you want to get one row with the basic API, you can use:
 
 ```js
 const event = await db.event.get({ id: 100 });
@@ -41,137 +39,31 @@ const id = await db.coach.insert({
 
 The basic API does not allow you to perform joins, aggregate functions, or anything else. When you need these features, you simply create a SQL file in a folder with the name of one of the tables. This will then be parsed and typed by Flyweight, and available as part of the API.
 
-By using conventions, Flyweight is able to automatically map SQL statements into nested objects without any extra code. For example, the following SQL statement:
-
-```sql
-select
-    e.id,
-    e.name,
-    c.id as cardId,
-    c.cardName,
-    f.id as fightId,
-    object(
-        bf.id, 
-        bf.name, 
-        bf.social) as blue,
-    object(
-        rf.id, 
-        rf.name, 
-        rf.social) as red
-from
-    events e join
-    cards c on c.eventId = e.id join
-    fights f on f.cardId = c.id join
-    fighters bf on f.blueId = bf.id join
-    fighters rf on f.redId = rf.id
-where e.id = $id
-```
-
-is contained in a file called ```getById.sql``` in the ```events``` folder. It can be called from the API like this:
+For example, if you have a query contained in a file called ```getById.sql``` in the ```events``` folder, it can be called from the API like this:
 
 ```js
 const event = await db.event.getById({ id: 100 });
 ```
 
-This returns an object that looks like this:
-
-```js
-{
-  id: 100,
-  name: 'UFC 78: Validation',
-  cards: [
-    { id: 247, cardName: 'Main card', fights: [Array] },
-    { id: 248, cardName: 'Preliminary card', fights: [Array] }
-  ]
-}
-```
-
-With each fight in the fights array looking like this:
-
-```js
-{
-  id: 805,
-  blue: {
-    id: 708,
-    name: 'Rashad Evans',
-    social: { instagram: 'sugarashadevans', twitter: 'SugaRashadEvans' }
-  },
-  red: {
-    id: 236,
-    name: 'Michael Bisping',
-    social: { instagram: 'mikebisping', twitter: 'bisping' }
-  }
-}
-```
-
-## How it works
-
-Now let's look at how Flyweight does this without you having to specify any mapping code. It all comes down to the select statement:
-
-```sql
-  e.id,                     // primary key
-  e.name,
-  c.id as cardId,           // primary key
-  c.cardName,
-  f.id as fightId,          // primary key
-  object(
-        bf.id, 
-        bf.name, 
-        bf.social) as blue,
-  object(
-      rf.id, 
-      rf.name, 
-      rf.social) as red
-```
-
-Every time you want to create an array within an object (such as the ```cards``` array in the main object), you include a primary key. Every column including and after the primary key forms the keys of the objects inside the array. Flyweight takes the name of the column (eg ```cardId```), removes the ```Id``` part, and then converts the name into its plural form to create the name of the array (eg ```cards```). If the column name doesn't fit this format, Flyweight just uses the name of the table the primary key is from as the array name.
+## Shorthand JSON functions
 
 ```sql
 object(
-    bf.id, 
-    bf.name, 
-    bf.social) as blue
+    u.id, 
+    u.name, 
+    u.social) as user
 ``` 
 
 is just shorthand for 
 
 ```sql
 json_object(
-    'id', bf.id, 
-    'name', bf.name, 
-    'social', bf.social) as blue
+    'id', u.id, 
+    'name', u.name, 
+    'social', u.social) as user
 ```
 
 Other commands available are ```groupArray``` which is shorthand for ```json_group_array```, and ```array```, which is shorthand for ```json_array```.
-
-These functions can also be used like this:
-
-```sql
-select
-    l.id,
-    groupArray(e.*) as events
-from
-    locations l join
-    events e on e.locationId = l.id
-group by l.id
-```
-
-```sql
-select object(*) as method from methods
-```
-
-The ```social``` property is an object because in the ```fighters``` table, it is defined with the type ```json```, which is automatically parsed into an object.
-
-When writing SQL that is mapped to nested arrays, you don't have to worry about avoiding name clashes. For example,
-
-```sql
-select l.*, e.* 
-from 
-    locations l join 
-    events e on e.locationId = l.id
-```
-
-will work even though ```locations``` and ```events``` both have an ```id``` and ```name``` property. Flyweight automatically renames columns that clash, and then returns them to their original name during the mapping stage. As this query returns an array of locations that each contain an array of events, the ```id``` and ```name``` properties no longer clash.
 
 ## Getting started
 
@@ -192,8 +84,7 @@ const result = await database.initialize({
   tables: '/path/tables.sql',
   views: '/path/views',
   types: '/path/db.d.ts',
-  migrations: '/path/migrations',
-  interfaces: '/path/interfaces.d.ts'
+  migrations: '/path/migrations'
 });
 
 const {
@@ -224,44 +115,6 @@ await makeTypes();
 
 This should create a ```db.d.ts``` file that will type the exported ```db``` variable.
 
-For TypeScript, create a file with the following code:
-
-```ts
-import { Database } from 'flyweightjs';
-import { TypedDb } from './types.ts';
-
-const database = new Database();
-
-const result = await database.initialize<TypedDb>({
-  db: '/path/test.db',
-  sql: '/path/sql',
-  tables: '/path/tables.sql',
-  views: '/path/views',
-  types: '/path/types.ts',
-  migrations: '/path/migrations',
-  interfaces: '/path/interfaces.d.ts'
-});
-
-const {
-  db,
-  makeTypes,
-  getTables,
-  createMigration,
-  runMigration
-} = result;
-
-export {
-  database,
-  db,
-  makeTypes,
-  getTables,
-  createMigration,
-  runMigration
-}
-```
-
-When you first run this code, remove all of the references to ```TypedDb``` because it does not exist yet. Import ```makeTypes``` into another file and run to generate the ```types.ts``` file and then put the ```TypedDb``` references back. Before you do that though, you need to add some ```create table``` statements to the file specified in the ```tables``` argument so that there are some types to generate.
-
 The ```initialize``` method's ```path``` object has the following properties:
 
 ```db```: The path to the database.
@@ -272,15 +125,11 @@ The ```initialize``` method's ```path``` object has the following properties:
 
 ```views```: A path to a SQL file or folder of files containing any ```create view``` statements that you have. This is optional.
 
-```types```: If you are using JavaScript, this should be a path to a file that is in the same location as ```db.js```. If you are using TypeScript, this can be any path. This file should not exist yet. It will be created by the ```makeTypes``` function.
+```types```: This should be a path to a file that is in the same location as ```db.js```. This file should not exist yet. It will be created by the ```makeTypes``` function.
 
 ```migrations```: A path to the migrations folder. When you run ```createMigration```, the SQL files will be created in this folder.
 
 ```extensions```: A string or array of strings of SQLite extensions that will be loaded each time a connection is made to the database.
-
-```interfaces```: A path to a TypeScript declaration file that can be used to easily type JSON columns.
-
-```initialize``` also takes an optional second argument, ```interfaceName```, which is a string that can be used instead of ```TypedDb```. This is useful if you have more than one database.
 
 ## Regular expressions
 
@@ -293,74 +142,6 @@ const coach = await db.coach.get({ name: /^Eugene.+/ });
 ## Creating tables
 
 Tables are created the same way as they are in SQL. Flyweight converts the custom types in these tables to native types, and converts the tables to strict mode. The native types available in strict mode are ```integer```, ```real```, ```text```, ```blob```, and ```any```. In addition to these types, four custom types are included by default: ```boolean```, ```date```, and ```json```. ```boolean``` is a column in which the values are restricted to 1 or 0, ```date``` is a JavaScript ```Date``` stored as an ISO8601 string, and ```json``` is json stored as text.
-
-To add your own types, you can use the ```registerTypes``` method on the ```database``` object mentioned earlier. ```registerTypes``` takes an array of ```CustomType``` objects that have the following properties:
-
-```name```: the name of the type to be used in ```create table``` statements.
-
-```valueTest```: a function that takes a value and returns ```true``` or ```false``` as to whether they value's type is that of the custom type.
-
-```makeConstraint```: a function that takes a column name as an argument, and returns a SQL constraint string.
-
-```dbToJs```: a function that takes a value from the database and returns the JavaScript equivalent of that value. The null case does not need to be handled as it is passed through unchanged.
-
-```jsToDb```: a function that takes a JavaScript value and returns a value suitable for storing in the database. The null case does not need to be handled as it is passed through unchanged.
-
-```tsType```: the TypeScript type that represents this custom type.
-
-```dbType```: the native database type that will be used to store values of this type.
-
-For example, the custom type for ```boolean``` is as follows:
-
-```js
-{
-  name: 'boolean',
-  valueTest: (v) => typeof v === 'boolean',
-  makeConstraint: (column) => `check (${column} in (0, 1))`,
-  dbToJs: (v) => Boolean(v),
-  jsToDb: (v) => v === true ? 1 : 0,
-  tsType: 'boolean',
-  dbType: 'integer'
-}
-```
-
-```valueTest``` and ```jsToDb``` are only necessary if a conversion is required from a JavaScript type to a native database type. ```dbToJs``` is only required if a conversion is necessary when taking data out of the database. If no conversion is necessary either way, your custom type will look something like this:
-
-```js
-{
-  name: 'medal',
-  makeConstraint: (column) => `check (${column} in ('gold', 'silver', 'bronze'))`,
-  tsType: 'string',
-  dbType: 'text'
-}
-```
-
-You can also easily type JSON columns by passing in an ```interfaces.d.ts``` file to the ```initialize``` method mentioned in the getting started section. For example, if your ```interfaces.d.ts``` file looks like this:
-
-```ts
-export interface Social {
-  instagram?: string;
-  twitter?: string;
-}
-```
-
-and you have a table that looks like this:
-
-```sql
-create table fighters (
-    id integer primary key,
-    name text not null,
-    nickname text,
-    born text,
-    heightCm integer,
-    reachCm integer,
-    hometown text not null,
-    social,
-    isActive boolean not null
-);
-```
-
-The ```social``` column is typed with the ```Social``` type. This is because any column without a type is assumed to have the type name of the column, and any type that hasn't been registered as a custom type is assumed to be of the type ```json``` if it matches the lowercase name of one of the interfaces defined in the ```interfaces.d.ts```.
 
 Default values can be set for boolean and date columns using the following syntax:
 

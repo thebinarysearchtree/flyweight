@@ -1,12 +1,13 @@
 {
   "name": "flyweightjs",
-  "version": "1.0.39",
+  "version": "2.0.0",
   "description": "An ORM for SQLite",
   "types": "index.d.ts",
   "type": "module",
   "exports": {
     "import": "./index.js",
-    "require": "./index.cjs"
+    "require": "./index.cjs",
+    "build": "./node_modules/.bin/esbuild index.js --bundle --platform=node --format=cjs --packages=external --outfile=index.cjs"
   },
   "scripts": {
     "test": "node ./test/test.js"
@@ -18,6 +19,6 @@
     "sqlite3": "5.1.7"
   },
   "devDependencies": {
-    "esbuild": "0.20.1"
+    "esbuild": "0.20.2"
   }
 }

@@ -157,23 +157,6 @@ interface MultipleQueries<T, I, W> {
   remove(params?: W): Promise<number>;
 }
 
-interface Social {
-  instagram?: string;
-  twitter?: string;
-}
-
-interface Profile {
-  medical: {
-    age: number;
-    fit: boolean;
-    testDate: Date;
-    nested: {
-      test: [Date, Date]
-    }
-  },
-  tests: Array<{ id: number, testDate: Date, result: number }>
-}
-
 interface WeightClass {
   id: number;
   name: string;
@@ -225,18 +208,6 @@ interface LocationsByMethod {
   count: number;
 }
 
-interface LocationsEventsEvents {
-  id: number;
-  name: string;
-  startTime: Date;
-};
-
-interface LocationsEvents {
-  id: number;
-  name: string;
-  events: Array<LocationsEventsEvents>;
-}
-
 interface LocationsWinners {
   location: string;
   fighter: string;
@@ -245,13 +216,11 @@ interface LocationsWinners {
 
 interface LocationsQueries {
   byMethod(params: { id: any; }): Promise<Array<LocationsByMethod>>;
-  events(): Promise<Array<LocationsEvents>>;
   winners(): Promise<Array<LocationsWinners>>;
 }
 
 interface LocationQueries {
   byMethod(params: { id: any; }): Promise<LocationsByMethod | undefined>;
-  events(): Promise<LocationsEvents | undefined>;
   winners(): Promise<LocationsWinners | undefined>;
 }
 
@@ -276,24 +245,6 @@ interface WhereEvent {
   locationId?: number | Array<number> | null;
 }
 
-interface EventsGetByIdCardsFights {
-  id: number;
-  blue: { id: number, name: string, social: Social | null };
-  red: { id: number, name: string, social: Social | null };
-};
-
-interface EventsGetByIdCards {
-  id: number;
-  cardName: string;
-  fights: Array<EventsGetByIdCardsFights>;
-};
-
-interface EventsGetById {
-  id: number;
-  name: string;
-  cards: Array<EventsGetByIdCards>;
-}
-
 interface EventsTest {
   id: number;
   nest: { name: string, startTime: Date };
@@ -301,13 +252,11 @@ interface EventsTest {
 
 interface EventsQueries {
   from(): Promise<Array<number | null>>;
-  getById(params: { id: any; }): Promise<Array<EventsGetById>>;
   test(): Promise<Array<EventsTest>>;
 }
 
 interface EventQueries {
   from(): Promise<number | null | undefined>;
-  getById(params: { id: any; }): Promise<EventsGetById | undefined>;
   test(): Promise<EventsTest | undefined>;
 }
 
@@ -339,21 +288,21 @@ interface Coach {
   id: number;
   name: string;
   city: string;
-  profile: Profile | null;
+  profile: any;
 }
 
 interface InsertCoach {
   id?: number;
   name: string;
   city: string;
-  profile?: Profile;
+  profile?: any;
 }
 
 interface WhereCoach {
   id?: number | Array<number>;
   name?: string | Array<string> | RegExp;
   city?: string | Array<string> | RegExp;
-  profile?: Profile | Array<Profile> | RegExp | null;
+  profile?: any | Array<any> | RegExp | null;
 }
 
 interface Fighter {
@@ -364,7 +313,7 @@ interface Fighter {
   heightCm: number | null;
   reachCm: number | null;
   hometown: string;
-  social: Social | null;
+  social: any;
   isActive: boolean;
 }
 
@@ -376,7 +325,7 @@ interface InsertFighter {
   heightCm?: number;
   reachCm?: number;
   hometown: string;
-  social?: Social;
+  social?: any;
   isActive: boolean;
 }
 
@@ -388,7 +337,7 @@ interface WhereFighter {
   heightCm?: number | Array<number> | null;
   reachCm?: number | Array<number> | null;
   hometown?: string | Array<string> | RegExp;
-  social?: Social | Array<Social> | RegExp | null;
+  social?: any | Array<any> | RegExp | null;
   isActive?: boolean | Array<boolean>;
 }
 
@@ -440,7 +389,7 @@ interface FightersWeightClasses {
 
 interface FightersQueries {
   common(params: { fighter1: any; fighter2: any; }): Promise<Array<FightersCommon>>;
-  instagram(): Promise<Array<string | null>>;
+  instagram(): Promise<Array<number | string | Buffer>>;
   lastFights(params: { id: any; }): Promise<Array<FightersLastFights>>;
   left(): Promise<Array<FightersLeft>>;
   methods(params: { id: any; }): Promise<Array<FightersMethods>>;
@@ -452,7 +401,7 @@ interface FightersQueries {
 
 interface FighterQueries {
   common(params: { fighter1: any; fighter2: any; }): Promise<FightersCommon | undefined>;
-  instagram(): Promise<string | null | undefined>;
+  instagram(): Promise<number | string | Buffer | undefined>;
   lastFights(params: { id: any; }): Promise<FightersLastFights | undefined>;
   left(): Promise<FightersLeft | undefined>;
   methods(params: { id: any; }): Promise<FightersMethods | undefined>;
@@ -552,10 +501,10 @@ interface MethodsByFighter {
 }
 
 interface MethodsCoach {
-  fit: boolean;
-  test: Date;
-  tests: Array<{ id: number, testDate: Date, result: number }>;
-  profile: Profile;
+  fit: number | string | Buffer;
+  test: any;
+  tests: any;
+  profile: any;
 }
 
 interface MethodsQueries {

@@ -107,34 +107,6 @@ var parse = (rows, types) => {
 
 // src/map.js
 var import_pluralize = __toESM(require("pluralize"), 1);
-var split = (rows, key) => {
-  const results = [];
-  if (rows.length === 0) {
-    return rows;
-  }
-  let currentKey = rows[0][key];
-  let currentRows = [];
-  for (const row of rows) {
-    const k = row[key];
-    if (k === currentKey && k !== null) {
-      currentRows.push(row);
-    } else {
-      results.push(currentRows);
-      currentRows = [row];
-      currentKey = k;
-    }
-  }
-  results.push(currentRows);
-  return results;
-};
-var sliceProps = (o, start, end) => {
-  const entries = Object.entries(o).slice(start, end);
-  const result = {};
-  for (const [key, value] of entries) {
-    result[key] = value;
-  }
-  return result;
-};
 var renameColumns = (o, columns) => {
   const result = {};
   for (const [key, value] of Object.entries(o)) {
@@ -159,49 +131,20 @@ var parse2 = (o, types) => {
   }
   return result;
 };
-var nullToArray = (rows, primaryKey) => {
-  if (rows.length === 1 && rows[0][primaryKey] === null) {
-    return [];
-  }
-  return rows;
-};
-var toArrayName = (primaryKey) => {
-  const name = primaryKey.name;
-  if (/^.+Id$/.test(name)) {
-    const arrayName = name.substring(0, name.length - 2);
-    return import_pluralize.default.plural(arrayName);
-  }
-  return primaryKey.table;
-};
-var auto = (db, rows, columns, types, primaryKeys, firstRun, one) => {
+var auto = (db, rows, columns, types, one) => {
   if (rows.length === 0) {
     return [];
   }
-  const sample = rows[0];
-  if (firstRun) {
-    firstRun = false;
-    if (primaryKeys.length < 2) {
-      if (one) {
-        let result = sample;
-        if (types) {
-          result = parse2(result, types);
-        }
-        if (columns) {
-          result = renameColumns(result, columns);
-        }
-        return result;
-      } else {
-        if (types) {
-          rows = rows.map((s) => parse2(s, types));
-        }
-        if (columns) {
-          rows = rows.map((s) => renameColumns(s, columns));
-        }
-        return rows;
-      }
+  if (one) {
+    let result = rows[0];
+    if (types) {
+      result = parse2(result, types);
     }
-  }
-  if (primaryKeys.length === 0) {
+    if (columns) {
+      result = renameColumns(result, columns);
+    }
+    return result;
+  } else {
     if (types) {
       rows = rows.map((s) => parse2(s, types));
     }
@@ -210,43 +153,9 @@ var auto = (db, rows, columns, types, primaryKeys, firstRun, one) => {
     }
     return rows;
   }
-  const previousKey = primaryKeys[0];
-  if (primaryKeys.length === 1) {
-    let sliced = rows.map((r) => sliceProps(r, previousKey.index));
-    if (types) {
-      sliced = sliced.map((s) => parse2(s, types));
-    }
-    if (columns) {
-      sliced = sliced.map((s) => renameColumns(s, columns));
-    }
-    return nullToArray(sliced, previousKey.name);
-  }
-  const nextKey = primaryKeys[1];
-  const arrayName = toArrayName(nextKey);
-  const getResults = (rows2) => {
-    let result = sliceProps(rows2[0], previousKey.index, nextKey.index);
-    if (types) {
-      result = parse2(result, types);
-    }
-    if (columns) {
-      result = renameColumns(result, columns);
-    }
-    const splitRows = split(rows2, nextKey.name);
-    const slicedKeys = primaryKeys.slice(1);
-    let mapped = splitRows.map((rows3) => auto(db, rows3, columns, types, slicedKeys, firstRun, true));
-    if (slicedKeys.length === 1) {
-      mapped = mapped.flat();
-    }
-    result[arrayName] = nullToArray(mapped, nextKey.name);
-    return result;
-  };
-  if (one) {
-    return getResults(rows);
-  }
-  return split(rows, previousKey.name).map((r) => getResults(r));
 };
-var mapOne = (db, rows, columns, types, primaryKeys) => auto(db, rows, columns, types, primaryKeys, true, true);
-var mapMany = (db, rows, columns, types, primaryKeys) => auto(db, rows, columns, types, primaryKeys, true, false);
+var mapOne = (db, rows, columns, types) => auto(db, rows, columns, types, true);
+var mapMany = (db, rows, columns, types) => auto(db, rows, columns, types, false);
 
 // src/parsers/utils.js
 var isEscape = (s) => /(?<escape>\\+)$/.exec(s).groups.escape.length % 2 === 1;
@@ -741,13 +650,13 @@ var getWhereColumns = (query) => {
   const matches = where.matchAll(/(?<column>[a-z0-9_.]+) is not null/gmi);
   return Array.from(matches).map((match2) => {
     const column = match2.groups.column;
-    const split2 = column.split(".");
-    if (split2.length === 1) {
+    const split = column.split(".");
+    if (split.length === 1) {
       return { columnName: column };
     }
     return {
-      tableAlias: split2[0],
-      columnName: split2[1]
+      tableAlias: split[0],
+      columnName: split[1]
     };
   });
 };
@@ -861,12 +770,12 @@ var processColumn = (column, tables, fromTables, whereColumns, joinColumns) => {
     }
   }
   if (column.caseBody) {
-    const split2 = blank(column.caseBody).split(/((?: when )|(?: then )|(?: else )|(?: end(?:$| )))/i);
+    const split = blank(column.caseBody).split(/((?: when )|(?: then )|(?: else )|(?: end(?:$| )))/i);
     types = [];
     let last;
     let i = 0;
     let start = 0;
-    for (const blanked of split2) {
+    for (const blanked of split) {
       const statement = column.caseBody.substring(start, start + blanked.length).trim();
       if (last && /then|else/i.test(last)) {
         const column2 = parseColumn(`${statement} as c${i}`);
@@ -1123,9 +1032,9 @@ var parseSelect = (query, tables) => {
       direction = match.groups.direction;
       continue;
     }
-    const split2 = item.split(/\s/);
-    const tableName = split2[0];
-    const tableAlias = split2[1];
+    const split = item.split(/\s/);
+    const tableName = split[0];
+    const tableAlias = split[1];
     const table = {
       tableName,
       tableAlias,
@@ -1221,19 +1130,19 @@ var getViews = (sql, db) => {
   return views;
 };
 var getColumn = (sql) => {
-  const split2 = sql.split(/\s+/);
-  const isColumn = split2.length > 0 && !["unique", "check", "primary", "foreign"].includes(split2[0].toLowerCase());
+  const split = sql.split(/\s+/);
+  const isColumn = split.length > 0 && !["unique", "check", "primary", "foreign"].includes(split[0].toLowerCase());
   if (!isColumn) {
     return;
   }
   let type;
-  if (split2.length === 1 || ["not", "primary", "foreign", "check"].includes(split2[1].toLowerCase())) {
-    type = split2[0].toLowerCase();
+  if (split.length === 1 || ["not", "primary", "foreign", "check"].includes(split[1].toLowerCase())) {
+    type = split[0].toLowerCase();
   } else {
-    type = split2[1];
+    type = split[1];
   }
   return {
-    name: split2[0],
+    name: split[0],
     type
   };
 };
@@ -1873,8 +1782,8 @@ var remove = async (db, table, query, tx) => {
 };
 
 // src/proxy.js
-var import_path3 = require("path");
-var import_pluralize3 = __toESM(require("pluralize"), 1);
+var import_path2 = require("path");
+var import_pluralize2 = __toESM(require("pluralize"), 1);
 
 // src/parsers/preprocessor.js
 var subqueries = (sql, tables) => {
@@ -1961,8 +1870,8 @@ var objectStar = (sql, tables) => {
       }
       const expanded = [];
       for (const starColumn of column.starColumns) {
-        const split2 = starColumn.split(".");
-        const name = split2.length === 1 ? split2[0] : split2[1];
+        const split = starColumn.split(".");
+        const name = split.length === 1 ? split[0] : split[1];
         expanded.push(`'${name}', ${starColumn}`);
       }
       fragments.push(expanded.join(", "));
@@ -1999,10 +1908,10 @@ var expandStar = (sql, tables, isView) => {
         fragments.push(sql.substring(lastEnd, start + statementStart));
       }
       lastEnd = start + statementEnd;
-      const split2 = statement.split(".");
+      const split = statement.split(".");
       let tableAlias;
-      if (split2.length > 1) {
-        tableAlias = split2[0];
+      if (split.length > 1) {
+        tableAlias = split[0];
       }
       const tableColumns = columns.filter((c) => c.partOf === statement);
       const expanded = [];
@@ -2184,10 +2093,305 @@ var preprocess = (sql, tables, isView) => {
   return sql;
 };
 
+// src/proxy.js
+var queries = {
+  insert: (database, table, tx) => async (params) => await insert(database, table, params, tx),
+  insertMany: (database, table, tx) => async (items) => await insertMany(database, table, items, tx),
+  update: (database, table, tx) => async (params, query) => await update(database, table, params, query, tx),
+  exists: (database, table, tx) => async (query) => await exists(database, table, query, tx),
+  count: (database, table, tx) => async (query, keywords) => await count(database, table, query, keywords, tx),
+  get: (database, table, tx) => async (query, columns) => await get(database, table, query, columns, tx),
+  all: (database, table, tx) => async (query, columns) => await all(database, table, query, columns, tx),
+  remove: (database, table, tx) => async (query) => await remove(database, table, query, tx)
+};
+var singularQueries = {
+  insert: queries.insert,
+  update: queries.update,
+  exists: queries.exists,
+  get: queries.get,
+  remove: queries.remove
+};
+var multipleQueries = {
+  insert: queries.insertMany,
+  update: queries.update,
+  count: queries.count,
+  get: queries.all,
+  remove: queries.remove
+};
+var convertItem = (item, converters) => {
+  for (const converter of converters) {
+    const keys = converter.keys;
+    const count2 = keys.length;
+    let i = 0;
+    let actual = item;
+    for (const key of keys) {
+      if (i + 1 === count2) {
+        if (actual[key] !== null) {
+          actual[key] = converter.converter(actual[key]);
+        }
+      }
+      actual = actual[key];
+      i++;
+    }
+  }
+};
+var getConverters = (key, value, db, converters, keys = [], optional = []) => {
+  keys.push(key);
+  if (typeof value.type === "string") {
+    optional.push(value.isOptional);
+    if (value.functionName && /^json_/i.test(value.functionName)) {
+      return;
+    }
+    const converter = db.getDbToJsConverter(value.type);
+    if (converter) {
+      converters.push({
+        keys: [...keys],
+        converter
+      });
+    }
+    return;
+  } else {
+    for (const [k, v] of Object.entries(value.type)) {
+      getConverters(k, v, db, converters, [...keys], optional);
+    }
+  }
+};
+var allNulls = (item) => {
+  if (item === null) {
+    return true;
+  }
+  for (const value of Object.values(item)) {
+    if (value === null) {
+      continue;
+    }
+    if (typeof value === "string" || typeof value === "number" || typeof value === "boolean" || value instanceof Date) {
+      return false;
+    }
+    const isNull = allNulls(value);
+    if (!isNull) {
+      return false;
+    }
+  }
+  return true;
+};
+var makeOptions = (columns, db) => {
+  const columnMap = {};
+  let typeMap3 = null;
+  for (const column of columns) {
+    columnMap[column.name] = column.name.replace(/^flyweight\d+_/, "");
+    const converter = db.getDbToJsConverter(column.type);
+    let actualConverter = converter;
+    if (converter) {
+      if (!typeMap3) {
+        typeMap3 = {};
+      }
+      const structured = column.structuredType;
+      if (structured) {
+        if (column.functionName === "json_group_array") {
+          const structuredType = structured.type;
+          if (typeof structuredType === "string") {
+            const structuredConverter = db.getDbToJsConverter(structuredType);
+            actualConverter = (v) => {
+              let converted = converter(v);
+              converted = converted.filter((v2) => v2 !== null);
+              if (structuredType === "text") {
+                converted.sort((a, b) => a.localeCompare(b));
+              }
+              if (structuredType === "integer" || structuredType === "real") {
+                converted.sort((a, b) => a - b);
+              }
+              if (structuredConverter && !(structured.functionName && /^json_/i.test(structured.functionName))) {
+                converted = converted.map((i) => structuredConverter(i));
+                if (structuredType === "date") {
+                  converted.sort((a, b) => b.getTime() - a.getTime());
+                }
+              }
+              return converted;
+            };
+          } else {
+            const converters = [];
+            const optional = [];
+            for (const [key, value] of Object.entries(structuredType)) {
+              getConverters(key, value, db, converters, [], optional);
+            }
+            const isOptional = !optional.some((o) => o === false);
+            if (converters.length > 0) {
+              actualConverter = (v) => {
+                const converted = converter(v);
+                for (const item of converted) {
+                  convertItem(item, converters);
+                }
+                if (isOptional) {
+                  return converted.filter((c) => !allNulls(c));
+                }
+                return converted;
+              };
+            } else if (isOptional) {
+              actualConverter = (v) => {
+                const converted = converter(v);
+                return converted.filter((c) => !allNulls(c));
+              };
+            }
+          }
+        } else if (column.functionName === "json_object") {
+          const structuredType = structured.type;
+          const converters = [];
+          const optional = [];
+          for (const [key, value] of Object.entries(structuredType)) {
+            getConverters(key, value, db, converters, [], optional);
+          }
+          const isOptional = !optional.some((o) => o === false);
+          if (converters.length > 0) {
+            actualConverter = (v) => {
+              const converted = converter(v);
+              convertItem(converted, converters);
+              if (allNulls(converted)) {
+                return null;
+              }
+              return converted;
+            };
+          } else if (isOptional) {
+            actualConverter = (v) => {
+              const converted = converter(v);
+              if (allNulls(converted)) {
+                return null;
+              }
+              return converted;
+            };
+          }
+        } else if (column.functionName === "json_array") {
+          const converters = [];
+          let i = 0;
+          for (const type of structured) {
+            getConverters(i, type, db, converters);
+            i++;
+          }
+          if (converters.length > 0) {
+            actualConverter = (v) => {
+              const converted = converter(v);
+              convertItem(converted, converters);
+              return converted;
+            };
+          }
+        }
+      }
+      typeMap3[column.name] = actualConverter;
+    }
+  }
+  const options = {
+    parse: true,
+    map: true
+  };
+  options.columns = columnMap;
+  options.types = typeMap3;
+  return options;
+};
+var getResultType = (columns, isSingular) => {
+  if (columns.length === 0) {
+    return "none";
+  } else if (isSingular) {
+    if (columns.length === 1) {
+      return "value";
+    } else {
+      return "object";
+    }
+  } else {
+    if (columns.length === 1) {
+      return "values";
+    } else {
+      return "array";
+    }
+  }
+};
+var makeQueryHandler = (table, db, sqlDir, tx) => {
+  let isSingular;
+  let queries2;
+  if (import_pluralize2.default.isSingular(table)) {
+    isSingular = true;
+    table = import_pluralize2.default.plural(table);
+    queries2 = singularQueries;
+  } else {
+    isSingular = false;
+    queries2 = multipleQueries;
+  }
+  return {
+    get: function(target, query, receiver) {
+      if (!target[query]) {
+        if (!sqlDir) {
+          if (!queries2[query]) {
+            throw Error(`Query ${query} of table ${table} not found`);
+          } else {
+            target[query] = queries2[query](db, table, tx);
+          }
+        } else {
+          const path = (0, import_path2.join)(sqlDir, table, `${query}.sql`);
+          let sql;
+          try {
+            sql = (0, import_fs.readFileSync)(path, "utf8");
+            sql = preprocess(sql, db.tables);
+          } catch (e) {
+            const makeQuery = isSingular ? singularQueries[query] : multipleQueries[query];
+            if (makeQuery) {
+              target[query] = makeQuery(db, table, tx);
+              return target[query];
+            } else {
+              throw e;
+            }
+          }
+          const write = isWrite(sql);
+          try {
+            const columns = parseQuery(sql, db.tables);
+            const options = makeOptions(columns, db);
+            options.result = getResultType(columns, isSingular);
+            let run;
+            if (options.result === "none") {
+              run = db.run;
+            } else {
+              run = db.all;
+            }
+            run = run.bind(db);
+            options.cacheName = `${table}.${query}`;
+            target[query] = async (params) => {
+              return await run(sql, params, options, tx, write);
+            };
+          } catch {
+            target[query] = async (params) => {
+              return await db.all(sql, params, null, tx, write);
+            };
+          }
+        }
+      }
+      return target[query];
+    }
+  };
+};
+var makeClient = (db, sqlDir, tx) => {
+  const tableHandler = {
+    get: function(target, table, receiver) {
+      if (["begin", "commit", "rollback"].includes(table)) {
+        db[table] = db[table].bind(db);
+        return () => db[table](tx);
+      }
+      if (table === "getTransaction") {
+        db[table] = db[table].bind(db);
+        return db[table];
+      }
+      if (table === "release") {
+        return (tx2) => db.pool.push(tx2);
+      }
+      if (!target[table]) {
+        target[table] = new Proxy({}, makeQueryHandler(table, db, sqlDir, tx));
+      }
+      return target[table];
+    }
+  };
+  return new Proxy({}, tableHandler);
+};
+
 // src/parsers/types.js
 var import_promises2 = require("fs/promises");
-var import_pluralize2 = __toESM(require("pluralize"), 1);
-var import_path2 = require("path");
+var import_pluralize3 = __toESM(require("pluralize"), 1);
+var import_path3 = require("path");
 
 // src/parsers/files.js
 var index = `interface QueryOptions {
@@ -2392,25 +2596,25 @@ var convertOptional = (tsType) => {
   }
   return tsType.replace(/ \| optional$/, " | null");
 };
-var getTsType = (column, customTypes, parsedInterfaces) => {
+var getTsType = (column, customTypes) => {
   if (column.types) {
     const types = [];
     for (const item of column.types) {
-      types.push(toTsType(item, customTypes, parsedInterfaces));
+      types.push(toTsType(item, customTypes));
     }
-    let split2 = types.join(" | ").split(" | ");
-    const optional = split2.find((s) => s === "optional");
+    let split = types.join(" | ").split(" | ");
+    const optional = split.find((s) => s === "optional");
     if (optional) {
-      split2 = split2.filter((s) => s !== "optional");
+      split = split.filter((s) => s !== "optional");
     }
-    const unique = new Set(split2);
+    const unique = new Set(split);
     let joined = Array.from(unique.values()).join(" | ");
     if (optional) {
       joined += " | optional";
     }
     return joined;
   }
-  return toTsType(column, customTypes, parsedInterfaces);
+  return toTsType(column, customTypes);
 };
 var getOptional = (structuredType, optional) => {
   if (typeof structuredType.type === "string") {
@@ -2422,50 +2626,8 @@ var getOptional = (structuredType, optional) => {
     }
   }
 };
-var parseExtractor = (column, parsedInterfaces) => {
-  const extractor = column.jsonExtractor.extractor;
-  const tsType = column.jsonExtractor.type;
-  const definedType = parsedInterfaces[tsType];
-  if (!definedType) {
-    return;
-  }
-  if (/^\d+$/.test(extractor)) {
-    if (definedType.arrayType) {
-      return definedType.arrayType;
-    }
-    if (definedType.tupleTypes) {
-      return definedType.tupleTypes[Number(extractor)];
-    }
-  }
-  if (/^[a-z0-9_]+$/i.test(extractor)) {
-    return definedType.objectProperties[extractor];
-  }
-  if (/\$(\.[a-z0-9_]+(\[-?\d+\])?)+/gmi.test(extractor)) {
-    const properties = extractor.substring(2).split(".");
-    let type = definedType;
-    for (const property of properties) {
-      const match = /^(?<name>[a-z0-9_]+)(\[(?<index>-?\d+)\])?$/mi.exec(property);
-      const { name, index: index2 } = match.groups;
-      type = type.objectProperties[name];
-      if (index2) {
-        if (type.arrayType) {
-          type = type.arrayType;
-        } else {
-          type = type.tupleTypes.at(Number(index2));
-        }
-      }
-    }
-    return type;
-  }
-};
-var toTsType = (column, customTypes, parsedInterfaces) => {
+var toTsType = (column, customTypes) => {
   let tsType;
-  if (column.jsonExtractor && parsedInterfaces) {
-    const extracted = parseExtractor(column, parsedInterfaces);
-    if (extracted) {
-      tsType = extracted.tsType.replace(/ undefined$/, " null");
-    }
-  }
   const { type, functionName, notNull, isOptional, structuredType } = column;
   if (structuredType) {
     if (functionName === "json_group_array") {
@@ -2477,7 +2639,7 @@ var toTsType = (column, customTypes, parsedInterfaces) => {
           const isOptional3 = !optional2.some((o) => o === false);
           const types2 = [];
           for (const value of structured.type) {
-            let type2 = getTsType(value, customTypes, parsedInterfaces);
+            let type2 = getTsType(value, customTypes);
             if (isOptional3) {
               type2 = removeOptional(type2);
             } else {
@@ -2492,7 +2654,7 @@ var toTsType = (column, customTypes, parsedInterfaces) => {
         const isOptional2 = !optional.some((o) => o === false);
         const types = [];
         for (const [key, value] of Object.entries(structured.type)) {
-          let type2 = getTsType(value, customTypes, parsedInterfaces);
+          let type2 = getTsType(value, customTypes);
           if (isOptional2) {
             type2 = removeOptional(type2);
           } else {
@@ -2518,7 +2680,7 @@ var toTsType = (column, customTypes, parsedInterfaces) => {
       getOptional(structuredType, optional);
       const isOptional2 = !optional.some((o) => o === false);
       for (const [key, value] of Object.entries(structured)) {
-        let type3 = getTsType(value, customTypes, parsedInterfaces);
+        let type3 = getTsType(value, customTypes);
         if (isOptional2) {
           type3 = removeOptional(type3);
         } else {
@@ -2534,7 +2696,7 @@ var toTsType = (column, customTypes, parsedInterfaces) => {
     } else if (functionName === "json_array") {
       const types = [];
       for (const type2 of structuredType) {
-        types.push(convertOptional(getTsType(type2, customTypes, parsedInterfaces)));
+        types.push(convertOptional(getTsType(type2, customTypes)));
       }
       return `[${types.join(", ")}]`;
     }
@@ -2586,7 +2748,7 @@ var makeUnique = (name, typeSet, i) => {
   return name;
 };
 var getQueries = async (db, sqlDir, tableName, typeSet, i) => {
-  const path = (0, import_path2.join)(sqlDir, tableName);
+  const path = (0, import_path3.join)(sqlDir, tableName);
   let fileNames;
   try {
     fileNames = await (0, import_promises2.readdir)(path);
@@ -2599,7 +2761,7 @@ var getQueries = async (db, sqlDir, tableName, typeSet, i) => {
       continue;
     }
     const queryName = fileName.substring(0, fileName.length - 4);
-    const queryPath = (0, import_path2.join)(path, fileName);
+    const queryPath = (0, import_path3.join)(path, fileName);
     let sql = await (0, import_promises2.readFile)(queryPath, "utf8");
     sql = preprocess(sql, db.tables);
     const params = parseParams(sql);
@@ -2625,7 +2787,7 @@ var getQueries = async (db, sqlDir, tableName, typeSet, i) => {
       continue;
     }
     if (columns.length === 1) {
-      const tsType = getTsType(columns[0], db.customTypes, db.interfaces);
+      const tsType = getTsType(columns[0], db.customTypes);
       parsedQueries.push({
         queryName,
         interfaceName: convertOptional(tsType),
@@ -2638,7 +2800,7 @@ var getQueries = async (db, sqlDir, tableName, typeSet, i) => {
 `;
     const sample = {};
     for (const column of columns) {
-      const tsType = getTsType(column, db.customTypes, db.interfaces);
+      const tsType = getTsType(column, db.customTypes);
       sample[column.name] = tsType;
     }
     const options = makeOptions(columns, db);
@@ -2671,37 +2833,9 @@ var getQueries = async (db, sqlDir, tableName, typeSet, i) => {
       }
       return interfaceString2;
     };
-    const getMappedTypes = (sample2, primaryKeys, subInterfaces2, keys = []) => {
-      let interfaceString2 = "";
-      const currentKey = primaryKeys[0];
-      const nextKey = primaryKeys[1];
-      const sliced = sliceProps(sample2, currentKey ? currentKey.index : 0, nextKey ? nextKey.index : void 0);
-      if (!nextKey) {
-        interfaceString2 += makeProperties(sliced);
-        return interfaceString2;
-      }
-      const arrayName = toArrayName(nextKey);
-      keys.push(arrayName);
-      interfaceString2 += makeProperties(sliced);
-      const result = getMappedTypes(sample2, primaryKeys.slice(1), subInterfaces2, [...keys]);
-      const subInterfaceName = makeUnique(interfaceName + keys.map((k) => capitalize(k)).join(""), typeSet, i);
-      const subInterface = `export interface ${subInterfaceName} {
-${result}};`;
-      subInterfaces2.push(subInterface);
-      interfaceString2 += `  ${arrayName}: Array<${subInterfaceName}>;
-`;
-      return interfaceString2;
-    };
-    const subInterfaces = [];
-    interfaceString += getMappedTypes(sample, options.primaryKeys, subInterfaces);
+    interfaceString += makeProperties(sample);
     interfaceString += `}
 `;
-    if (subInterfaces.length > 0) {
-      const temp = interfaceString;
-      interfaceString = subInterfaces.join("\n\n");
-      interfaceString += "\n\n";
-      interfaceString += temp;
-    }
     parsedQueries.push({
       queryName,
       interfaceName,
@@ -2710,7 +2844,7 @@ ${result}};`;
     });
   }
   const multipleInterfaceName = makeUnique(capitalize(tableName) + "Queries", typeSet, i);
-  const singularInterfaceName = makeUnique(capitalize(import_pluralize2.default.singular(tableName)) + "Queries", typeSet, i);
+  const singularInterfaceName = makeUnique(capitalize(import_pluralize3.default.singular(tableName)) + "Queries", typeSet, i);
   let multipleInterfaceString = `export interface ${multipleInterfaceName} {
 `;
   let singularInterfaceString = `export interface ${singularInterfaceName} {
@@ -2765,9 +2899,6 @@ var createTypes = async (options) => {
   for (const match of matches) {
     typeSet.add(match.groups.name.toLowerCase());
   }
-  for (const name of Object.keys(db.interfaces)) {
-    typeSet.add(name);
-  }
   const tables = Object.entries(db.tables).map(([key, value]) => ({ name: key, columns: value }));
   let types = "";
   if (/\.d\.ts/.test(destinationPath)) {
@@ -2777,17 +2908,13 @@ var createTypes = async (options) => {
   }
   types += definitions;
   types += "\n\n";
-  if (options.interfaces) {
-    types += options.interfaces.trim();
-    types += "\n\n";
-  }
   const returnTypes2 = [];
   for (const table of tables) {
-    const singular = import_pluralize2.default.singular(table.name);
+    const singular = import_pluralize3.default.singular(table.name);
     const capitalized = capitalize(singular);
-    const interfaceName2 = makeUnique(capitalized, typeSet, i);
-    const insertInterfaceName = makeUnique(`Insert${interfaceName2}`, typeSet, i);
-    const whereInterfaceName = makeUnique(`Where${interfaceName2}`, typeSet, i);
+    const interfaceName = makeUnique(capitalized, typeSet, i);
+    const insertInterfaceName = makeUnique(`Insert${interfaceName}`, typeSet, i);
+    const whereInterfaceName = makeUnique(`Where${interfaceName}`, typeSet, i);
     const multipleTableName = table.name;
     const singularTableName = singular;
     let multipleReturnType;
@@ -2798,19 +2925,19 @@ var createTypes = async (options) => {
       tsType = toTsType({
         type: primaryKey.type,
         notNull: true
-      }, db.customTypes, db.interfaces);
+      }, db.customTypes);
     } else {
       tsType = "undefined";
     }
     if (db.viewSet.has(table.name)) {
-      multipleReturnType = `  ${multipleTableName}: Pick<MultipleQueries<${interfaceName2}, ${insertInterfaceName}, ${whereInterfaceName}>, "get">`;
-      singularReturnType = `  ${singularTableName}: Pick<SingularQueries<${interfaceName2}, ${insertInterfaceName}, ${whereInterfaceName}, ${tsType}>, "get">`;
+      multipleReturnType = `  ${multipleTableName}: Pick<MultipleQueries<${interfaceName}, ${insertInterfaceName}, ${whereInterfaceName}>, "get">`;
+      singularReturnType = `  ${singularTableName}: Pick<SingularQueries<${interfaceName}, ${insertInterfaceName}, ${whereInterfaceName}, ${tsType}>, "get">`;
     } else if (db.virtualSet.has(table.name)) {
-      multipleReturnType = `  ${multipleTableName}: MultipleVirtualQueries<${interfaceName2}, ${whereInterfaceName}>`;
-      singularReturnType = `  ${singularTableName}: SingularVirtualQueries<${interfaceName2}, ${whereInterfaceName}>`;
+      multipleReturnType = `  ${multipleTableName}: MultipleVirtualQueries<${interfaceName}, ${whereInterfaceName}>`;
+      singularReturnType = `  ${singularTableName}: SingularVirtualQueries<${interfaceName}, ${whereInterfaceName}>`;
     } else {
-      multipleReturnType = `  ${multipleTableName}: MultipleQueries<${interfaceName2}, ${insertInterfaceName}, ${whereInterfaceName}>`;
-      singularReturnType = `  ${singularTableName}: SingularQueries<${interfaceName2}, ${insertInterfaceName}, ${whereInterfaceName}, ${tsType}>`;
+      multipleReturnType = `  ${multipleTableName}: MultipleQueries<${interfaceName}, ${insertInterfaceName}, ${whereInterfaceName}>`;
+      singularReturnType = `  ${singularTableName}: SingularQueries<${interfaceName}, ${insertInterfaceName}, ${whereInterfaceName}, ${tsType}>`;
     }
     let queries2;
     if (sqlDir) {
@@ -2821,14 +2948,14 @@ var createTypes = async (options) => {
       }
     }
     returnTypes2.push(multipleReturnType, singularReturnType);
-    types += `export interface ${interfaceName2} {
+    types += `export interface ${interfaceName} {
 `;
     for (const column of table.columns) {
       const { name, type, primaryKey: primaryKey2, notNull } = column;
       const tsType2 = toTsType({
         type,
         notNull: notNull || primaryKey2
-      }, db.customTypes, db.interfaces);
+      }, db.customTypes);
       let property = `  ${name}`;
       property += ": ";
       property += tsType2;
@@ -2843,7 +2970,7 @@ var createTypes = async (options) => {
       const tsType2 = toTsType({
         type,
         notNull: true
-      }, db.customTypes, db.interfaces);
+      }, db.customTypes);
       let property = `  ${name}`;
       if (primaryKey2 || !notNull || hasDefault) {
         property += "?: ";
@@ -2862,7 +2989,7 @@ var createTypes = async (options) => {
       const tsType2 = toTsType({
         type,
         notNull: true
-      }, db.customTypes, db.interfaces);
+      }, db.customTypes);
       const customType = db.customTypes[type];
       const dbType = customType ? customType.dbType : type;
       let property = `  ${name}`;
@@ -2894,8 +3021,7 @@ var createTypes = async (options) => {
       types += "\n";
     }
   }
-  const interfaceName = options.interfaceName || "TypedDb";
-  types += `export interface ${interfaceName} {
+  types += `export interface TypedDb {
 `;
   types += "  [key: string]: any,\n";
   for (const returnType of returnTypes2) {
@@ -2904,15 +3030,15 @@ var createTypes = async (options) => {
   types += "  begin(): Promise<void>,\n";
   types += "  commit(): Promise<void>,\n";
   types += "  rollback(): Promise<void>,\n";
-  types += `  getTransaction(): Promise<${interfaceName}>,
+  types += `  getTransaction(): Promise<TypedDb>,
 `;
-  types += `  release(transaction: ${interfaceName}): void`;
+  types += `  release(transaction: TypedDb): void`;
   types += "\n}\n\n";
   if (/\.d\.ts/.test(destinationPath)) {
     types = types.replaceAll(/^export /gm, "");
     types += `declare const database: Database;
 `;
-    types += `declare const db: ${interfaceName};
+    types += `declare const db: TypedDb;
 `;
     types += "declare function makeTypes(): Promise<void>;\n";
     types += "declare function getTables(): Promise<string>;\n";
@@ -2921,452 +3047,6 @@ var createTypes = async (options) => {
     types += "export {\n  database,\n  db,\n  makeTypes,\n  getTables,\n  createMigration,\n  runMigration\n}\n";
   }
   await (0, import_promises2.writeFile)(destinationPath, types, "utf8");
-};
-
-// src/json.js
-var getConverter = (type, db, keys = []) => {
-  if (type.basicType && type.tsType === "Date") {
-    const dateConverter = db.getDbToJsConverter("date");
-    const converter = (v) => {
-      if (keys.length > 0) {
-        let current = v;
-        const lastKey = keys.at(-1);
-        for (const key of keys.slice(0, -1)) {
-          current = current[key];
-        }
-        const value = current[lastKey];
-        if (value !== null && value !== void 0) {
-          current[lastKey] = dateConverter(value);
-        }
-      } else {
-        if (v !== null && v !== void 0) {
-          return dateConverter(v);
-        }
-        return v;
-      }
-    };
-    return converter;
-  }
-  if (type.arrayType) {
-    const converter = getConverter(type.arrayType, db);
-    if (converter) {
-      const arrayConverter = (v) => {
-        let current = v;
-        for (const key of keys) {
-          current = current[key];
-        }
-        const items = [];
-        for (const item of current) {
-          const adjusted = converter(item);
-          items.push(adjusted);
-        }
-        return items;
-      };
-      return arrayConverter;
-    }
-  }
-  if (type.objectProperties) {
-    const converters = [];
-    for (const [key, value] of Object.entries(type.objectProperties)) {
-      const converter = getConverter(value, db, [...keys, key]);
-      if (converter) {
-        converters.push(converter);
-      }
-    }
-    if (converters.length > 0) {
-      const converter = (v) => {
-        for (const converter2 of converters) {
-          converter2(v);
-        }
-        return v;
-      };
-      return converter;
-    }
-  }
-  if (type.tupleTypes) {
-    const converters = [];
-    for (const tupleType of type.tupleTypes) {
-      const converter = getConverter(tupleType, db);
-      converters.push(converter);
-    }
-    if (converters.some((c) => c !== void 0)) {
-      const converter = (v) => {
-        let current = v;
-        for (const key of keys) {
-          current = current[key];
-        }
-        let i = 0;
-        for (const converter2 of converters) {
-          if (converter2 !== void 0) {
-            current[i] = converter2(current[i]);
-          }
-          i++;
-        }
-        return current;
-      };
-      return converter;
-    }
-  }
-};
-
-// src/proxy.js
-var queries = {
-  insert: (database, table, tx) => async (params) => await insert(database, table, params, tx),
-  insertMany: (database, table, tx) => async (items) => await insertMany(database, table, items, tx),
-  update: (database, table, tx) => async (params, query) => await update(database, table, params, query, tx),
-  exists: (database, table, tx) => async (query) => await exists(database, table, query, tx),
-  count: (database, table, tx) => async (query, keywords) => await count(database, table, query, keywords, tx),
-  get: (database, table, tx) => async (query, columns) => await get(database, table, query, columns, tx),
-  all: (database, table, tx) => async (query, columns) => await all(database, table, query, columns, tx),
-  remove: (database, table, tx) => async (query) => await remove(database, table, query, tx)
-};
-var singularQueries = {
-  insert: queries.insert,
-  update: queries.update,
-  exists: queries.exists,
-  get: queries.get,
-  remove: queries.remove
-};
-var multipleQueries = {
-  insert: queries.insertMany,
-  update: queries.update,
-  count: queries.count,
-  get: queries.all,
-  remove: queries.remove
-};
-var convertItem = (item, converters) => {
-  for (const converter of converters) {
-    const keys = converter.keys;
-    const count2 = keys.length;
-    let i = 0;
-    let actual = item;
-    for (const key of keys) {
-      if (i + 1 === count2) {
-        if (actual[key] !== null) {
-          actual[key] = converter.converter(actual[key]);
-        }
-      }
-      actual = actual[key];
-      i++;
-    }
-  }
-};
-var getConverters = (key, value, db, converters, keys = [], optional = []) => {
-  keys.push(key);
-  if (typeof value.type === "string") {
-    optional.push(value.isOptional);
-    if (value.functionName && /^json_/i.test(value.functionName)) {
-      return;
-    }
-    const converter = db.getDbToJsConverter(value.type);
-    if (converter) {
-      converters.push({
-        keys: [...keys],
-        converter
-      });
-    }
-    return;
-  } else {
-    for (const [k, v] of Object.entries(value.type)) {
-      getConverters(k, v, db, converters, [...keys], optional);
-    }
-  }
-};
-var allNulls = (item) => {
-  if (item === null) {
-    return true;
-  }
-  for (const value of Object.values(item)) {
-    if (value === null) {
-      continue;
-    }
-    if (typeof value === "string" || typeof value === "number" || typeof value === "boolean" || value instanceof Date) {
-      return false;
-    }
-    const isNull = allNulls(value);
-    if (!isNull) {
-      return false;
-    }
-  }
-  return true;
-};
-var makeOptions = (columns, db) => {
-  const columnMap = {};
-  let typeMap3 = null;
-  const primaryKeys = [];
-  let i = 0;
-  const primaryKeyCount = new Set(columns.filter((c) => c.primaryKey).map((c) => c.tableName)).size;
-  let lastPrimaryKey;
-  for (const column of columns) {
-    if (primaryKeyCount > 1 && column.primaryKey) {
-      columnMap[column.name] = column.originalName;
-    } else {
-      columnMap[column.name] = column.name.replace(/^flyweight\d+_/, "");
-    }
-    const converter = db.getDbToJsConverter(column.type);
-    let actualConverter = converter;
-    if (column.jsonExtractor && !converter) {
-      const extractor = column.jsonExtractor;
-      const type = parseExtractor(column, db.interfaces);
-      if (extractor.operator === "->>" && type) {
-        const tsType = type.tsType;
-        if (tsType === "boolean" || tsType === "Date") {
-          if (!typeMap3) {
-            typeMap3 = {};
-          }
-          typeMap3[column.name] = db.getDbToJsConverter(tsType.toLowerCase());
-        }
-      }
-    }
-    if (converter) {
-      if (!typeMap3) {
-        typeMap3 = {};
-      }
-      const structured = column.structuredType;
-      if (structured) {
-        if (column.functionName === "json_group_array") {
-          const structuredType = structured.type;
-          if (typeof structuredType === "string") {
-            const structuredConverter = db.getDbToJsConverter(structuredType);
-            actualConverter = (v) => {
-              let converted = converter(v);
-              converted = converted.filter((v2) => v2 !== null);
-              if (structuredType === "text") {
-                converted.sort((a, b) => a.localeCompare(b));
-              }
-              if (structuredType === "integer" || structuredType === "real") {
-                converted.sort((a, b) => a - b);
-              }
-              if (structuredConverter && !(structured.functionName && /^json_/i.test(structured.functionName))) {
-                converted = converted.map((i2) => structuredConverter(i2));
-                if (structuredType === "date") {
-                  converted.sort((a, b) => b.getTime() - a.getTime());
-                }
-              }
-              return converted;
-            };
-          } else {
-            const converters = [];
-            const optional = [];
-            for (const [key, value] of Object.entries(structuredType)) {
-              getConverters(key, value, db, converters, [], optional);
-            }
-            const isOptional = !optional.some((o) => o === false);
-            if (converters.length > 0) {
-              actualConverter = (v) => {
-                const converted = converter(v);
-                for (const item of converted) {
-                  convertItem(item, converters);
-                }
-                if (isOptional) {
-                  return converted.filter((c) => !allNulls(c));
-                }
-                return converted;
-              };
-            } else if (isOptional) {
-              actualConverter = (v) => {
-                const converted = converter(v);
-                return converted.filter((c) => !allNulls(c));
-              };
-            }
-          }
-        } else if (column.functionName === "json_object") {
-          const structuredType = structured.type;
-          const converters = [];
-          const optional = [];
-          for (const [key, value] of Object.entries(structuredType)) {
-            getConverters(key, value, db, converters, [], optional);
-          }
-          const isOptional = !optional.some((o) => o === false);
-          if (converters.length > 0) {
-            actualConverter = (v) => {
-              const converted = converter(v);
-              convertItem(converted, converters);
-              if (allNulls(converted)) {
-                return null;
-              }
-              return converted;
-            };
-          } else if (isOptional) {
-            actualConverter = (v) => {
-              const converted = converter(v);
-              if (allNulls(converted)) {
-                return null;
-              }
-              return converted;
-            };
-          }
-        } else if (column.functionName === "json_array") {
-          const converters = [];
-          let i2 = 0;
-          for (const type of structured) {
-            getConverters(i2, type, db, converters);
-            i2++;
-          }
-          if (converters.length > 0) {
-            actualConverter = (v) => {
-              const converted = converter(v);
-              convertItem(converted, converters);
-              return converted;
-            };
-          }
-        }
-      }
-      if (column.jsonExtractor) {
-        const extractor = column.jsonExtractor;
-        const type = parseExtractor(column, db.interfaces);
-        if (extractor.operator === "->" && type) {
-          const jsonConverter = getConverter(type, db);
-          actualConverter = (v) => {
-            let converted = converter(v);
-            converted = jsonConverter(converted);
-            return converted;
-          };
-        }
-      } else {
-        const definedType = db.interfaces[column.type];
-        if (definedType) {
-          const jsonConverter = getConverter(definedType, db);
-          if (converter) {
-            actualConverter = (v) => {
-              let converted = converter(v);
-              converted = jsonConverter(converted);
-              return converted;
-            };
-          }
-        }
-      }
-      typeMap3[column.name] = actualConverter;
-    }
-    if (column.primaryKey) {
-      if (lastPrimaryKey) {
-        if (lastPrimaryKey.index === i - 1 && lastPrimaryKey.tableName === column.tableName) {
-          lastPrimaryKey.index = i;
-          i++;
-          continue;
-        }
-      }
-      lastPrimaryKey = {
-        tableName: column.tableName,
-        index: i
-      };
-      primaryKeys.push({
-        name: column.name,
-        index: i,
-        table: column.tableName
-      });
-    }
-    i++;
-  }
-  const options = {
-    parse: true,
-    map: true
-  };
-  options.columns = columnMap;
-  options.types = typeMap3;
-  options.primaryKeys = primaryKeys;
-  return options;
-};
-var getResultType = (columns, isSingular) => {
-  if (columns.length === 0) {
-    return "none";
-  } else if (isSingular) {
-    if (columns.length === 1) {
-      return "value";
-    } else {
-      return "object";
-    }
-  } else {
-    if (columns.length === 1) {
-      return "values";
-    } else {
-      return "array";
-    }
-  }
-};
-var makeQueryHandler = (table, db, sqlDir, tx) => {
-  let isSingular;
-  let queries2;
-  if (import_pluralize3.default.isSingular(table)) {
-    isSingular = true;
-    table = import_pluralize3.default.plural(table);
-    queries2 = singularQueries;
-  } else {
-    isSingular = false;
-    queries2 = multipleQueries;
-  }
-  return {
-    get: function(target, query, receiver) {
-      if (!target[query]) {
-        if (!sqlDir) {
-          if (!queries2[query]) {
-            throw Error(`Query ${query} of table ${table} not found`);
-          } else {
-            target[query] = queries2[query](db, table, tx);
-          }
-        } else {
-          const path = (0, import_path3.join)(sqlDir, table, `${query}.sql`);
-          let sql;
-          try {
-            sql = (0, import_fs.readFileSync)(path, "utf8");
-            sql = preprocess(sql, db.tables);
-          } catch (e) {
-            const makeQuery = isSingular ? singularQueries[query] : multipleQueries[query];
-            if (makeQuery) {
-              target[query] = makeQuery(db, table, tx);
-              return target[query];
-            } else {
-              throw e;
-            }
-          }
-          const write = isWrite(sql);
-          try {
-            const columns = parseQuery(sql, db.tables);
-            const options = makeOptions(columns, db);
-            options.result = getResultType(columns, isSingular);
-            let run;
-            if (options.result === "none") {
-              run = db.run;
-            } else {
-              run = db.all;
-            }
-            run = run.bind(db);
-            options.cacheName = `${table}.${query}`;
-            target[query] = async (params) => {
-              return await run(sql, params, options, tx, write);
-            };
-          } catch {
-            target[query] = async (params) => {
-              return await db.all(sql, params, null, tx, write);
-            };
-          }
-        }
-      }
-      return target[query];
-    }
-  };
-};
-var makeClient = (db, sqlDir, tx) => {
-  const tableHandler = {
-    get: function(target, table, receiver) {
-      if (["begin", "commit", "rollback"].includes(table)) {
-        db[table] = db[table].bind(db);
-        return () => db[table](tx);
-      }
-      if (table === "getTransaction") {
-        db[table] = db[table].bind(db);
-        return db[table];
-      }
-      if (table === "release") {
-        return (tx2) => db.pool.push(tx2);
-      }
-      if (!target[table]) {
-        target[table] = new Proxy({}, makeQueryHandler(table, db, sqlDir, tx));
-      }
-      return target[table];
-    }
-  };
-  return new Proxy({}, tableHandler);
 };
 
 // src/migrations.js
@@ -3395,11 +3075,11 @@ var getIndexMigrations = (currentIndexes, lastIndexes) => {
   return migrations;
 };
 var getTriggers = (statements, blanked) => {
-  const split2 = blanked.split(/((?:^|\s)create\s)/i);
+  const split = blanked.split(/((?:^|\s)create\s)/i);
   const items = [];
   let last;
   let start = 0;
-  for (const blanked2 of split2) {
+  for (const blanked2 of split) {
     if (/((?:^|\s)create\s)/i.test(blanked2)) {
       last = blanked2;
     } else {
@@ -3759,86 +3439,6 @@ from ${table.name};
 
 // src/db.js
 var import_path5 = require("path");
-
-// src/parsers/interfaces.js
-var getType = (statement, optional) => {
-  const tsType = statement + (optional ? " | undefined" : "");
-  if (/^\{.+\}$/.test(statement)) {
-    statement = statement.substring(1, statement.length - 1);
-    const properties = {};
-    const matches = blank(blank(statement, { open: "{", close: "}" }), { open: "[", close: "]" }).matchAll(/(^| )(?<property>[^;,]+)(;|,|$)/gmid);
-    for (const match of matches) {
-      const [start, end] = match.indices.groups.property;
-      const property = statement.substring(start, end).trim();
-      const split2 = property.split(" ");
-      const name = split2[0].replace(/:|\?:/, "");
-      optional = split2[0].endsWith("?:");
-      const type = getType(split2.slice(1).join(" "), optional);
-      properties[name] = type;
-    }
-    return {
-      objectProperties: properties,
-      tsType
-    };
-  }
-  if (/^[a-z0-9_]+$/i.test(statement)) {
-    return {
-      basicType: statement,
-      tsType
-    };
-  }
-  if (statement.startsWith("Array<") || statement.endsWith("[]")) {
-    const blanked = blank(statement, { open: "<", close: ">" });
-    const match = /^Array<(?<type>[^>]+)>$/md.exec(blanked);
-    if (match) {
-      const [start, end] = match.indices.groups.type;
-      const type = statement.substring(start, end);
-      return {
-        arrayType: getType(type),
-        tsType
-      };
-    }
-    return {
-      arrayType: getType(statement.substring(0, statement.length - 2)),
-      tsType
-    };
-  }
-  if (/^\[.+\]$/.test(statement)) {
-    const types = [];
-    statement = statement.substring(1, statement.length - 1);
-    const matches = statement.matchAll(/(?<type>[^,]+)(,|$)/gmd);
-    for (const match of matches) {
-      types.push(getType(match.groups.type.trim()));
-    }
-    return {
-      tupleTypes: types,
-      tsType
-    };
-  }
-};
-var parseInterfaces = (declarations) => {
-  const processed = declarations.replaceAll(/\s+/gm, " ");
-  const interfaces2 = {};
-  const options = { open: "{", close: "}" };
-  const typeMatches = blank(processed, options).matchAll(/(^| )export type (?<name>[a-z0-9_]+) = (?<type>.+?);(?= export|$)/gmid);
-  for (const match of typeMatches) {
-    const name = match.groups.name;
-    const [start, end] = match.indices.groups.type;
-    const type = processed.substring(start, end);
-    interfaces2[name.toLowerCase()] = getType(type);
-  }
-  const matches = blank(processed, options).matchAll(/(^| )export interface (?<name>[a-z0-9_]+)\s*(?<properties>{[^}]+})/gmid);
-  for (const match of matches) {
-    const name = match.groups.name;
-    const [start, end] = match.indices.groups.properties;
-    const properties = processed.substring(start, end);
-    const adjusted = name.toLowerCase();
-    interfaces2[adjusted] = getType(properties);
-  }
-  return interfaces2;
-};
-
-// src/db.js
 var process2 = (db, result, options) => {
   if (!options) {
     return result;
@@ -3878,7 +3478,7 @@ var process2 = (db, result, options) => {
     return parsed;
   }
   if (options.map) {
-    return mapper(db, result, options.columns, options.types, options.primaryKeys);
+    return mapper(db, result, options.columns, options.types);
   }
   return result;
 };
@@ -3940,7 +3540,6 @@ var Database = class {
     this.extensions = null;
     this.databases = [];
     this.virtualSet = /* @__PURE__ */ new Set();
-    this.interfaces = {};
     this.prepared = [];
     this.registerTypes([
       {
@@ -3970,8 +3569,8 @@ var Database = class {
       }
     ]);
   }
-  async initialize(paths, interfaceName) {
-    const { db, sql, tables, views, types, migrations, extensions, interfaces: interfaces2 } = paths;
+  async initialize(paths) {
+    const { db, sql, tables, views, types, migrations, extensions } = paths;
     this.dbPath = db;
     this.sqlPath = sql;
     this.extensions = extensions;
@@ -3982,36 +3581,12 @@ var Database = class {
     if (views) {
       await this.setViews(views);
     }
-    let interfaceFile;
-    if (interfaces2) {
-      interfaceFile = await (0, import_promises4.readFile)(interfaces2, "utf8");
-      const matches = interfaceFile.replaceAll(/\s+/g, " ").matchAll(/(^| )export (interface|type) (?<name>[a-z0-9_]+) /gmi);
-      const json = this.customTypes["json"];
-      const customTypes = [];
-      for (const match of matches) {
-        const name = match.groups.name;
-        customTypes.push({
-          ...json,
-          name: name.toLowerCase(),
-          tsType: name
-        });
-      }
-      this.registerTypes(customTypes);
-      try {
-        const parsed = parseInterfaces(interfaceFile);
-        this.interfaces = parsed;
-      } catch {
-        this.interfaces = null;
-      }
-    }
     const client = makeClient(this, sql);
     const makeTypes = async () => {
       await createTypes({
         db: this,
         sqlDir: sql,
-        destinationPath: types,
-        interfaceName,
-        interfaces: interfaceFile
+        destinationPath: types
       });
     };
     const getTables3 = async () => {
@@ -4231,15 +3806,6 @@ var Database = class {
       return value;
     }
     const customType = this.customTypes[type];
-    const definedType = this.interfaces[type];
-    if (definedType) {
-      const converter = getConverter(definedType, this);
-      if (converter) {
-        let converted = customType.dbToJs(value);
-        converted = converter(converted);
-        return converted;
-      }
-    }
     if (customType.dbToJs) {
       return customType.dbToJs(value);
     }

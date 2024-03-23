@@ -10,8 +10,6 @@ import { makeClient } from './proxy.js';
 import { createTypes } from './parsers/types.js';
 import { migrate } from './migrations.js';
 import { join } from 'path';
-import { parseInterfaces } from './parsers/interfaces.js';
-import { getConverter } from './json.js';
 import { preprocess } from './parsers/preprocessor.js';
 
 const process = (db, result, options) => {
@@ -54,7 +52,7 @@ const process = (db, result, options) => {
     return parsed;
   }
   if (options.map) {
-    return mapper(db, result, options.columns, options.types, options.primaryKeys);
+    return mapper(db, result, options.columns, options.types);
   }
   return result;
 }
@@ -121,7 +119,6 @@ class Database {
     this.extensions = null;
     this.databases = [];
     this.virtualSet = new Set();
-    this.interfaces = {};
     this.prepared = [];
     this.registerTypes([
       {
@@ -152,8 +149,8 @@ class Database {
     ]);
   }
 
-  async initialize(paths, interfaceName) {
-    const { db, sql, tables, views, types, migrations, extensions, interfaces } = paths;
+  async initialize(paths) {
+    const { db, sql, tables, views, types, migrations, extensions } = paths;
     this.dbPath = db;
     this.sqlPath = sql;
     this.extensions = extensions;
@@ -164,39 +161,12 @@ class Database {
     if (views) {
       await this.setViews(views);
     }
-    let interfaceFile;
-    if (interfaces) {
-      interfaceFile = await readFile(interfaces, 'utf8');
-      const matches = interfaceFile
-        .replaceAll(/\s+/g, ' ')
-        .matchAll(/(^| )export (interface|type) (?<name>[a-z0-9_]+) /gmi);
-      const json = this.customTypes['json'];
-      const customTypes = [];
-      for (const match of matches) {
-        const name = match.groups.name;
-        customTypes.push({
-          ...json,
-          name: name.toLowerCase(),
-          tsType: name
-        });
-      }
-      this.registerTypes(customTypes);
-      try {
-        const parsed = parseInterfaces(interfaceFile);
-        this.interfaces = parsed;
-      }
-      catch {
-        this.interfaces = null;
-      }
-    }
     const client = makeClient(this, sql);
     const makeTypes = async () => {
       await createTypes({
         db: this,
         sqlDir: sql,
-        destinationPath: types,
-        interfaceName,
-        interfaces: interfaceFile
+        destinationPath: types
       });
     }
     const getTables = async () => {
@@ -436,15 +406,6 @@ class Database {
       return value;
     }
     const customType = this.customTypes[type];
-    const definedType = this.interfaces[type];
-    if (definedType) {
-      const converter = getConverter(definedType, this);
-      if (converter) {
-        let converted = customType.dbToJs(value);
-        converted = converter(converted);
-        return converted;
-      }
-    }
     if (customType.dbToJs) {
       return customType.dbToJs(value);
     }

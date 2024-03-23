@@ -13,8 +13,6 @@ import { join } from 'path';
 import { parseQuery, isWrite } from './parsers/queries.js';
 import pluralize from 'pluralize';
 import { preprocess } from './parsers/preprocessor.js';
-import { parseExtractor } from './parsers/types.js';
-import { getConverter } from './json.js';
 
 const queries = {
   insert: (database, table, tx) => async (params) => await insert(database, table, params, tx),
@@ -106,32 +104,10 @@ const allNulls = (item) => {
 const makeOptions = (columns, db) => {
   const columnMap = {};
   let typeMap = null;
-  const primaryKeys = [];
-  let i = 0;
-  const primaryKeyCount = new Set(columns.filter(c => c.primaryKey).map(c => c.tableName)).size;
-  let lastPrimaryKey;
   for (const column of columns) {
-    if (primaryKeyCount > 1 && column.primaryKey) {
-      columnMap[column.name] = column.originalName;
-    }
-    else {
-      columnMap[column.name] = column.name.replace(/^flyweight\d+_/, '');
-    }
+    columnMap[column.name] = column.name.replace(/^flyweight\d+_/, '');
     const converter = db.getDbToJsConverter(column.type);
     let actualConverter = converter;
-    if (column.jsonExtractor && !converter) {
-      const extractor = column.jsonExtractor;
-      const type = parseExtractor(column, db.interfaces);
-      if (extractor.operator === '->>' && type) {
-        const tsType = type.tsType;
-        if (tsType === 'boolean' || tsType === 'Date') {
-          if (!typeMap) {
-            typeMap = {};
-          }
-          typeMap[column.name] = db.getDbToJsConverter(tsType.toLowerCase());
-        }
-      }
-    }
     if (converter) {
       if (!typeMap) {
         typeMap = {};
@@ -231,52 +207,8 @@ const makeOptions = (columns, db) => {
           }
         }
       }
-      if (column.jsonExtractor) {
-        const extractor = column.jsonExtractor;
-        const type = parseExtractor(column, db.interfaces);
-        if (extractor.operator === '->' && type) {
-          const jsonConverter = getConverter(type, db);
-          actualConverter = (v) => {
-            let converted = converter(v);
-            converted = jsonConverter(converted);
-            return converted;
-          }
-        }
-      }
-      else {
-        const definedType = db.interfaces[column.type];
-        if (definedType) {
-          const jsonConverter = getConverter(definedType, db);
-          if (converter) {
-            actualConverter = (v) => {
-              let converted = converter(v);
-              converted = jsonConverter(converted);
-              return converted;
-            }
-          }
-        }
-      }
       typeMap[column.name] = actualConverter;
     }
-    if (column.primaryKey) {
-      if (lastPrimaryKey) {
-        if (lastPrimaryKey.index === i - 1 && lastPrimaryKey.tableName === column.tableName) {
-          lastPrimaryKey.index = i;
-          i++;
-          continue;
-        }
-      }
-      lastPrimaryKey = {
-        tableName: column.tableName,
-        index: i
-      };
-      primaryKeys.push({
-        name: column.name,
-        index: i,
-        table: column.tableName
-      });
-    }
-    i++;
   }
   const options = {
     parse: true,
@@ -284,7 +216,6 @@ const makeOptions = (columns, db) => {
   }
   options.columns = columnMap;
   options.types = typeMap;
-  options.primaryKeys = primaryKeys;
   return options;
 }
 

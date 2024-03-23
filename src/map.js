@@ -92,36 +92,21 @@ const toArrayName = (primaryKey) => {
   return primaryKey.table;
 }
 
-const auto = (db, rows, columns, types, primaryKeys, firstRun, one) => {
+const auto = (db, rows, columns, types, one) => {
   if (rows.length === 0) {
     return [];
   }
-  const sample = rows[0];
-  if (firstRun) {
-    firstRun = false;
-    if (primaryKeys.length < 2) {
-      if (one) {
-        let result = sample;
-        if (types) {
-          result = parse(result, types);
-        }
-        if (columns) {
-          result = renameColumns(result, columns);
-        }
-        return result;
-      }
-      else {
-        if (types) {
-          rows = rows.map(s => parse(s, types));
-        }
-        if (columns) {
-          rows = rows.map(s => renameColumns(s, columns));
-        }
-        return rows;
-      }
+  if (one) {
+    let result = rows[0];
+    if (types) {
+      result = parse(result, types);
     }
+    if (columns) {
+      result = renameColumns(result, columns);
+    }
+    return result;
   }
-  if (primaryKeys.length === 0) {
+  else {
     if (types) {
       rows = rows.map(s => parse(s, types));
     }
@@ -130,44 +115,10 @@ const auto = (db, rows, columns, types, primaryKeys, firstRun, one) => {
     }
     return rows;
   }
-  const previousKey = primaryKeys[0];
-  if (primaryKeys.length === 1) {
-    let sliced = rows.map(r => sliceProps(r, previousKey.index));
-    if (types) {
-      sliced = sliced.map(s => parse(s, types));
-    }
-    if (columns) {
-      sliced = sliced.map(s => renameColumns(s, columns));
-    }
-    return nullToArray(sliced, previousKey.name);
-  }
-  const nextKey = primaryKeys[1];
-  const arrayName = toArrayName(nextKey);
-  const getResults = (rows) => {
-    let result = sliceProps(rows[0], previousKey.index, nextKey.index);
-    if (types) {
-      result = parse(result, types);
-    }
-    if (columns) {
-      result = renameColumns(result, columns);
-    }
-    const splitRows = split(rows, nextKey.name);
-    const slicedKeys = primaryKeys.slice(1);
-    let mapped = splitRows.map(rows => auto(db, rows, columns, types, slicedKeys, firstRun, true));
-    if (slicedKeys.length === 1) {
-      mapped = mapped.flat();
-    }
-    result[arrayName] = nullToArray(mapped, nextKey.name);
-    return result;
-  }
-  if (one) {
-    return getResults(rows);
-  }
-  return split(rows, previousKey.name).map(r => getResults(r));
 }
 
-const mapOne = (db, rows, columns, types, primaryKeys) => auto(db, rows, columns, types, primaryKeys, true, true);
-const mapMany = (db, rows, columns, types, primaryKeys) => auto(db, rows, columns, types, primaryKeys, true, false);
+const mapOne = (db, rows, columns, types) => auto(db, rows, columns, types, true);
+const mapMany = (db, rows, columns, types) => auto(db, rows, columns, types, false);
 
 export {
   map,

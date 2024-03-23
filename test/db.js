@@ -7,23 +7,13 @@ const path = (subPath) => {
 
 const database = new Database();
 
-database.registerTypes([
-  {
-    name: 'medal',
-    makeConstraint: (column) => `check (${column} in ('gold', 'silver', 'bronze'))`,
-    tsType: 'string',
-    dbType: 'text'
-  }
-]);
-
 const result = await database.initialize({
   db: path('databases/test.db'),
   sql: path('sql'),
   tables: path('sql/tables.sql'),
   views: path('views'),
   types: path('db.d.ts'),
-  migrations: path('migrations'),
-  interfaces: path('interfaces.d.ts')
+  migrations: path('migrations')
 });
 
 const {
