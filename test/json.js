@@ -4,12 +4,8 @@ import { compare } from './utils.js';
 
 const run = async () => {
   const lastFights = await db.fighter.lastFights({ id: 17 });
-  let last;
   for (const date of lastFights.dates) {
-    if (last) {
-      assert.equal(date.getTime() > last.getTime(), false);
-    }
-    last = date;
+    assert.equal(date instanceof Date, true);
   }
   const otherNames = await db.fighters.otherNames();
   assert.equal(otherNames.some(n => n.otherNames.length === 0), true);

@@ -1,11 +1,7 @@
 # Flyweight
 An ORM for SQLite and NodeJS. Flyweight combines a very simple API for performing basic operations, with the ability to create SQL queries that are typed and automatically mapped to complex object types.
 
-The following examples are based on a hypothetical UFC database with the following structure:
-
-A UFC event has a name, a location, and a start time. Each event has one or more cards (the main card, the preliminary cards). Each card has many fights. Each fight has a red corner and a blue corner, representing the two fighters.
-
-The events table looks like this:
+Tables are created with SQL, not with a custom API.
 
 ```sql
 create table events (
@@ -16,7 +12,7 @@ create table events (
 );
 ```
 
-Tables are created with SQL, not with a custom API. Flyweight parses your sql statements and tables, and creates an API that is typed with TypeScript. Each table has a singular and plural form. If you want to get one row with the basic API, you can use:
+Flyweight parses your sql statements and tables, and creates an API that is typed with TypeScript. Each table has a singular and plural form. If you want to get one row with the basic API, you can use:
 
 ```js
 const event = await db.event.get({ id: 100 });
@@ -141,7 +137,7 @@ const coach = await db.coach.get({ name: /^Eugene.+/ });
 
 ## Creating tables
 
-Tables are created the same way as they are in SQL. Flyweight converts the custom types in these tables to native types, and converts the tables to strict mode. The native types available in strict mode are ```integer```, ```real```, ```text```, ```blob```, and ```any```. In addition to these types, four custom types are included by default: ```boolean```, ```date```, and ```json```. ```boolean``` is a column in which the values are restricted to 1 or 0, ```date``` is a JavaScript ```Date``` stored as an ISO8601 string, and ```json``` is json stored as text.
+Tables are created the same way as they are in SQL. The native types available in strict mode are ```integer```, ```real```, ```text```, ```blob```, and ```any```. In addition to these types, four additional types are included by default: ```boolean```, ```date```, and ```json```. ```boolean``` is a column in which the values are restricted to 1 or 0, ```date``` is a JavaScript ```Date``` stored as an ISO8601 string, and ```json``` is json stored as text.
 
 Default values can be set for boolean and date columns using the following syntax:
 
@@ -155,7 +151,7 @@ create table users (
 
 ```current_timestamp``` will not work properly when wanting to set the default date to the current time. This is because ```current_timestamp``` does not include timezone information and therefore when parsing the date string from the database, JavaScript will assume it is in local time when it is in fact in UTC time.
 
-Once you have created your tables, you can run the ```getTables``` function mentioned earlier with no arguments to convert the tables into a form that can be run by the database to create the tables. ```getTables``` returns a string of SQL. You can also just use the migration tools mentioned later on, as the first migration will include everything in your ```tables.sql```.
+You can use the migration tools mentioned later on to convert the tables into a form that SQLite recognises.
 
 ## Creating SQL queries
 
@@ -190,9 +186,7 @@ interface EventQuery {
 }
 ```
 
-Nulls are automatically removed from all ```groupArray``` results. If ```groupArray``` is used with a single value, and that value is a number, string, or date, the resulting array will be sorted in order, depending on the type. Dates are sorted in descending order, numbers and strings are sorted in ascending order.
-
-When all of the properties of ```object``` are from a left or right join, and there are no matches from that table, instead of returning, for example:
+Nulls are automatically removed from all ```groupArray``` results. When all of the properties of ```object``` are from a left or right join, and there are no matches from that table, instead of returning, for example:
 
 ```js
 { name: null, startTime: null }

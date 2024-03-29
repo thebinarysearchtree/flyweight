@@ -150,7 +150,7 @@ const parsers = [
   },
   {
     name: 'Function pattern',
-    pattern: /^(?<functionName>[a-z0-9_]+)\((?<functionContent>((?<tableAlias>[a-z0-9_]+)\.)?(?<columnName>([a-z0-9_]+)|\*)|(.+?))\)( as (?<columnAlias>[a-z0-9_]+))?$/mid,
+    pattern: /^(?<functionName>[a-z0-9_]+)\((?<functionContent>((?<tableAlias>[a-z0-9_]+)\.)?(?<columnName>([a-z0-9_]+)|\*)|(.+?))?\)( as (?<columnAlias>[a-z0-9_]+))?$/mid,
     pre: (statement) => blank(statement, { stringsOnly: true }),
     extractor: (groups, tables, indices, statement) => {
       const { functionName, tableAlias, columnName, columnAlias } = groups;
@@ -162,8 +162,14 @@ const parsers = [
           functionName
         }
       }
-      const [start, end] = indices.groups.functionContent;
-      const functionContent = statement.substring(start, end);
+      let functionContent;
+      if (indices.groups.functionContent) {
+        const [start, end] = indices.groups.functionContent;
+        functionContent = statement.substring(start, end);
+      }
+      else {
+        functionContent = '';
+      }
       return {
         tableAlias,
         columnName,
@@ -270,6 +276,9 @@ const parsers = [
 ];
 
 const parseColumn = (statement, tables) => {
+  if (statement.endsWith(';')) {
+    statement = statement.substring(0, statement.length - 1);
+  }
   for (const parser of parsers) {
     const { pattern, extractor, pre } = parser;
     let processed;
@@ -280,6 +289,10 @@ const parseColumn = (statement, tables) => {
       processed = blank(statement);
     }
     const result = pattern.exec(processed);
+    if (statement.startsWith('sqlite')) {
+      console.log(parser.name);
+      console.log(result);
+    }
     if (result) {
       return extractor(result.groups, tables, result.indices, statement);
     }

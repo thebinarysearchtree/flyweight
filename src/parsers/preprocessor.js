@@ -214,7 +214,15 @@ const processGroups = (sql) => {
     const functionContent = sql.substring(contentStart, contentEnd);
     const starMatch = /^\s*([a-z0-9_]\.)?\*\s*$/mi.test(functionContent);
     if (starMatch || blank(functionContent).includes(',')) {
-      fragments.push(`json_group_array(object(${functionContent}))`);
+      const blanked = blank(functionContent);
+      const orderMatch = /\s+order\s+by(\s|\()/.exec(blanked);
+      let adjustedContent = functionContent;
+      let orderClause = '';
+      if (orderMatch) {
+        adjustedContent = functionContent.substring(0, orderMatch.index);
+        orderClause = functionContent.substring(orderMatch.index);
+      }
+      fragments.push(`json_group_array(object(${adjustedContent})${orderClause})`);
     }
     else {
       fragments.push(`json_group_array(${functionContent})`);

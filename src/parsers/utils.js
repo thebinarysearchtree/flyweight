@@ -67,7 +67,7 @@ const blank = (s, options) => {
     i++;
   }
   return processed;
-}
+};
 
 export {
   blank

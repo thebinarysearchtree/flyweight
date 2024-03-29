@@ -57,15 +57,45 @@ const convert = (regexp) => {
   return processed.join('');
 }
 
+const getPlaceholders = (columnNames, columnTypes) => {
+  return columnNames.map(columnName => {
+    if (columnTypes[columnName] === 'jsonb') {
+      return `jsonb($${columnName})`;
+    }
+    return `$${columnName}`;
+  });
+}
+
+const adjust = (params, columnTypes, db) => {
+  const adjusted = db.adjust(params);
+  const processed = {};
+  for (const [name, value] of Object.entries(adjusted)) {
+    if (columnTypes[name] === 'jsonb') {
+      processed[name] = JSON.stringify(value);
+    }
+    else {
+      processed[name] = value;
+    }
+  }
+  return processed;
+}
+
 const insert = async (db, table, params, tx) => {
   const columnSet = db.columnSets[table];
   const verify = makeVerify(table, columnSet);
   const columns = Object.keys(params);
   verify(columns);
-  const placeholders = columns.map(c => `$${c}`);
+  const placeholders = getPlaceholders(columns, db.columns[table]);
+  const adjusted = adjust(params, db.columns[table], db);
   const sql = `insert into ${table}(${columns.join(', ')}) values(${placeholders.join(', ')})`;
   const primaryKey = db.getPrimaryKey(table);
-  const result = await db.all(`${sql} returning ${primaryKey}`, params, null, tx, true);
+  const result = await db.all({
+    query: `${sql} returning ${primaryKey}`,
+    params: adjusted,
+    tx,
+    write: true,
+    adjusted: true
+  });
   return result[0][primaryKey];
 }
 
@@ -88,12 +118,18 @@ const insertMany = async (db, table, items, tx) => {
     let statement;
     try {
       await tx.begin();
-      const placeholders = columns.map(c => `$${c}`);
+      const placeholders = getPlaceholders(columns, db.columns[table]);
       const sql = `insert into ${table}(${columns.join(', ')}) values(${placeholders.join(', ')})`;
       statement = await db.prepare(sql, tx.db);
       const promises = [];
       for (const item of items) {
-        const promise = db.run(statement, item, null, tx);
+        const adjusted = adjust(item, db.columns[table], db);
+        const promise = db.run({
+          query: statement,
+          params: adjusted,
+          tx,
+          adjusted: true
+        });
         promises.push(promise);
       }
       await Promise.all(promises);
@@ -118,7 +154,11 @@ const insertMany = async (db, table, items, tx) => {
   const params = {
     items: JSON.stringify(items)
   };
-  await db.run(sql, params, null, tx);
+  await db.run({
+    query: sql,
+    params,
+    tx
+  });
 }
 
 const toClause = (query, verify) => {
@@ -231,7 +271,11 @@ const update = async (db, table, query, params, tx) => {
   else {
     sql = `update ${table} set ${set}`;
   }
-  return await db.run(sql, { ...params, ...query, ...converted }, null, tx);
+  return await db.run({
+    query: sql,
+    params: { ...params, ...query, ...converted },
+    tx
+  });
 }
 
 const makeVerify = (table, columnSet) => {
@@ -373,7 +417,11 @@ const getVirtual = async (db, table, query, tx, keywords, select, returnValue, v
     sql += ')';
   }
   sql += toKeywords(keywords, verify);
-  const results = await db.all(sql, params, null, tx);
+  const results = await db.all({
+    query: sql,
+    params,
+    tx
+  });
   if (once) {
     if (results.length === 0) {
       return undefined;
@@ -408,7 +456,11 @@ const exists = async (db, table, query, tx) => {
     sql += ` where ${where}`;
   }
   sql += ') as result';
-  const results = await db.all(sql, { ...query, ...converted }, null, tx);
+  const results = await db.all({
+    query: sql,
+    params: { ...query, ...converted },
+    tx
+  });
   if (results.length > 0) {
     return Boolean(results[0].result);
   }
@@ -431,7 +483,11 @@ const count = async (db, table, query, keywords, tx) => {
   if (where) {
     sql += ` where ${where}`;
   }
-  const results = await db.all(sql, { ...query, ...converted }, null, tx);
+  const results = await db.all({
+    query: sql,
+    params: { ...query, ...converted },
+    tx
+  });
   if (results.length > 0) {
     return results[0].count;
   }
@@ -461,7 +517,11 @@ const get = async (db, table, query, columns, tx) => {
     sql += ` where ${where}`;
   }
   sql += toKeywords(keywords, verify);
-  const results = await db.all(sql, { ...query, ...converted }, null, tx);
+  const results = await db.all({
+    query: sql,
+    params: { ...query, ...converted },
+    tx
+  });
   if (results.length > 0) {
     const result = results[0];
     const adjusted = {};
@@ -500,7 +560,11 @@ const all = async (db, table, query, columns, tx) => {
     sql += ` where ${where}`;
   }
   sql += toKeywords(keywords, verify);
-  const rows = await db.all(sql, { ...query, ...converted }, null, tx);
+  const rows = await db.all({
+    query: sql,
+    params: { ...query, ...converted },
+    tx
+  });
   if (rows.length === 0) {
     return rows;
   }
@@ -543,7 +607,11 @@ const remove = async (db, table, query, tx) => {
   if (where) {
     sql += ` where ${where}`;
   }
-  return await db.run(sql, { ...query, ...converted }, null, tx);
+  return await db.run({
+    query: sql,
+    params: { ...query, ...converted },
+    tx
+  });
 }
 
 export {

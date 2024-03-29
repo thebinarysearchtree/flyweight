@@ -100,7 +100,7 @@ const wait = async () => {
 }
 
 class Database {
-  constructor() {
+  constructor(props) {
     this.db;
     this.read = null;
     this.write = null;
@@ -120,6 +120,7 @@ class Database {
     this.databases = [];
     this.virtualSet = new Set();
     this.prepared = [];
+    this.debug = props ? props.debug : false;
     this.registerTypes([
       {
         name: 'boolean',
@@ -145,6 +146,11 @@ class Database {
         jsToDb: (v) => JSON.stringify(v),
         tsType: 'any',
         dbType: 'text'
+      },
+      {
+        name: 'jsonb',
+        tsType: 'Buffer',
+        dbType: 'blob'
       }
     ]);
   }
@@ -370,15 +376,6 @@ class Database {
     return this.addStrict(converted);
   }
 
-  convertToDb(value) {
-    for (const customType of Object.values(this.customTypes)) {
-      if (customType.valueTest(value)) {
-        return customType.jsToDb(value);
-      }
-    }
-    return value;
-  }
-
   needsParsing(table, keys) {
     for (const key of keys) {
       if (key === 'count') {
@@ -412,15 +409,6 @@ class Database {
     return value;
   }
 
-  getJsToDbConverter(value) {
-    for (const customType of Object.values(this.customTypes)) {
-      if (customType.valueTest(value)) {
-        return customType.jsToDb;
-      }
-    }
-    return null;
-  }
-
   getDbToJsConverter(type) {
     const customType = this.customTypes[type];
     if (customType) {
@@ -440,7 +428,7 @@ class Database {
       }
       else {
         for (const customType of Object.values(this.customTypes)) {
-          if (customType.valueTest(value)) {
+          if (customType.valueTest && customType.valueTest(value)) {
             value = customType.jsToDb(value);
             break;
           }
@@ -543,11 +531,15 @@ class Database {
     });
   }
 
-  async run(query, params, options, tx) {
+  async run(props) {
+    let { query, params, options, tx, adjusted } = props;
+    if (this.debug) {
+      console.log(query);
+    }
     if (params === null) {
       params = undefined;
     }
-    if (params !== undefined) {
+    if (params !== undefined && !adjusted) {
       params = this.adjust(params);
     }
     const db = tx ? tx.db : this.write;
@@ -586,11 +578,15 @@ class Database {
     });
   }
 
-  async all(query, params, options, tx, write) {
+  async all(props) {
+    let { query, params, options, tx, write, adjusted } = props;
+    if (this.debug) {
+      console.log(query);
+    }
     if (params === null) {
       params = undefined;
     }
-    if (params !== undefined) {
+    if (params !== undefined && !adjusted) {
       params = this.adjust(params);
     }
     const client = tx ? tx.db : (write ? this.write : this.read);

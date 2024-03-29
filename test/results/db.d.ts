@@ -208,6 +208,16 @@ interface LocationsByMethod {
   count: number;
 }
 
+interface LocationsDetailedEvents {
+  name: string;
+  events: Array<any>;
+}
+
+interface LocationsEvents {
+  name: string;
+  events: Array<any>;
+}
+
 interface LocationsWinners {
   location: string;
   fighter: string;
@@ -216,11 +226,15 @@ interface LocationsWinners {
 
 interface LocationsQueries {
   byMethod(params: { id: any; }): Promise<Array<LocationsByMethod>>;
+  detailedEvents(): Promise<Array<LocationsDetailedEvents>>;
+  events(): Promise<Array<LocationsEvents>>;
   winners(): Promise<Array<LocationsWinners>>;
 }
 
 interface LocationQueries {
   byMethod(params: { id: any; }): Promise<LocationsByMethod | undefined>;
+  detailedEvents(): Promise<LocationsDetailedEvents | undefined>;
+  events(): Promise<LocationsEvents | undefined>;
   winners(): Promise<LocationsWinners | undefined>;
 }
 

@@ -74,6 +74,7 @@ const returnTypes = {
   tan: 'integer',
   tanh: 'integer',
   trunc: 'integer',
+  json: 'json',
   json_array: 'json',
   json_array_length: 'integer',
   json_object: 'json',
@@ -81,9 +82,15 @@ const returnTypes = {
   json_valid: 'integer',
   json_group_array: 'json',
   json_group_object: 'json',
+  jsonb: 'jsonb',
+  jsonb_array: 'jsonb',
+  jsonb_object: 'jsonb',
+  jsonb_group_array: 'jsonb',
+  jsonb_group_object: 'jsonb',
   highlight: 'text',
-  snippet: 'text'
-}
+  snippet: 'text',
+  sqlite_version: 'text'
+};
 
 const notNullFunctions = new Set([
   'count',
@@ -114,6 +121,7 @@ const notNullFunctions = new Set([
   'unlikely',
   'upper',
   'zeroblob',
+  'json',
   'json_array',
   'json_object',
   'json_valid',
@@ -121,6 +129,11 @@ const notNullFunctions = new Set([
   'json_group_object',
   'json_each',
   'json_tree',
+  'jsonb',
+  'jsonb_array',
+  'jsonb_object',
+  'jsonb_group_array',
+  'jsonb_group_object',
   'highlight',
   'snippet'
 ]);

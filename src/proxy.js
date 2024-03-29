@@ -121,17 +121,8 @@ const makeOptions = (columns, db) => {
             actualConverter = (v) => {
               let converted = converter(v);
               converted = converted.filter(v => v !== null);
-              if (structuredType === 'text') {
-                converted.sort((a, b) => a.localeCompare(b));
-              }
-              if (structuredType === 'integer' || structuredType === 'real') {
-                converted.sort((a, b) => a - b);
-              }
               if (structuredConverter && !(structured.functionName && /^json_/i.test(structured.functionName))) {
                 converted = converted.map(i => structuredConverter(i));
-                if (structuredType === 'date') {
-                  converted.sort((a, b) => b.getTime() - a.getTime());
-                }
               }
               return converted;
             }
@@ -296,12 +287,23 @@ const makeQueryHandler = (table, db, sqlDir, tx) => {
             run = run.bind(db);
             options.cacheName = `${table}.${query}`;
             target[query] = async (params) => {
-              return await run(sql, params, options, tx, write);
+              return await run({
+                query: sql,
+                params,
+                options,
+                tx,
+                write
+              });
             }
           }
           catch {
             target[query] = async (params) => {
-              return await db.all(sql, params, null, tx, write);
+              return await db.all({
+                query: sql,
+                params,
+                tx,
+                write
+              });
             }
           }
         }
