@@ -6,11 +6,11 @@
   "type": "module",
   "exports": {
     "import": "./index.js",
-    "require": "./index.cjs",
-    "build": "./node_modules/.bin/esbuild index.js --bundle --platform=node --format=cjs --packages=external --outfile=index.cjs"
+    "require": "./index.cjs"
   },
   "scripts": {
-    "test": "node ./test/test.js"
+    "test": "node ./test/test.js",
+    "build": "./node_modules/.bin/esbuild index.js --bundle --platform=node --format=cjs --packages=external --outfile=index.cjs"
   },
   "author": "Andrew Jones",
   "license": "MIT",
