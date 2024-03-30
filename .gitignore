@@ -21,4 +21,4 @@ yarn-error.log*
 *.zip
 *.tar.gz
 
-extensions/*/
+*.cjs
