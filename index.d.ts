@@ -37,8 +37,8 @@ declare class Database {
   begin(): Promise<void>;
   commit(): Promise<void>;
   rollback(): Promise<void>;
-  run(query: any, params?: any): Promise<number>;
-  all<T>(query: any, params?: any, options?: QueryOptions): Promise<Array<T>>;
+  run(args: { query: any, params?: any }): Promise<number>;
+  all<T>(args: { query: any, params?: any, options?: QueryOptions }): Promise<Array<T>>;
   exec(query: string): Promise<void>;
   close(): Promise<void>;
 }
