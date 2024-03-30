@@ -210,12 +210,12 @@ interface LocationsByMethod {
 
 interface LocationsDetailedEvents {
   name: string;
-  events: Array<any>;
+  events: Array<{ id: number, name: string }>;
 }
 
 interface LocationsEvents {
   name: string;
-  events: Array<any>;
+  events: Array<string>;
 }
 
 interface LocationsWinners {

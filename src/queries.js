@@ -104,6 +104,7 @@ const insertMany = async (db, table, items, tx) => {
     return;
   }
   const columnSet = db.columnSets[table];
+  const columTypes = db.columns[table];
   const verify = makeVerify(table, columnSet);
   const sample = items[0];
   const columns = Object.keys(sample);
@@ -118,12 +119,12 @@ const insertMany = async (db, table, items, tx) => {
     let statement;
     try {
       await tx.begin();
-      const placeholders = getPlaceholders(columns, db.columns[table]);
+      const placeholders = getPlaceholders(columns, columTypes);
       const sql = `insert into ${table}(${columns.join(', ')}) values(${placeholders.join(', ')})`;
       statement = await db.prepare(sql, tx.db);
       const promises = [];
       for (const item of items) {
-        const adjusted = adjust(item, db.columns[table], db);
+        const adjusted = adjust(item, columTypes, db);
         const promise = db.run({
           query: statement,
           params: adjusted,
@@ -148,7 +149,12 @@ const insertMany = async (db, table, items, tx) => {
     }
   }
   let sql = `insert into ${table}(${columns.join(', ')}) select `;
-  const select = columns.map(c => `json_each.value ->> '${c}'`).join(', ');
+  const select = columns.map(column => {
+    if (columTypes[column] === 'jsonb') {
+      return `jsonb(json_each.value ->> '${column}')`;
+    }
+    return `json_each.value ->> '${column}'`;
+  }).join(', ');
   sql += select;
   sql += ' from json_each($items)';
   const params = {
