@@ -171,7 +171,26 @@ select max(startTime) from events;
 
 as there is no name given to ```max(startTime)```.
 
-Parameters in SQL files should use the ```$name``` notation. Single quotes in strings should be escaped with ```\```. JSON functions are automatically typed and parsed. For example, the following:
+Parameters in SQL files should use the ```$name``` notation. If you want to include dynamic content, you should use the ```${column}``` format and then pass in a second argument when calling the SQL statement in JavaScript. For example:
+
+```sql
+select * from users where location = $location order by ${column};
+```
+
+```js
+const options = {
+  unsafe: {
+    column: 'lastName'
+  }
+};
+const users = await db.users.from({ location: 'Brisbane' }, options);
+```
+
+This is useful when the query is determined at run-time. You are responsible for making sure the unsafe parameters do not cause any security issues as they are interpolated into the SQL statement rather than passed as parameters.
+
+If the unsafe parameter is ```undefined``` in the options argument, it will be removed from the SQL statement.
+
+Single quotes in strings should be escaped with ```\```. JSON functions are automatically typed and parsed. For example, the following:
 
 ```sql
 select id, object(name, startTime) as nest from events;
