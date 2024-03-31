@@ -31,14 +31,14 @@ interface Initialize<T> {
 }
 
 declare class Database {
-  constructor();
+  constructor(options?: { debug?: boolean });
   initialize<T>(paths: Paths, interfaceName?: string): Promise<Initialize<T>>;
   registerTypes(customTypes: Array<CustomType>): void;
   begin(): Promise<void>;
   commit(): Promise<void>;
   rollback(): Promise<void>;
-  run(query: any, params?: any): Promise<number>;
-  all<T>(query: any, params?: any, options?: QueryOptions): Promise<Array<T>>;
+  run(args: { query: any, params?: any }): Promise<number>;
+  all<T>(args: { query: any, params?: any, options?: QueryOptions }): Promise<Array<T>>;
   exec(query: string): Promise<void>;
   close(): Promise<void>;
 }

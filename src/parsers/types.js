@@ -191,14 +191,22 @@ const toTsType = (column, customTypes) => {
   return tsType;
 }
 
-const parseParams = (sql) => {
+const parsePattern = (sql, pattern) => {
   const processed = blank(sql, { stringsOnly: true });
-  const matches = processed.matchAll(/(\s|,|\()\$(?<param>[a-z0-9_]+)(\s|,|\)|$)/gmi);
+  const matches = processed.matchAll(pattern);
   const params = {};
   for (const match of matches) {
     params[match.groups.param] = true;
   }
   return Object.keys(params);
+}
+
+const parseParams = (sql) => {
+  return parsePattern(sql, /(\s|,|\()\$(?<param>[a-z0-9_]+)(\s|,|\)|$)/gmi);
+}
+
+const parseUnsafe = (sql) => {
+  return parsePattern(sql, /(\s|,|\()\$\{(?<param>[a-z0-9_]+)\}(\s|,|\)|$)/gmi);
 }
 
 const makeUnique = (name, typeSet, i) => {
@@ -231,6 +239,7 @@ const getQueries = async (db, sqlDir, tableName, typeSet, i) => {
     let sql = await readFile(queryPath, 'utf8');
     sql = preprocess(sql, db.tables);
     const params = parseParams(sql);
+    const unsafe = parseUnsafe(sql);
     let columns;
     try {
       columns = parseQuery(sql, db.tables);
@@ -242,14 +251,16 @@ const getQueries = async (db, sqlDir, tableName, typeSet, i) => {
       parsedQueries.push({
         queryName,
         interfaceName: 'any',
-        params
+        params,
+        unsafe
       });
       continue;
     }
     if (columns.length === 0) {
       parsedQueries.push({
         queryName,
-        params
+        params,
+        unsafe
       });
       continue;
     }
@@ -258,7 +269,8 @@ const getQueries = async (db, sqlDir, tableName, typeSet, i) => {
       parsedQueries.push({
         queryName,
         interfaceName: convertOptional(tsType),
-        params
+        params,
+        unsafe
       });
       continue;
     }
@@ -305,7 +317,8 @@ const getQueries = async (db, sqlDir, tableName, typeSet, i) => {
       queryName,
       interfaceName,
       interfaceString,
-      params
+      params,
+      unsafe
     });
   }
   const multipleInterfaceName = makeUnique(capitalize(tableName) + 'Queries', typeSet, i);
@@ -316,7 +329,8 @@ const getQueries = async (db, sqlDir, tableName, typeSet, i) => {
     const {
       queryName,
       interfaceName,
-      params
+      params,
+      unsafe
     } = query;
     const multipleReturnType = interfaceName ? `Promise<Array<${interfaceName}>>` : 'Promise<void>';
     const singularReturnType = interfaceName ? `Promise<${interfaceName} | undefined>` : 'Promise<void>';
@@ -327,6 +341,13 @@ const getQueries = async (db, sqlDir, tableName, typeSet, i) => {
         paramInterface += `${param}: any; `;
       }
       paramInterface += '}';
+    }
+    if (unsafe.length > 0) {
+      paramInterface += ', options?: { unsafe?: { ';
+      for (const param of unsafe) {
+        paramInterface += `${param}?: any; `;
+      }
+      paramInterface += '}}';
     }
     multipleInterfaceString += `  ${queryName}(${paramInterface}): ${multipleReturnType};\n`;
     singularInterfaceString += `  ${queryName}(${paramInterface}): ${singularReturnType};\n`;

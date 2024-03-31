@@ -12,7 +12,7 @@ import {
 import { join } from 'path';
 import { parseQuery, isWrite } from './parsers/queries.js';
 import pluralize from 'pluralize';
-import { preprocess } from './parsers/preprocessor.js';
+import { preprocess, insertUnsafe } from './parsers/preprocessor.js';
 
 const queries = {
   insert: (database, table, tx) => async (params) => await insert(database, table, params, tx),
@@ -285,8 +285,25 @@ const makeQueryHandler = (table, db, sqlDir, tx) => {
               run = db.all;
             }
             run = run.bind(db);
-            options.cacheName = `${table}.${query}`;
-            target[query] = async (params) => {
+            target[query] = async (params, queryOptions) => {
+              if (queryOptions && queryOptions.unsafe) {
+                const query = insertUnsafe(sql, queryOptions.unsafe);
+                let cachedOptions = db.queryVariations.get(query);
+                if (!cachedOptions) {
+                  const columns = parseQuery(query, db.tables);
+                  const options = makeOptions(columns, db);
+                  options.result = getResultType(columns, isSingular);
+                  db.queryVariations.set(query, { ...options });
+                  cachedOptions = options;
+                }
+                return await run({
+                  query,
+                  params,
+                  options: cachedOptions,
+                  tx,
+                  write
+                });
+              }
               return await run({
                 query: sql,
                 params,

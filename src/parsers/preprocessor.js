@@ -1,6 +1,24 @@
 import { blank } from './utils.js';
 import { parseQuery } from './queries.js';
 
+const insertUnsafe = (sql, unsafe) => {
+  const fragments = [];
+  const blanked = blank(sql, { stringsOnly: true });
+  const matches = blanked.matchAll(/(?<placeholder>\$\{(?<key>[a-z0-9_]+)\})/gmid);
+  let lastEnd = 0;
+  for (const match of matches) {
+    const [start, end] = match.indices.groups.placeholder;
+    const value = unsafe[match.groups.key] || '';
+    if (lastEnd !== start) {
+      fragments.push(sql.substring(lastEnd, start));
+    }
+    fragments.push(value);
+    lastEnd = end;
+  }
+  fragments.push(sql.substring(lastEnd));
+  return fragments.join('');
+}
+
 const subqueries = (sql, tables) => {
   const fragments = [];
   const blanked = blank(sql);
@@ -334,5 +352,6 @@ const preprocess = (sql, tables, isView) => {
 }
 
 export {
-  preprocess
+  preprocess,
+  insertUnsafe
 };

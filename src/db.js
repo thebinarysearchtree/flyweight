@@ -121,6 +121,7 @@ class Database {
     this.virtualSet = new Set();
     this.prepared = [];
     this.debug = props ? props.debug : false;
+    this.queryVariations = new Map();
     this.registerTypes([
       {
         name: 'boolean',
@@ -544,16 +545,9 @@ class Database {
     }
     const db = tx ? tx.db : this.write;
     if (typeof query === 'string') {
-      let key;
-      if (options && options.cacheName) {
-        key = options.cacheName;
-      }
-      else {
-        key = query;
-      }
       const statementKey = tx ? tx.name : 'write';
       const statements = this.statements[statementKey];
-      const cached = statements ? this.statements.get(key) : undefined;
+      const cached = statements ? this.statements.get(query) : undefined;
       if (cached) {
         query = cached;
       }
@@ -562,7 +556,7 @@ class Database {
           this.statements[statementKey] = new Map();
         }
         const statement = await this.prepare(query, db);
-        this.statements[statementKey].set(key, statement);
+        this.statements[statementKey].set(query, statement);
         query = statement;
       }
     }
