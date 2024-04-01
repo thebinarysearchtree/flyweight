@@ -32,7 +32,7 @@ interface Initialize<T> {
 
 declare class Database {
   constructor(options?: { debug?: boolean });
-  initialize<T>(paths: Paths, interfaceName?: string): Promise<Initialize<T>>;
+  initialize<T>(paths: Paths): Promise<Initialize<T>>;
   registerTypes(customTypes: Array<CustomType>): void;
   begin(): Promise<void>;
   commit(): Promise<void>;

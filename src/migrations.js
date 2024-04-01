@@ -250,8 +250,7 @@ const migrate = async (db, tablesPath, viewsPath, migrationPath, migrationName) 
     }
     await writeFile(outputPath, sql, 'utf8');
     await writeFile(lastTablesPath, currentSql, 'utf8');
-    console.log('Migration created.');
-    process.exit();
+    return sql;
   }
   const currentTriggers = getTriggers(current, blankedCurrent);
   const lastTriggers = getTriggers(last, blankedLast);
@@ -390,19 +389,18 @@ const migrate = async (db, tablesPath, viewsPath, migrationPath, migrationName) 
   }
   const migrations = [...tableMigrations, ...columnMigrations, ...indexMigrations, ...viewMigrations, ...virtualMigrations, ...triggerMigrations];
   if (migrations.length === 0) {
-    console.log('No changes were detected.');
-    process.exit();
+    return '';
   }
   const sql = migrations.join('\n').trim() + '\n';
   try {
     await readFile(outputPath, 'utf8');
-    console.log(`${outputPath} already exists.`);
+    throw Error(`${outputPath} already exists.`);
   }
   catch {
     await writeFile(outputPath, sql, 'utf8');
     await writeFile(lastTablesPath, currentSql, 'utf8');
     await writeFile(lastViewsPath, currentViewsText, 'utf8');
-    console.log('Migration created.');
+    return sql;
   }
 }
 

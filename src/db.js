@@ -181,8 +181,22 @@ class Database {
       return this.convertTables(sql);
     }
     const createMigration = async (name) => {
-      await migrate(this, tables, views, migrations, name);
-    }
+      try {
+        const sql = await migrate(this, tables, views, migrations, name);
+        if (!sql) {
+          console.log('No changes detected.');
+        }
+        else {
+          console.log(sql);
+        }
+      }
+      catch (e) {
+        console.log(e.message);
+      }
+      finally {
+        await this.close();
+      }
+    };
     const runMigration = async (name) => {
       const path = join(migrations, `${name}.sql`);
       const sql = await readFile(path, 'utf8');
@@ -195,10 +209,13 @@ class Database {
       }
       catch (e) {
         await this.rollback();
-        throw e;
+        console.log(e);
       }
-      this.enableForeignKeys();
-    }
+      finally {
+        this.enableForeignKeys();
+        await this.close();
+      }
+    };
     return {
       db: client,
       makeTypes,
