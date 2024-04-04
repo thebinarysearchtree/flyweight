@@ -17,7 +17,7 @@ group by u.id
 
 A method ```db.users.roles``` will be available in the API that has the correct TypeScript types, giving you the benefits of auto-complete and so on.
 
-[auto-completed code](hero.png)
+![auto-completed code](hero.png)
 
 Tables are created with SQL, not with a custom API.
 
