@@ -5,12 +5,12 @@ For example, if you create a file called ```roles.sql``` that looks like this:
 
 ```sql
 select
-  u.id,
-  u.name,
-  groupArray(r.name) as roles
+    u.id,
+    u.name,
+    groupArray(r.name) as roles
 from
-  users u join 
-  roles r on r.userId = u.id
+    users u join 
+    roles r on r.userId = u.id
 where u.name = $name
 group by u.id
 ```
