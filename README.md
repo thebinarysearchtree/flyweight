@@ -1,6 +1,24 @@
 # Flyweight
 An ORM for SQLite and NodeJS. Flyweight combines a very simple API for performing basic operations, with the ability to create SQL queries that are typed and automatically mapped to complex object types.
 
+For example, if you create a file called ```roles.sql``` that looks like this:
+
+```sql
+select
+  u.id,
+  u.name,
+  groupArray(r.name) as roles
+from
+  users u join 
+  roles r on r.userId = u.id
+where u.name = $name
+group by u.id
+```
+
+A method ```db.users.roles``` will be available in the API that has the correct TypeScript types, giving you the benefits of auto-complete and so on.
+
+[auto-completed code](hero.png)
+
 Tables are created with SQL, not with a custom API.
 
 ```sql
