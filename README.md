@@ -15,7 +15,7 @@ where u.name = $name
 group by u.id
 ```
 
-A function ```db.users.roles``` will be available in the API that has the correct TypeScript types.
+A function ```db.users.roles``` will be available in the API with the correct types, regardless of whether you are using TypeScript or JavaScript.
 
 ![auto-completed code](hero.png)
 
