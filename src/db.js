@@ -181,21 +181,14 @@ class Database {
       return this.convertTables(sql);
     }
     const createMigration = async (name) => {
+      let sql;
       try {
-        const sql = await migrate(this, tables, views, migrations, name);
-        if (!sql) {
-          console.log('No changes detected.');
-        }
-        else {
-          console.log(sql);
-        }
-      }
-      catch (e) {
-        console.log(e.message);
+        sql = await migrate(this, tables, views, migrations, name);
       }
       finally {
         await this.close();
       }
+      return sql.trim();
     };
     const runMigration = async (name) => {
       const path = join(migrations, `${name}.sql`);
@@ -205,11 +198,10 @@ class Database {
         await this.begin();
         await this.exec(sql);
         await this.commit();
-        console.log('Migration ran successfully.');
       }
       catch (e) {
         await this.rollback();
-        console.log(e);
+        throw e;
       }
       finally {
         this.enableForeignKeys();
