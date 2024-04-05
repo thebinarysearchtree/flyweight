@@ -26,7 +26,7 @@ interface Initialize<T> {
   db: T;
   makeTypes(): Promise<void>;
   getTables(): Promise<string>;
-  createMigration(name: string): Promise<void>;
+  createMigration(name: string): Promise<string>;
   runMigration(name: string): Promise<void>;
 }
 
