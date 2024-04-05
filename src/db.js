@@ -3,7 +3,7 @@ import { toValues, readSql } from './utils.js';
 import { parse } from './parsers.js';
 import { mapOne, mapMany } from './map.js';
 import { getTables, getViews, getVirtual } from './parsers/tables.js';
-import { readFile } from 'fs/promises';
+import { readFile, rm } from 'fs/promises';
 import { getFragments } from './parsers/tables.js';
 import { blank } from './parsers/utils.js';
 import { makeClient } from './proxy.js';
@@ -181,6 +181,28 @@ class Database {
       return this.convertTables(sql);
     }
     const createMigration = async (name) => {
+      const lastTablesPath = join(migrations, 'lastTables.sql');
+      const lastViewsPath = join(migrations, 'lastViews.sql');
+      let lastTables;
+      let lastViews;
+      let undo;
+      const migrationPath = join(migrations, `${name}.sql`);
+      try {
+        lastTables = await readFile(lastTablesPath, 'utf8');
+        lastViews = await readFile(lastViewsPath, 'utf8');
+        undo = async () => {
+          await rm(migrationPath);
+          await writeFile(lastTablesPath, lastTables);
+          await writeFile(lastViewsPath, lastViews);
+        };
+      }
+      catch {
+        undo = async () => {
+          await rm(migrationPath);
+          await rm(lastTablesPath);
+          await rm(lastViewsPath);
+        }
+      }
       let sql;
       try {
         sql = await migrate(this, tables, views, migrations, name);
@@ -188,7 +210,10 @@ class Database {
       finally {
         await this.close();
       }
-      return sql.trim();
+      return {
+        sql: sql.trim(),
+        undo
+      }
     };
     const runMigration = async (name) => {
       const path = join(migrations, `${name}.sql`);
