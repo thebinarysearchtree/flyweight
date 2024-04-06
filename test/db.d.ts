@@ -757,6 +757,7 @@ declare function makeTypes(): Promise<void>;
 declare function getTables(): Promise<string>;
 declare function createMigration(name: string): Promise<void>;
 declare function runMigration(name: string): Promise<void>;
+declare const sqlPath: string;
 
 export {
   database,
@@ -764,5 +765,6 @@ export {
   makeTypes,
   getTables,
   createMigration,
-  runMigration
+  runMigration,
+  sqlPath
 }
