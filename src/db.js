@@ -203,13 +203,7 @@ class Database {
           await rm(lastViewsPath);
         }
       }
-      let sql;
-      try {
-        sql = await migrate(this, tables, views, migrations, name);
-      }
-      finally {
-        await this.close();
-      }
+      const sql = await migrate(this, tables, views, migrations, name);
       return {
         sql: sql.trim(),
         undo
@@ -230,7 +224,6 @@ class Database {
       }
       finally {
         this.enableForeignKeys();
-        await this.close();
       }
     };
     return {
