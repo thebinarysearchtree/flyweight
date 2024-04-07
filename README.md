@@ -72,7 +72,7 @@ console.log(users);
 
 A ```users``` table has already been created for you to play around with.
 
-You can update types whenever you change the SQL by either calling ```npm run watch``` to automatically update the types on changes, or ```npm run types``` to do it manually.
+You can update types whenever you change the SQL by either calling ```npm run watch``` to automatically update the types, or ```npm run types``` to do it manually.
 
 ## Migrations
 
