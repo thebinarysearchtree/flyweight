@@ -1,7 +1,7 @@
 # Flyweight
 An ORM for SQLite and NodeJS. Flyweight combines a very simple API for performing basic operations, with the ability to create SQL queries that are typed and automatically mapped to complex object types.
 
-For example, if you create a file called ```roles.sql``` that looks like this:
+For example, if you create a file called ```./database/sql/users/roles.sql``` that looks like this:
 
 ```sql
 select
@@ -53,7 +53,7 @@ const id = await db.coach.insert({
 
 The basic API does not allow you to perform joins, aggregate functions, or anything else. When you need these features, you simply create a SQL file in a folder with the name of one of the tables. This will then be parsed and typed by Flyweight, and available as part of the API.
 
-For example, if you have a query contained in a file called ```getById.sql``` in the ```events``` folder, it can be called from the API like this:
+For example, if you have a query contained in a file called ```./database/sql/events/getById.sql```, it can be called from the API like this:
 
 ```js
 const event = await db.event.getById({ id: 100 });
