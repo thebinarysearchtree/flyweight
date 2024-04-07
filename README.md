@@ -15,7 +15,7 @@ where u.name = $name
 group by u.id
 ```
 
-A function ```db.users.roles``` will be available in the API with the correct types, regardless of whether you are using TypeScript or JavaScript.
+A function ```db.users.roles``` will be available in the API with the correct types.
 
 ![auto-completed code](hero.png)
 
@@ -82,68 +82,31 @@ Other commands available are ```groupArray``` which is shorthand for ```json_gro
 ## Getting started
 
 ```
-npm install flyweightjs
+mkdir test
+cd test
+npm init
+npx create-flyweight database
 ```
 
-For JavaScript, create a file called db.js with the following code:
+You can run the ```npx``` command at the root of either an existing or a new project. Once that is done, you can import the database this way:
 
 ```js
-import { Database } from 'flyweightjs';
+import { db } from './database/db.js';
 
-const database = new Database();
-
-const result = await database.initialize({
-  db: '/path/test.db',
-  sql: '/path/sql',
-  tables: '/path/tables.sql',
-  views: '/path/views',
-  types: '/path/db.d.ts',
-  migrations: '/path/migrations'
-});
-
-const {
-  db,
-  makeTypes,
-  getTables,
-  createMigration,
-  runMigration
-} = result;
-
-export {
-  database,
-  db,
-  makeTypes,
-  getTables,
-  createMigration,
-  runMigration
-}
+await db.user.insert({ name: 'Andrew' });
+const users = await db.users.get();
+console.log(users);
 ```
 
-After you have done this:
-1. create the ```tables.sql``` and add some tables.
-2. create a new JavaScript file and import the ```makeTypes``` function, and then run it without any arguments as:
+A ```users``` table has already been created for you to play around with.
 
-```js
-await makeTypes();
-```
+You can update types whenever you change the SQL by either calling ```npm run watch``` to automatically update the types on changes, or ```npm run types``` to do it manually.
 
-This should create a ```db.d.ts``` file that will type the exported ```db``` variable.
+## Migrations
 
-The ```initialize``` method's ```path``` object has the following properties:
+Inside the ```database``` folder, there is another folder called ```sql``` which will contain the ```tables.sql``` file. You can add or change tables from here and then run the migration command ```npm run migrate <migration-name>```.
 
-```db```: The path to the database.
-
-```sql```: A path to a folder for storing SQL files.
-
-```tables```: A path to a SQL file or folder of files containing the ```create table``` and ```create index``` statements that define your database schema.
-
-```views```: A path to a SQL file or folder of files containing any ```create view``` statements that you have. This is optional.
-
-```types```: This should be a path to a file that is in the same location as ```db.js```. This file should not exist yet. It will be created by the ```makeTypes``` function.
-
-```migrations```: A path to the migrations folder. When you run ```createMigration```, the SQL files will be created in this folder.
-
-```extensions```: A string or array of strings of SQLite extensions that will be loaded each time a connection is made to the database.
+If you want to add a new column to a table without needing to drop the table, make sure you put the column at the end of the list of columns.
 
 ## Regular expressions
 
@@ -371,28 +334,6 @@ finally {
   db.release(tx);
 }
 ```
-
-## Migrations
-
-The ```initialize``` method mentioned earlier returns two functions related to performing migrations: ```createMigration``` and ```runMigration```. They both take one argument: ```name```. When ```createMigration``` is run, it will create a file in the ```migrations``` directory with the format ```name.sql```. You can import the ```createMigration``` function into a new file like this:
-
-```js
-import { createMigration } from './db.js';
-
-await createMigration(process.argv[2]);
-```
-
-and run it from the command line like this:
-
-```
-node migrate.js <migrationName>
-```
-
-replacing ```migrationName``` with the name you want to call your migration.
-
-The SQL created by the migration may need adjusting, so make sure you check the file before you apply it to the database. If you want to add a new column to a table without needing to drop the table, make sure you put the column at the end of the list of columns.
-
-```runMigration``` can be used the same way. It reads the migration file created by ```createMigration```, turns off foreign keys, begins a transaction, runs the migration, and then turns foreign keys back on.
 
 ## Running tests
 
