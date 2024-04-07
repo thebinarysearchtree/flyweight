@@ -9,8 +9,9 @@ select
     u.name,
     groupArray(r.name) as roles
 from
-    users u join 
-    roles r on r.userId = u.id
+    users u join
+    userRoles ur on ur.userId = u.id join
+    roles r on ur.roleId = r.id
 where 
     u.name = $name
 group by 
