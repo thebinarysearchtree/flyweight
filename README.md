@@ -19,6 +19,28 @@ A function ```db.users.roles``` will be available in the API with the correct ty
 
 ![auto-completed code](hero.png)
 
+## Shorthand JSON functions
+
+```sql
+object(
+    u.id, 
+    u.name, 
+    u.social) as user
+``` 
+
+is just shorthand for 
+
+```sql
+json_object(
+    'id', u.id, 
+    'name', u.name, 
+    'social', u.social) as user
+```
+
+Other commands available are ```groupArray``` which is shorthand for ```json_group_array```, and ```array```, which is shorthand for ```json_array```.
+
+## Creating tables
+
 Tables are created the same way as they are in SQL. The native types available in strict mode are ```integer```, ```real```, ```text```, ```blob```, and ```any```. In addition to these types, four additional types are included by default: ```boolean```, ```date```, and ```json```. ```boolean``` is a column in which the values are restricted to 1 or 0, ```date``` is a JavaScript ```Date``` stored as an ISO8601 string, and ```json``` is json stored as text. These additional types are automatically parsed by the ORM.
 
 ```sql
@@ -257,26 +279,6 @@ Nulls are automatically removed from all ```groupArray``` results. When all of t
 ```
 
 the entire object will be null.
-
-## Shorthand JSON functions
-
-```sql
-object(
-    u.id, 
-    u.name, 
-    u.social) as user
-``` 
-
-is just shorthand for 
-
-```sql
-json_object(
-    'id', u.id, 
-    'name', u.name, 
-    'social', u.social) as user
-```
-
-Other commands available are ```groupArray``` which is shorthand for ```json_group_array```, and ```array```, which is shorthand for ```json_array```.
 
 ## Transactions and concurrency
 
