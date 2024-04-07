@@ -11,8 +11,10 @@ select
 from
     users u join 
     roles r on r.userId = u.id
-where u.name = $name
-group by u.id
+where 
+    u.name = $name
+group by 
+    u.id
 ```
 
 A function ```db.users.roles``` will be available in the API with the correct types.
