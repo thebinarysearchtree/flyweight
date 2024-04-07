@@ -208,38 +208,6 @@ const exists = await db.fighter.exists({ name: 'Israel Adesanya' });
 const changes = await db.fighters.remove({ id: 100 });
 ```
 
-## Transactions and concurrency
-
-Transactions involve taking a connection from a pool of connections by calling ```getTransaction```. Once you have finished using the transaction, you should call ```release``` to return the connection to the pool. If there are a large number of simultaneous transactions, the connection pool will be empty and ```getTransaction``` will start to wait until a connection is returned to the pool.
-
-```js
-import { db } from './db.js';
-
-try {
-  const tx = await db.getTransaction();
-  await tx.begin();
-
-  const coachId = await tx.coach.insert({
-    name: 'Eugene Bareman',
-    city: 'Auckland'
-  });
-  const fighterId = await tx.fighter.get({ name: /Israel/ }, 'id');
-  await tx.fighterCoach.insert({
-    fighterId,
-    coachId
-  });
-  
-  await tx.commit();
-}
-catch (e) {
-  console.log(e);
-  await tx.rollback();
-}
-finally {
-  db.release(tx);
-}
-```
-
 ## Creating SQL queries
 
 When creating SQL queries, make sure you give an alias to any columns in the select statement that don't have a name. For exampe, do not do:
@@ -309,6 +277,38 @@ json_object(
 ```
 
 Other commands available are ```groupArray``` which is shorthand for ```json_group_array```, and ```array```, which is shorthand for ```json_array```.
+
+## Transactions and concurrency
+
+Transactions involve taking a connection from a pool of connections by calling ```getTransaction```. Once you have finished using the transaction, you should call ```release``` to return the connection to the pool. If there are a large number of simultaneous transactions, the connection pool will be empty and ```getTransaction``` will start to wait until a connection is returned to the pool.
+
+```js
+import { db } from './db.js';
+
+try {
+  const tx = await db.getTransaction();
+  await tx.begin();
+
+  const coachId = await tx.coach.insert({
+    name: 'Eugene Bareman',
+    city: 'Auckland'
+  });
+  const fighterId = await tx.fighter.get({ name: /Israel/ }, 'id');
+  await tx.fighterCoach.insert({
+    fighterId,
+    coachId
+  });
+  
+  await tx.commit();
+}
+catch (e) {
+  console.log(e);
+  await tx.rollback();
+}
+finally {
+  db.release(tx);
+}
+```
 
 ## Running tests
 
