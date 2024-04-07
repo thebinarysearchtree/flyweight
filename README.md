@@ -1,5 +1,5 @@
 # Flyweight
-An ORM for SQLite and NodeJS. Flyweight combines a very simple API for performing basic operations, with the ability to create SQL queries that are parsed by the ORM to determine the types of the result set.
+An ORM for SQLite and NodeJS. Flyweight combines a very simple API for performing basic operations, with the ability to create SQL queries that are parsed by the ORM.
 
 For example, if you create a query in ```./database/sql/users/roles.sql``` that looks like this:
 
@@ -19,7 +19,7 @@ A function ```db.users.roles``` will be available in the API with the correct ty
 
 ![auto-completed code](hero.png)
 
-Tables are created with SQL, not with a custom API.
+Tables are created the same way as they are in SQL. The native types available in strict mode are ```integer```, ```real```, ```text```, ```blob```, and ```any```. In addition to these types, four additional types are included by default: ```boolean```, ```date```, and ```json```. ```boolean``` is a column in which the values are restricted to 1 or 0, ```date``` is a JavaScript ```Date``` stored as an ISO8601 string, and ```json``` is json stored as text. These additional types are automatically parsed by the ORM.
 
 ```sql
 create table events (
@@ -88,9 +88,7 @@ Flyweight supports regular expressions in some of its methods. These regular exp
 const coach = await db.coach.get({ name: /^Eugene.+/ });
 ```
 
-## Creating tables
-
-Tables are created the same way as they are in SQL. The native types available in strict mode are ```integer```, ```real```, ```text```, ```blob```, and ```any```. In addition to these types, four additional types are included by default: ```boolean```, ```date```, and ```json```. ```boolean``` is a column in which the values are restricted to 1 or 0, ```date``` is a JavaScript ```Date``` stored as an ISO8601 string, and ```json``` is json stored as text.
+## Default values
 
 Default values can be set for boolean and date columns using the following syntax:
 
