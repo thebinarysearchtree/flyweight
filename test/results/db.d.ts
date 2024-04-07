@@ -755,7 +755,7 @@ declare const database: Database;
 declare const db: TypedDb;
 declare function makeTypes(): Promise<void>;
 declare function getTables(): Promise<string>;
-declare function createMigration(name: string): Promise<void>;
+declare function createMigration(name: string): Promise<{ sql: string, undo: () => Promise<void>}>;
 declare function runMigration(name: string): Promise<void>;
 declare const sqlPath: string;
 
