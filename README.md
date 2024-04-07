@@ -30,7 +30,7 @@ create table events (
 );
 ```
 
-Flyweight parses your sql statements and tables, and creates an API that is typed with TypeScript. Each table has a singular and plural form. If you want to get one row with the basic API, you can use:
+Each table has a singular and plural form. If you want to get one row with the basic API, you can use:
 
 ```js
 const event = await db.event.get({ id: 100 });
@@ -49,14 +49,6 @@ const id = await db.coach.insert({
   name: 'Eugene Bareman',
   city: 'Auckland'
 });
-```
-
-The basic API does not allow you to perform joins, aggregate functions, or anything else. When you need these features, you simply create a SQL file in a folder with the name of one of the tables. This will then be parsed and typed by Flyweight, and available as part of the API.
-
-For example, if you have a query contained in ```./database/sql/events/getById.sql```, it can be called from the API like this:
-
-```js
-const event = await db.event.getById({ id: 100 });
 ```
 
 ## Shorthand JSON functions
