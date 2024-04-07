@@ -100,7 +100,7 @@ You can update types whenever you change the SQL by either calling ```npm run wa
 
 ## Migrations
 
-Inside the ```database``` folder, there is another folder called ```sql``` which will contain the ```tables.sql``` file. You can add or change tables from here and then run the migration command ```npm run migrate <migration-name>```.
+Tables are defined in ```./database/sql/tables.sql```. You can add or change tables from here and then run the migration command ```npm run migrate <migration-name>```.
 
 If you want to add a new column to a table without needing to drop the table, make sure you put the column at the end of the list of columns.
 
