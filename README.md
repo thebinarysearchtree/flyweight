@@ -1,5 +1,5 @@
 # Flyweight
-An ORM for SQLite and NodeJS. Flyweight combines a very simple API for performing basic operations, with the ability to create SQL queries that are typed and automatically mapped to complex object types.
+An ORM for SQLite and NodeJS. Flyweight combines a very simple API for performing basic operations, with the ability to create SQL queries that are parsed by the ORM to determine the types of the result set.
 
 For example, if you create a query in ```./database/sql/users/roles.sql``` that looks like this:
 
@@ -50,26 +50,6 @@ const id = await db.coach.insert({
   city: 'Auckland'
 });
 ```
-
-## Shorthand JSON functions
-
-```sql
-object(
-    u.id, 
-    u.name, 
-    u.social) as user
-``` 
-
-is just shorthand for 
-
-```sql
-json_object(
-    'id', u.id, 
-    'name', u.name, 
-    'social', u.social) as user
-```
-
-Other commands available are ```groupArray``` which is shorthand for ```json_group_array```, and ```array```, which is shorthand for ```json_array```.
 
 ## Getting started
 
@@ -124,71 +104,7 @@ create table users (
 
 ```current_timestamp``` will not work properly when wanting to set the default date to the current time. This is because ```current_timestamp``` does not include timezone information and therefore when parsing the date string from the database, JavaScript will assume it is in local time when it is in fact in UTC time.
 
-You can use the migration tools mentioned later on to convert the tables into a form that SQLite recognises.
-
-## Creating SQL queries
-
-In the SQL folder you supplied to the ```initialize``` method, you should create folders with the same name as your table names, and then put SQL files in the folders that correspond to the name of the method you want to call to run them. For example, if you wanted a query that was called like this:
-
-```js
-const event = await db.event.getById({ id: 100 });
-```
-
-you would create an ```events``` folder and put a file in it called ```getById.sql```.
-
-When creating SQL queries, make sure you give an alias to any columns in the select statement that don't have a name. For exampe, do not do:
-
-```sql
-select max(startTime) from events;
-```
-
-as there is no name given to ```max(startTime)```.
-
-Parameters in SQL files should use the ```$name``` notation. If you want to include dynamic content, you should use the ```${column}``` format and then pass in a second argument when calling the SQL statement in JavaScript. For example:
-
-```sql
-select * from users where location = $location order by ${column};
-```
-
-```js
-const options = {
-  unsafe: {
-    column: 'lastName'
-  }
-};
-const users = await db.users.from({ location: 'Brisbane' }, options);
-```
-
-This is useful when the query is determined at run-time. You are responsible for making sure the unsafe parameters do not cause any security issues as they are interpolated into the SQL statement rather than passed as parameters.
-
-If the unsafe parameter is ```undefined``` in the options argument, it will be removed from the SQL statement.
-
-Single quotes in strings should be escaped with ```\```. JSON functions are automatically typed and parsed. For example, the following:
-
-```sql
-select id, object(name, startTime) as nest from events;
-```
-
-will have the type:
-
-```ts
-interface EventQuery {
-  id: number;
-  nest: { name: string, startTime: Date }
-}
-```
-
-Nulls are automatically removed from all ```groupArray``` results. When all of the properties of ```object``` are from a left or right join, and there are no matches from that table, instead of returning, for example:
-
-```js
-{ name: null, startTime: null }
-```
-
-the entire object will be null.
-
 ## The API
-
-Flyweight parses all of your SQL files and generates an API using TypeScript. In the "Getting started" section, you export a variable named ```db```. This is the API, and its properties include both the singular and plural form of every table in your database.
 
 Every table has ```get```, ```update```, ```insert```, and ```remove``` methods available to it, along with any of the custom methods that are created when you add a new SQL file to the corresponding table's folder. Views only have the ```get``` method available to them.
 
@@ -286,7 +202,6 @@ const count = await db.fighters.count({ hometown: 'Brisbane, Australia' });
 const exists = await db.fighter.exists({ name: 'Israel Adesanya' });
 ```
 
-
 ### Remove
 
 ```remove``` takes one argument representing the where clause and returns the number of rows affected by the query.
@@ -326,6 +241,76 @@ finally {
   db.release(tx);
 }
 ```
+
+## Creating SQL queries
+
+When creating SQL queries, make sure you give an alias to any columns in the select statement that don't have a name. For exampe, do not do:
+
+```sql
+select max(startTime) from events;
+```
+
+as there is no name given to ```max(startTime)```.
+
+Parameters in SQL files should use the ```$name``` notation. If you want to include dynamic content, you should use the ```${column}``` format and then pass in a second argument when calling the SQL statement in JavaScript. For example:
+
+```sql
+select * from users where location = $location order by ${column};
+```
+
+```js
+const options = {
+  unsafe: {
+    column: 'lastName'
+  }
+};
+const users = await db.users.from({ location: 'Brisbane' }, options);
+```
+
+If the unsafe parameter is ```undefined``` in the options argument, it will be removed from the SQL statement.
+
+Single quotes in strings should be escaped with ```\```. JSON functions are automatically typed and parsed. For example, the following:
+
+```sql
+select id, object(name, startTime) as nest from events;
+```
+
+will have the type:
+
+```ts
+interface EventQuery {
+  id: number;
+  nest: { name: string, startTime: Date }
+}
+```
+
+Nulls are automatically removed from all ```groupArray``` results. When all of the properties of ```object``` are from a left or right join, and there are no matches from that table, instead of returning, for example:
+
+```js
+{ name: null, startTime: null }
+```
+
+the entire object will be null.
+
+## Shorthand JSON functions
+
+```sql
+object(
+    u.id, 
+    u.name, 
+    u.social) as user
+``` 
+
+is just shorthand for 
+
+```sql
+json_object(
+    'id', u.id, 
+    'name', u.name, 
+    'social', u.social) as user
+```
+
+Other commands available are ```groupArray``` which is shorthand for ```json_group_array```, and ```array```, which is shorthand for ```json_array```.
 
 ## Running tests
 
