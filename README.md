@@ -256,7 +256,7 @@ select max(startTime) from events;
 
 as there is no name given to ```max(startTime)```.
 
-Parameters in SQL files should use the ```$name``` notation. If you want to include dynamic content, you should use the ```${column}``` format and then pass in a second argument when calling the SQL statement in JavaScript. For example:
+Parameters in SQL files should use the ```$name``` notation. If you want to include dynamic content that cannot be parameterized, you should use the ```${column}``` format and then pass in a second argument when calling the SQL statement in JavaScript. For example:
 
 ```sql
 select * from users where location = $location order by ${column};
