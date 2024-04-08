@@ -319,6 +319,14 @@ interface WhereCoach {
   profile?: any | Array<any> | RegExp | null;
 }
 
+interface CoachesQueries {
+  from(): Promise<Array<number>>;
+}
+
+interface CoachQueries {
+  from(): Promise<number | undefined>;
+}
+
 interface Fighter {
   id: number;
   name: string;
@@ -722,8 +730,8 @@ interface TypedDb {
   event: SingularQueries<Event, InsertEvent, WhereEvent, number> & EventQueries,
   cards: MultipleQueries<Card, InsertCard, WhereCard>,
   card: SingularQueries<Card, InsertCard, WhereCard, number>,
-  coaches: MultipleQueries<Coach, InsertCoach, WhereCoach>,
-  coach: SingularQueries<Coach, InsertCoach, WhereCoach, number>,
+  coaches: MultipleQueries<Coach, InsertCoach, WhereCoach> & CoachesQueries,
+  coach: SingularQueries<Coach, InsertCoach, WhereCoach, number> & CoachQueries,
   fighters: MultipleQueries<Fighter, InsertFighter, WhereFighter> & FightersQueries,
   fighter: SingularQueries<Fighter, InsertFighter, WhereFighter, number> & FighterQueries,
   otherNames: MultipleQueries<OtherName, InsertOtherName, WhereOtherName>,

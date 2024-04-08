@@ -702,7 +702,7 @@ const parseSelect = (query, tables) => {
   const select = query.substring(start, end);
   const selectColumns = getSelectColumns(select, tables);
   const fromTables = [];
-  const fromPattern = /\sfrom\s+(?<from>(.|\s)+?)((\swhere\s)|(\sgroup\s)|(\swindow\s)|(\sorder\s)|(\slimit\s)|(\s*$))/mid;
+  const fromPattern = /\sfrom\s+(?<from>(.|\s)+?);?((\swhere\s)|(\sgroup\s)|(\swindow\s)|(\sorder\s)|(\slimit\s)|(\s*$))/mid;
   const { processedQuery, tempTables } = getTempTables(query, fromPattern, tables);
   tables = { ...tables, ...tempTables };
   const blanked = blank(processedQuery);

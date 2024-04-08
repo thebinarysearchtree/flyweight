@@ -11,6 +11,7 @@ const run = async () => {
   const winners = await db.locations.winners();
   const orderBy = await db.locations.events();
   const detailedEvents = await db.locations.detailedEvents();
+  await db.coaches.from();
 
   compare(locations, 'locationsByMethod');
   compare(record, 'fightsByFighter');
