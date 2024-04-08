@@ -248,7 +248,7 @@ const changes = await db.fighters.remove({ id: 100 });
 
 ## Creating SQL queries
 
-When creating SQL queries, make sure you give an alias to any columns in the select statement that don't have a name. For exampe, do not do:
+When creating SQL queries, make sure you give an alias to any columns in the select statement that don't have a name. For example, do not do:
 
 ```sql
 select max(startTime) from events;
