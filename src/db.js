@@ -183,26 +183,14 @@ class Database {
     const createMigration = async (name) => {
       const lastTablesPath = join(migrations, 'lastTables.sql');
       const lastViewsPath = join(migrations, 'lastViews.sql');
-      let lastTables;
-      let lastViews;
-      let undo;
+      const lastTables = await readFile(lastTablesPath, 'utf8');
+      const lastViews = await readFile(lastViewsPath, 'utf8');
       const migrationPath = join(migrations, `${name}.sql`);
-      try {
-        lastTables = await readFile(lastTablesPath, 'utf8');
-        lastViews = await readFile(lastViewsPath, 'utf8');
-        undo = async () => {
-          await rm(migrationPath);
-          await writeFile(lastTablesPath, lastTables);
-          await writeFile(lastViewsPath, lastViews);
-        };
-      }
-      catch {
-        undo = async () => {
-          await rm(migrationPath);
-          await rm(lastTablesPath);
-          await rm(lastViewsPath);
-        }
-      }
+      const undo = async () => {
+        await rm(migrationPath);
+        await writeFile(lastTablesPath, lastTables);
+        await writeFile(lastViewsPath, lastViews);
+      };
       const sql = await migrate(this, tables, views, migrations, name);
       return {
         sql: sql.trim(),
