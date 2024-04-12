@@ -3,7 +3,7 @@ import { toValues, readSql } from './utils.js';
 import { parse } from './parsers.js';
 import { mapOne, mapMany } from './map.js';
 import { getTables, getViews, getVirtual } from './parsers/tables.js';
-import { readFile, rm } from 'fs/promises';
+import { readFile, writeFile, rm } from 'fs/promises';
 import { getFragments } from './parsers/tables.js';
 import { blank } from './parsers/utils.js';
 import { makeClient } from './proxy.js';
