@@ -387,11 +387,27 @@ const migrate = async (db, tablesPath, viewsPath, migrationPath, migrationName) 
       tableMigrations.push(`drop table ${table.name};`);
     }
   }
-  const migrations = [...tableMigrations, ...columnMigrations, ...indexMigrations, ...viewMigrations, ...virtualMigrations, ...triggerMigrations];
-  if (migrations.length === 0) {
+  const migrationGroups = [
+    tableMigrations, 
+    columnMigrations, 
+    indexMigrations, 
+    viewMigrations, 
+    virtualMigrations, 
+    triggerMigrations
+  ].filter(m => m.length > 0);
+  if (migrationGroups.length === 0) {
     return '';
   }
-  const sql = migrations.join('\n').trim() + '\n';
+  let sql = '';
+  for (const group of migrationGroups) {
+    for (const migration of group) {
+      sql += migration;
+      sql += '\n';
+    }
+    sql += '\n';
+  }
+  sql = sql.trim();
+  sql += '\n';
   try {
     await readFile(outputPath, 'utf8');
     throw Error(`${outputPath} already exists.`);

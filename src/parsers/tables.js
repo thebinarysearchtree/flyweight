@@ -99,6 +99,13 @@ const getColumn = (sql) => {
   }
 }
 
+const addNewLine = (sql) => {
+  if (sql.startsWith(');')) {
+    return `\n${sql}`;
+  }
+  return sql;
+}
+
 const getFragments = (sql) => {
   const fragments = [];
   let lastEnd = 0;
@@ -112,27 +119,32 @@ const getFragments = (sql) => {
       const start = tableStart + columnStart;
       const end = start + (columnEnd - columnStart);
       if (lastEnd !== start) {
+        const section = sql.substring(lastEnd, start);
+        const adjusted = addNewLine(section);
         fragments.push({
           isColumn: false,
-          sql: sql.substring(lastEnd, start)
+          sql: adjusted
         });
       }
       lastEnd = end;
-      const fragment = sql.substring(start, end).replace(/\n$/, '');
+      const section = sql.substring(start, end).replace(/\n$/, '');
+      const adjusted = addNewLine(section);
       fragments.push({
         columnName: result ? result.name : null,
         type: result ? result.type : null,
         isColumn: result !== undefined,
         start,
         end,
-        sql: fragment,
+        sql: adjusted,
         blanked: columnMatch.groups.column
       });
     }
   }
+  const section = sql.substring(lastEnd);
+  const adjusted = addNewLine(section);
   fragments.push({
     isColumn: false,
-    sql: sql.substring(lastEnd)
+    sql: adjusted
   });
   return fragments;
 }
