@@ -2,8 +2,7 @@ create table users (
     id integer primary key,
     name text not null,
     age integer not null,
-    isActive boolean not null default true,
-    email text
+    isActive boolean not null default true
 );
 
 create index usersIsActiveIndex on users(isActive);

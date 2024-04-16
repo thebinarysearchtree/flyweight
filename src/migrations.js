@@ -3,6 +3,7 @@ import { join } from 'path';
 import { blank } from './parsers/utils.js';
 import { readSql } from './utils.js';
 import { preprocess } from './parsers/preprocessor.js';
+import { getTableNames } from './parsers/queries.js';
 
 const getIndexes = (statements, blanked) => {
   const pattern = /^create\s+(unique\s+)?index\s+(if\s+not\s+exists\s+)?(?<indexName>[a-z0-9_]+)\s+on\s+(?<tableName>[a-z0-9_]+)\([^;]+;/gmid;
@@ -140,6 +141,46 @@ const getVirtualMigrations = (currentTables, lastTables) => {
   return migrations;
 }
 
+const getViewMigrations = async (tables, currentViewsText, lastViewsPath, changedTables) => {
+  const drop = [];
+  const create = [];
+  currentViewsText = currentViewsText.split(';').map(s => preprocess(s.trim(), tables, true)).join(';\n\n').slice(0, -1);
+  let lastViewsText;
+  try {
+    lastViewsText = await readSql(lastViewsPath);
+    lastViewsText = lastViewsText.split(';').map(s => preprocess(s.trim(), tables, true)).join(';\n\n').slice(0, -1);
+    const currentViews = getViews(currentViewsText);
+    const lastViews = getViews(lastViewsText);
+    const currentViewNames = new Set(currentViews.map(v => v.name));
+    for (const view of currentViews) {
+      const lastView = lastViews.find(v => v.name === view.name);
+      if (!lastView) {
+        create.push(view.sql);
+        continue;
+      }
+      const tables = getTableNames(view.statement);
+      const recreate = tables.some(t => changedTables.has(t));
+      if (recreate || (lastView && lastView.sql !== view.sql)) {
+        drop.push(`drop view ${view.name};`);
+        create.push(view.sql);
+      }
+    }
+    for (const view of lastViews) {
+      if (!currentViewNames.has(view.name)) {
+        drop.push(`drop view ${view.name};`);
+      }
+    }
+  }
+  catch {
+    create.push(currentViewsText);
+    await writeFile(lastViewsPath, currentViewsText, 'utf8');
+  }
+  return {
+    drop,
+    create
+  }
+}
+
 const getTables = (sql) => {
   const tables = [];
   const tableMatches = blank(sql, { stringsOnly: true }).matchAll(/^\s*create table (?<tableName>[^\s]+)\s+\((?<columns>[^;]+)\)(?<without>\s+without rowid,)?\s+strict;/gmid);
@@ -185,11 +226,12 @@ const getTables = (sql) => {
 }
 
 const getViews = (sql) => {
-  const matches = blank(sql, { stringsOnly: true }).matchAll(/^\s*create\s+view\s+(?<viewName>[a-z0-9_]+)\s+([^;]+);/gmi);
+  const matches = blank(sql, { stringsOnly: true }).matchAll(/^\s*create\s+view\s+(?<viewName>[a-z0-9_]+)\s+as\s+(?<statement>[^;]+);/gmi);
   return Array.from(matches).map(m => {
     return {
       name: m.groups.viewName,
-      sql: m[0]
+      sql: m[0],
+      statement: m.groups.statement
     }
   });
 }
@@ -201,41 +243,10 @@ const migrate = async (db, tablesPath, viewsPath, migrationPath, migrationName) 
   const currentSql = await readSql(tablesPath);
   const current = db.convertTables(currentSql);
   const blankedCurrent = blank(current);
+  const changedTables = new Set();
   let last;
   let blankedLast;
-  let currentViewsText = '';
-  const viewMigrations = [];
-  if (viewsPath) {
-    currentViewsText = await readSql(viewsPath);
-    currentViewsText = currentViewsText.split(';').map(s => preprocess(s.trim(), db.tables, true)).join(';\n\n').slice(0, -1);
-    let lastViewsText;
-    try {
-      lastViewsText = await readSql(lastViewsPath);
-      lastViewsText = lastViewsText.split(';').map(s => preprocess(s.trim(), db.tables, true)).join(';\n\n').slice(0, -1);
-      const currentViews = getViews(currentViewsText);
-      const lastViews = getViews(lastViewsText);
-      const currentViewNames = new Set(currentViews.map(v => v.name));
-      for (const view of currentViews) {
-        const lastView = lastViews.find(v => v.name === view.name);
-        if (!lastView) {
-          viewMigrations.push(view.sql);
-        }
-        if (lastView && lastView.sql !== view.sql) {
-          viewMigrations.push(`drop view ${view.name};`);
-          viewMigrations.push(view.sql);
-        }
-      }
-      for (const view of lastViews) {
-        if (!currentViewNames.has(view.name)) {
-          viewMigrations.push(`drop view ${view.name};`);
-        }
-      }
-    }
-    catch {
-      viewMigrations.push(currentViewsText);
-      await writeFile(lastViewsPath, currentViewsText, 'utf8');
-    }
-  }
+  const currentViewsText = await readSql(viewsPath);
   try {
     const lastSql = await readSql(lastTablesPath);
     last = db.convertTables(lastSql);
@@ -243,9 +254,10 @@ const migrate = async (db, tablesPath, viewsPath, migrationPath, migrationName) 
   }
   catch {
     let sql = current;
-    if (viewMigrations.length > 0) {
+    const viewMigrations = await getViewMigrations(db.tables, currentViewsText, lastViewsPath, changedTables);
+    if (viewMigrations.create.length > 0) {
       sql += '\n';
-      sql += viewMigrations.join('\n');
+      sql += viewMigrations.create.join('\n');
       sql += '\n';
     }
     await writeFile(outputPath, sql, 'utf8');
@@ -316,6 +328,7 @@ const migrate = async (db, tablesPath, viewsPath, migrationPath, migrationName) 
         actionedLastColumns.push(sameSql.name);
         continue;
       }
+      changedTables.add(table.name);
       const sameName = table.columns.find(c => c.name === column.name);
       const sameRest = table.columns.filter(c => c.rest === column.rest);
       if (!sameName && sameRest.length > 0) {
@@ -343,6 +356,7 @@ const migrate = async (db, tablesPath, viewsPath, migrationPath, migrationName) 
       break;
     }
     if (actionedCurrentColumns.length !== currentColumns.length) {
+      changedTables.add(table.name);
       const columns = table.columns
         .map((c, i) => ({ 
           index: i, 
@@ -387,11 +401,13 @@ const migrate = async (db, tablesPath, viewsPath, migrationPath, migrationName) 
       tableMigrations.push(`drop table ${table.name};`);
     }
   }
+  const viewMigrations = await getViewMigrations(db.tables, currentViewsText, lastViewsPath, changedTables);
   const migrationGroups = [
+    viewMigrations.drop,
     tableMigrations, 
     columnMigrations, 
     indexMigrations, 
-    viewMigrations, 
+    viewMigrations.create, 
     virtualMigrations, 
     triggerMigrations
   ].filter(m => m.length > 0);

@@ -328,6 +328,24 @@ finally {
 }
 ```
 
+## Views
+
+Views are treated like read-only tables. They have a ```get``` method available to them that works the same as with tables. If you want to create a view called ```activeUsers``` you can add a file in the ```views``` folder called ``````./database/views/activeUsers.sql``` that might have SQL like this:
+
+```sql
+create view activeUsers as
+select * from users where isActive = true;
+```
+
+You can now use it in the API like this:
+
+```js
+import { db } from './database/db.js';
+
+const user = await db.activeUser.get({ id: 100 }, ['name', 'email']);
+console.log(user.email);
+```
+
 ## Running tests
 
 To run the tests, first go into the ```test``` folder and run ```node setup.js``` to move the test database to the right location. You can then run the tests with ```node test.js``` or ```npm test```.

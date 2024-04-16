@@ -2,8 +2,36 @@ import { blank } from './utils.js';
 import { returnTypes, notNullFunctions } from './returnTypes.js';
 
 const isNumber = (s) => /^((-|\+)?(0x)?\d+)(\.\d+)?(e\d)?$/.test(s);
+const fromPattern = /\sfrom\s+(?<from>(.|\s)+?);?((\swhere\s)|(\sgroup\s)|(\swindow\s)|(\sorder\s)|(\slimit\s)|(\s*$))/mid;
 
-const getTempTables = (query, fromPattern, tables) => {
+const getTableNames = (sql) => {
+  sql = sql.toLowerCase().replaceAll(/\s+/gm, ' ');
+  const blanked = blank(sql);
+  const match = fromPattern.exec(blanked);
+  if (!match) {
+    return [];
+  }
+  const [start, end] = match.indices.groups.from;
+  const tables = blanked.substring(start, end)
+    .replaceAll(/(\sleft\s)|(\sright\s)|(\snatural\s)|(\sfull\s)|(\sinner\s)|(\scross\s)|(\souter\s)/gm, ' ')
+    .replaceAll(',', ' join ')
+    .replaceAll(/\s+/gm, ' ')
+    .split(' join ')
+    .filter(s => !s.includes('('))
+    .map(s => s.trim().split(' ').at(0));
+  const tableNames = [...tables];
+  const matches = blanked.matchAll(/\((?<content>[^)]+)\)/gmd);
+  for (const match of matches) {
+    const [start, end] = match.indices.groups.content;
+    const section = sql.substring(start, end);
+    const tables = getTableNames(section);
+    tableNames.push(...tables);
+  }
+  const unique = new Set(tableNames);
+  return Array.from(unique.values());
+}
+
+const getTempTables = (query, tables) => {
   const blanked = blank(query);
   const [start, end] = fromPattern.exec(blanked).indices.groups.from;
   const from = query.substring(start, end);
@@ -702,8 +730,7 @@ const parseSelect = (query, tables) => {
   const select = query.substring(start, end);
   const selectColumns = getSelectColumns(select, tables);
   const fromTables = [];
-  const fromPattern = /\sfrom\s+(?<from>(.|\s)+?);?((\swhere\s)|(\sgroup\s)|(\swindow\s)|(\sorder\s)|(\slimit\s)|(\s*$))/mid;
-  const { processedQuery, tempTables } = getTempTables(query, fromPattern, tables);
+  const { processedQuery, tempTables } = getTempTables(query, tables);
   tables = { ...tables, ...tempTables };
   const blanked = blank(processedQuery);
   const [fromStart, fromEnd] = fromPattern.exec(blanked).indices.groups.from;
@@ -767,5 +794,6 @@ const parseSelect = (query, tables) => {
 export {
   parseQuery,
   getQueryType,
-  isWrite
+  isWrite,
+  getTableNames
 }
