@@ -7,19 +7,7 @@ const fromPattern = /\sfrom\s+(?<from>(.|\s)+?);?((\swhere\s)|(\sgroup\s)|(\swin
 const getTableNames = (sql) => {
   sql = sql.toLowerCase().replaceAll(/\s+/gm, ' ');
   const blanked = blank(sql);
-  const match = fromPattern.exec(blanked);
-  if (!match) {
-    return [];
-  }
-  const [start, end] = match.indices.groups.from;
-  const tables = blanked.substring(start, end)
-    .replaceAll(/(\sleft\s)|(\sright\s)|(\snatural\s)|(\sfull\s)|(\sinner\s)|(\scross\s)|(\souter\s)/gm, ' ')
-    .replaceAll(',', ' join ')
-    .replaceAll(/\s+/gm, ' ')
-    .split(' join ')
-    .filter(s => !s.includes('('))
-    .map(s => s.trim().split(' ').at(0));
-  const tableNames = [...tables];
+  const tableNames = [];
   const matches = blanked.matchAll(/\((?<content>[^)]+)\)/gmd);
   for (const match of matches) {
     const [start, end] = match.indices.groups.content;
@@ -27,6 +15,20 @@ const getTableNames = (sql) => {
     const tables = getTableNames(section);
     tableNames.push(...tables);
   }
+  const match = fromPattern.exec(blanked);
+  if (!match) {
+    const unique = new Set(tableNames);
+    return Array.from(unique.values());
+  }
+  const [start, end] = match.indices.groups.from;
+  const tables = blanked.substring(start, end)
+    .replaceAll(/(\sleft\s)|(\sright\s)|(\snatural\s)|(\sfull\s)|(\sinner\s)|(\scross\s)|(\souter\s)/gm, ' ')
+    .replaceAll(',', ' join ')
+    .replaceAll(/\s+/gm, ' ')
+    .split(' join ')
+    .map(s => s.trim().split(' ').at(0))
+    .filter(s => !s.includes('('));
+  tableNames.push(...tables);
   const unique = new Set(tableNames);
   return Array.from(unique.values());
 }
