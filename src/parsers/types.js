@@ -311,14 +311,14 @@ const getQueries = async (db, sqlDir, tableName, typeSet, i) => {
       if (e.debug) {
         throw e;
       }
-      let message = `Could not parse ${fileName} in "${tableName}" folder.`;
-      message += `\n${sql}\n`;
+      let message = `Could not parse ${fileName} in "${tableName}" folder.\n`;
       try {
         const statement = await db.prepare(sql, db.read);
         await db.finalize(statement);
       }
       catch (e) {
         message += e.message;
+        message += `\n${sql}`;
       }
       throw Error(message);
     }
