@@ -4,6 +4,7 @@ import sql from './sql.js';
 import types from './types.js';
 import transactions from './transactions.js';
 import close from './close.js';
+import { database } from './db.js';
 
 let tests = [json, queries, sql, types, transactions, close];
 
@@ -21,10 +22,10 @@ for (const test of tests) {
     if (test.cleanUp) {
       await test.cleanUp();
     }
+    await database.close();
     throw e;
   }
 }
-
+await database.close();
 console.log('All tests passed');
-
 process.exit();

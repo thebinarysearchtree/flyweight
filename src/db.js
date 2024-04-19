@@ -122,6 +122,7 @@ class Database {
     this.prepared = [];
     this.debug = props ? props.debug : false;
     this.queryVariations = new Map();
+    this.closed = false;
     this.registerTypes([
       {
         name: 'boolean',
@@ -549,9 +550,6 @@ class Database {
 
   async run(props) {
     let { query, params, options, tx, adjusted } = props;
-    if (this.debug) {
-      console.log(query);
-    }
     if (params === null) {
       params = undefined;
     }
@@ -589,9 +587,6 @@ class Database {
 
   async all(props) {
     let { query, params, options, tx, write, adjusted } = props;
-    if (this.debug) {
-      console.log(query);
-    }
     if (params === null) {
       params = undefined;
     }
@@ -650,6 +645,9 @@ class Database {
   }
 
   async close() {
+    if (this.closed) {
+      return;
+    }
     const makePromise = (db) => {
       return new Promise((resolve, reject) => {
         db.close(function (err) {
@@ -666,6 +664,7 @@ class Database {
     await Promise.all(finalizePromises);
     const promises = this.databases.map(db => makePromise(db));
     await Promise.all(promises);
+    this.closed = true;
   }
 }
 

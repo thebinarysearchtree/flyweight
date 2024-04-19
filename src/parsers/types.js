@@ -237,89 +237,91 @@ const getQueries = async (db, sqlDir, tableName, typeSet, i) => {
     const queryName = fileName.substring(0, fileName.length - 4);
     const queryPath = join(path, fileName);
     let sql = await readFile(queryPath, 'utf8');
-    sql = preprocess(sql, db.tables);
-    const params = parseParams(sql);
-    const unsafe = parseUnsafe(sql);
-    let columns;
     try {
-      columns = parseQuery(sql, db.tables);
-      if (!columns) {
-        throw Error('Error parsing query.');
+      sql = preprocess(sql, db.tables);
+      const params = parseParams(sql);
+      const unsafe = parseUnsafe(sql);
+      const columns = parseQuery(sql, db.tables);
+      if (columns.length === 0) {
+        parsedQueries.push({
+          queryName,
+          params,
+          unsafe
+        });
+        continue;
       }
-    }
-    catch {
-      parsedQueries.push({
-        queryName,
-        interfaceName: 'any',
-        params,
-        unsafe
-      });
-      continue;
-    }
-    if (columns.length === 0) {
-      parsedQueries.push({
-        queryName,
-        params,
-        unsafe
-      });
-      continue;
-    }
-    if (columns.length === 1) {
-      const tsType = getTsType(columns[0], db.customTypes);
-      parsedQueries.push({
-        queryName,
-        interfaceName: convertOptional(tsType),
-        params,
-        unsafe
-      });
-      continue;
-    }
-    const interfaceName = makeUnique(capitalize(tableName) + capitalize(queryName), typeSet, i);
-    let interfaceString = `export interface ${interfaceName} {\n`;
-    const sample = {};
-    for (const column of columns) {
-      const tsType = getTsType(column, db.customTypes);
-      sample[column.name] = tsType;
-    }
-    const options = makeOptions(columns, db);
-    const makeProperties = (sample) => {
-      sample = renameColumns(sample, options.columns);
-      let interfaceString = '';
-      for (const [key, type] of Object.entries(sample)) {
-        if (typeof type === 'string') {
-          interfaceString += `  ${key}: ${convertOptional(type)};\n`;
-        }
-        else {
-          const types = [];
-          const foreignKeyName = Object.keys(type)[0];
-          const foreignKeyType = type[foreignKeyName];
-          const optional = hasNull(foreignKeyType);
-          for (const [k, t] of Object.entries(type)) {
-            let type;
-            if (k === foreignKeyName && optional) {
-              type = t.split(' | ').filter(t => t !== 'null').join(' | ');
-            }
-            else {
-              type = t;
-            }
-            types.push(`${k}: ${removeOptional(type)}`);
+      if (columns.length === 1) {
+        const tsType = getTsType(columns[0], db.customTypes);
+        parsedQueries.push({
+          queryName,
+          interfaceName: convertOptional(tsType),
+          params,
+          unsafe
+        });
+        continue;
+      }
+      const interfaceName = makeUnique(capitalize(tableName) + capitalize(queryName), typeSet, i);
+      let interfaceString = `export interface ${interfaceName} {\n`;
+      const sample = {};
+      for (const column of columns) {
+        const tsType = getTsType(column, db.customTypes);
+        sample[column.name] = tsType;
+      }
+      const options = makeOptions(columns, db);
+      const makeProperties = (sample) => {
+        sample = renameColumns(sample, options.columns);
+        let interfaceString = '';
+        for (const [key, type] of Object.entries(sample)) {
+          if (typeof type === 'string') {
+            interfaceString += `  ${key}: ${convertOptional(type)};\n`;
           }
-          const colon = optional ? '?:' : ':';
-          const properties = types.join('; ');
-          interfaceString += `  ${key}${colon} { ${properties} };\n`;
+          else {
+            const types = [];
+            const foreignKeyName = Object.keys(type)[0];
+            const foreignKeyType = type[foreignKeyName];
+            const optional = hasNull(foreignKeyType);
+            for (const [k, t] of Object.entries(type)) {
+              let type;
+              if (k === foreignKeyName && optional) {
+                type = t.split(' | ').filter(t => t !== 'null').join(' | ');
+              }
+              else {
+                type = t;
+              }
+              types.push(`${k}: ${removeOptional(type)}`);
+            }
+            const colon = optional ? '?:' : ':';
+            const properties = types.join('; ');
+            interfaceString += `  ${key}${colon} { ${properties} };\n`;
+          }
         }
+        return interfaceString;
       }
-      return interfaceString;
+      interfaceString += makeProperties(sample);
+      interfaceString += `}\n`;
+      parsedQueries.push({
+        queryName,
+        interfaceName,
+        interfaceString,
+        params,
+        unsafe
+      });
     }
-    interfaceString += makeProperties(sample);
-    interfaceString += `}\n`;
-    parsedQueries.push({
-      queryName,
-      interfaceName,
-      interfaceString,
-      params,
-      unsafe
-    });
+    catch (e) {
+      if (e.debug) {
+        throw e;
+      }
+      let message = `Could not parse ${fileName} in "${tableName}" folder.`;
+      message += `\n${sql}\n`;
+      try {
+        const statement = await db.prepare(sql, db.read);
+        await db.finalize(statement);
+      }
+      catch (e) {
+        message += e.message;
+      }
+      throw Error(message);
+    }
   }
   const multipleInterfaceName = makeUnique(capitalize(tableName) + 'Queries', typeSet, i);
   const singularInterfaceName = makeUnique(capitalize(pluralize.singular(tableName)) + 'Queries', typeSet, i);
