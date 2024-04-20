@@ -259,6 +259,12 @@ interface WhereEvent {
   locationId?: number | Array<number> | null;
 }
 
+interface EventsSpaces {
+  id: number;
+  name: string;
+  test: Array<{ id: number, name: string }>;
+}
+
 interface EventsTest {
   id: number;
   nest: { name: string, startTime: Date };
@@ -266,11 +272,13 @@ interface EventsTest {
 
 interface EventsQueries {
   from(): Promise<Array<number | null>>;
+  spaces(): Promise<Array<EventsSpaces>>;
   test(): Promise<Array<EventsTest>>;
 }
 
 interface EventQueries {
   from(): Promise<number | null | undefined>;
+  spaces(): Promise<EventsSpaces | undefined>;
   test(): Promise<EventsTest | undefined>;
 }
 
@@ -363,6 +371,12 @@ interface WhereFighter {
   isActive?: boolean | Array<boolean>;
 }
 
+interface FightersByHeight {
+  name: string;
+  heightCm: number | null;
+  heightRank: number | null;
+}
+
 interface FightersCommon {
   red: { id: number, name: string };
   blue: { id: number, name: string };
@@ -409,7 +423,15 @@ interface FightersWeightClasses {
   weightClasses: Array<{ id: number, name: string, test: boolean, nest: { id: number, age: boolean } }>;
 }
 
+interface FightersWithReach {
+  name: string;
+  heightCm: number | null;
+  reachCm: number | null;
+  reaches: Array<number>;
+}
+
 interface FightersQueries {
+  byHeight(): Promise<Array<FightersByHeight>>;
   common(params: { fighter1: any; fighter2: any; }): Promise<Array<FightersCommon>>;
   instagram(): Promise<Array<number | string | Buffer>>;
   lastFights(params: { id: any; }): Promise<Array<FightersLastFights>>;
@@ -419,9 +441,11 @@ interface FightersQueries {
   otherNames(): Promise<Array<FightersOtherNames>>;
   right(): Promise<Array<FightersRight>>;
   weightClasses(params: { fighterId: any; }): Promise<Array<FightersWeightClasses>>;
+  withReach(): Promise<Array<FightersWithReach>>;
 }
 
 interface FighterQueries {
+  byHeight(): Promise<FightersByHeight | undefined>;
   common(params: { fighter1: any; fighter2: any; }): Promise<FightersCommon | undefined>;
   instagram(): Promise<number | string | Buffer | undefined>;
   lastFights(params: { id: any; }): Promise<FightersLastFights | undefined>;
@@ -431,6 +455,7 @@ interface FighterQueries {
   otherNames(): Promise<FightersOtherNames | undefined>;
   right(): Promise<FightersRight | undefined>;
   weightClasses(params: { fighterId: any; }): Promise<FightersWeightClasses | undefined>;
+  withReach(): Promise<FightersWithReach | undefined>;
 }
 
 interface OtherName {

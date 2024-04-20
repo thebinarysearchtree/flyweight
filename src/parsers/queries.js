@@ -180,7 +180,7 @@ const parsers = [
   },
   {
     name: 'Function pattern',
-    pattern: /^(?<functionName>[a-z0-9_]+)\((?<functionContent>((?<tableAlias>[a-z0-9_]+)\.)?(?<columnName>([a-z0-9_]+)|\*)|(.+?))?(\s+order\s+by\s+.+)?\)( as (?<columnAlias>[a-z0-9_]+))?$/mid,
+    pattern: /^(?<functionName>[a-z0-9_]+)\s*\(\s*(?<functionContent>((?<tableAlias>[a-z0-9_]+)\.)?(?<columnName>([a-z0-9_]+)|\*)|(.+?))?(\s*\)\s+over\s+.+)?(\s+order\s+by\s+.+)?\s*\)(\s+as\s+(?<columnAlias>[a-z0-9_]+))?$/mid,
     pre: (statement) => blank(statement, { stringsOnly: true }),
     extractor: (groups, tables, indices, statement) => {
       const { functionName, tableAlias, columnName, columnAlias } = groups;
@@ -571,7 +571,7 @@ const processColumn = (column, tables, fromTables, whereColumns, joinColumns) =>
           };
         }
         else {
-          const objectMatch = /^\s*json_object\((?<functionContent>[^)]+)\)\s*(order\s+by\s+.+)?$/gmid.exec(blank(column.functionContent));
+          const objectMatch = /^\s*json_object\s*\((?<functionContent>[^)]+)\s*\)\s*(order\s+by\s+.+)?$/gmid.exec(blank(column.functionContent));
           if (objectMatch) {
             const [start, end] = objectMatch.indices.groups.functionContent;
             const content = column.functionContent.substring(start, end);
@@ -585,7 +585,7 @@ const processColumn = (column, tables, fromTables, whereColumns, joinColumns) =>
               starColumns = columns.map(c => tableAlias ? `${tableAlias}.${c.name}` : c.name);
             }
           }
-          const arrayMatch = /^\s*json_array\((?<functionContent>[^)]+)\)\s*(order\s+by\s+.+)?$/gmid.exec(blank(column.functionContent));
+          const arrayMatch = /^\s*json_array\s*\((?<functionContent>[^)]+)\s*\)\s*(order\s+by\s+.+)?$/gmid.exec(blank(column.functionContent));
           if (arrayMatch) {
             const [start, end] = arrayMatch.indices.groups.functionContent;
             const content = column.functionContent.substring(start, end);

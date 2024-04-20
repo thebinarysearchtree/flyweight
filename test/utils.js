@@ -25,6 +25,7 @@ const compare = (actual, result) => {
       writeFileSync(url, actualString, 'utf8');
     }
     else {
+      throw Error('Results do not match');
       throw e;
     }
   }
@@ -43,7 +44,7 @@ const compareTypes = () => {
       writeFileSync(new URL(path, import.meta.url), actual, 'utf8');
     }
     else {
-      throw e;
+      throw Error('Type definitions do not match');
     }
   }
 }

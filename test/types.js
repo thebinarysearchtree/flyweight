@@ -4,6 +4,8 @@ import { writeFile, rm } from 'fs/promises';
 import { join } from 'path';
 
 const run = async () => {
+  await makeTypes();
+  compareTypes();
   const path = join(sqlPath, 'fights', 'error.sql');
   await writeFile(path, 'select id rom something');
   let error = false;
@@ -19,8 +21,6 @@ const run = async () => {
   if (!error) {
     throw Error('No error message');
   }
-  await makeTypes();
-  compareTypes();
 }
 
 export default {

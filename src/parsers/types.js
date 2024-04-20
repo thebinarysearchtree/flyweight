@@ -308,7 +308,7 @@ const getQueries = async (db, sqlDir, tableName, typeSet, i) => {
       });
     }
     catch (e) {
-      if (e.debug) {
+      if (db.debug) {
         throw e;
       }
       let message = `Could not parse ${fileName} in "${tableName}" folder.\n`;
