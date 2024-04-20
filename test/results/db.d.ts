@@ -272,12 +272,14 @@ interface EventsTest {
 
 interface EventsQueries {
   from(): Promise<Array<number | null>>;
+  operator(): Promise<Array<number>>;
   spaces(): Promise<Array<EventsSpaces>>;
   test(): Promise<Array<EventsTest>>;
 }
 
 interface EventQueries {
   from(): Promise<number | null | undefined>;
+  operator(): Promise<number | undefined>;
   spaces(): Promise<EventsSpaces | undefined>;
   test(): Promise<EventsTest | undefined>;
 }
@@ -374,7 +376,7 @@ interface WhereFighter {
 interface FightersByHeight {
   name: string;
   heightCm: number | null;
-  heightRank: number | null;
+  heightRank: number;
 }
 
 interface FightersCommon {
@@ -384,6 +386,11 @@ interface FightersCommon {
   method: string;
   description: string | null;
   event: { id: number, name: string, date: Date };
+}
+
+interface FightersFilter {
+  name: string;
+  reaches: string | null;
 }
 
 interface FightersLastFights {
@@ -433,6 +440,7 @@ interface FightersWithReach {
 interface FightersQueries {
   byHeight(): Promise<Array<FightersByHeight>>;
   common(params: { fighter1: any; fighter2: any; }): Promise<Array<FightersCommon>>;
+  filter(): Promise<Array<FightersFilter>>;
   instagram(): Promise<Array<number | string | Buffer>>;
   lastFights(params: { id: any; }): Promise<Array<FightersLastFights>>;
   left(): Promise<Array<FightersLeft>>;
@@ -447,6 +455,7 @@ interface FightersQueries {
 interface FighterQueries {
   byHeight(): Promise<FightersByHeight | undefined>;
   common(params: { fighter1: any; fighter2: any; }): Promise<FightersCommon | undefined>;
+  filter(): Promise<FightersFilter | undefined>;
   instagram(): Promise<number | string | Buffer | undefined>;
   lastFights(params: { id: any; }): Promise<FightersLastFights | undefined>;
   left(): Promise<FightersLeft | undefined>;

@@ -135,7 +135,13 @@ const notNullFunctions = new Set([
   'jsonb_group_array',
   'jsonb_group_object',
   'highlight',
-  'snippet'
+  'snippet',
+  'row_number',
+  'rank',
+  'dense_rank',
+  'percent_rank',
+  'cume_dist',
+  'ntile'
 ]);
 
 export {

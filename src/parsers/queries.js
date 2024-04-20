@@ -180,7 +180,7 @@ const parsers = [
   },
   {
     name: 'Function pattern',
-    pattern: /^(?<functionName>[a-z0-9_]+)\s*\(\s*(?<functionContent>((?<tableAlias>[a-z0-9_]+)\.)?(?<columnName>([a-z0-9_]+)|\*)|(.+?))?(\s*\)\s+over\s+.+)?(\s+order\s+by\s+.+)?\s*\)(\s+as\s+(?<columnAlias>[a-z0-9_]+))?$/mid,
+    pattern: /^(?<functionName>[a-z0-9_]+)\s*\(\s*(?<functionContent>((?<tableAlias>[a-z0-9_]+)\.)?(?<columnName>([a-z0-9_]+)|\*)|(.+?))?(\s*\)(\s+filter\s+.+)?\s+over\s+.+)?(\s+order\s+by\s+.+)?\s*\)(\s+as\s+(?<columnAlias>[a-z0-9_]+))?$/mid,
     pre: (statement) => blank(statement, { stringsOnly: true }),
     extractor: (groups, tables, indices, statement) => {
       const { functionName, tableAlias, columnName, columnAlias } = groups;
