@@ -144,7 +144,10 @@ const notNullFunctions = new Set([
   'ntile'
 ]);
 
+const expressionFunctions = new Set(['lag', 'lead', 'first_value', 'last_value', 'nth_value']);
+
 export {
   returnTypes,
-  notNullFunctions
+  notNullFunctions,
+  expressionFunctions
 }

@@ -259,6 +259,12 @@ interface WhereEvent {
   locationId?: number | Array<number> | null;
 }
 
+interface EventsLag {
+  test1: number | null;
+  test2: number | null;
+  test3: number | null;
+}
+
 interface EventsSpaces {
   id: number;
   name: string;
@@ -272,6 +278,7 @@ interface EventsTest {
 
 interface EventsQueries {
   from(): Promise<Array<number | null>>;
+  lag(): Promise<Array<EventsLag>>;
   operator(): Promise<Array<number>>;
   spaces(): Promise<Array<EventsSpaces>>;
   test(): Promise<Array<EventsTest>>;
@@ -279,6 +286,7 @@ interface EventsQueries {
 
 interface EventQueries {
   from(): Promise<number | null | undefined>;
+  lag(): Promise<EventsLag | undefined>;
   operator(): Promise<number | undefined>;
   spaces(): Promise<EventsSpaces | undefined>;
   test(): Promise<EventsTest | undefined>;

@@ -1,5 +1,5 @@
 import { blank } from './utils.js';
-import { returnTypes, notNullFunctions } from './returnTypes.js';
+import { returnTypes, notNullFunctions, expressionFunctions } from './returnTypes.js';
 
 const isNumber = (s) => /^((-|\+)?(0x)?\d+)(\.\d+)?(e\d)?$/.test(s);
 const fromPattern = /\sfrom\s+(?<from>(.|\s)+?);?((\swhere\s)|(\sgroup\s)|(\swindow\s)|(\sorder\s)|(\slimit\s)|(\s*$))/mid;
@@ -180,11 +180,26 @@ const parsers = [
   },
   {
     name: 'Function pattern',
-    pattern: /^(?<functionName>[a-z0-9_]+)\s*\(\s*(?<functionContent>((?<tableAlias>[a-z0-9_]+)\.)?(?<columnName>([a-z0-9_]+)|\*)|(.+?))?(\s*\)(\s+filter\s+.+)?\s+over\s+.+)?(\s+order\s+by\s+.+)?\s*\)(\s+as\s+(?<columnAlias>[a-z0-9_]+))?$/mid,
-    pre: (statement) => blank(statement, { stringsOnly: true }),
+    pattern: /^(?<functionName>[a-z0-9_]+)\s*\((?<functionContent>\s*)\).*?(\s+as\s+(?<columnAlias>[a-z0-9_]+))?$/mid,
+    pre: (statement) => blank(statement),
     extractor: (groups, tables, indices, statement) => {
-      const { functionName, tableAlias, columnName, columnAlias } = groups;
-      const type = returnTypes[functionName] || null;
+      let tableAlias;
+      let columnName;
+      const { functionName, columnAlias } = groups;
+      const [start, end] = indices.groups.functionContent;
+      let content = statement.substring(start, end).trim();
+      const blanked = blank(content, { stringsOnly: true });
+      const extraMatch = blanked.match(/(?<extra>\s+((over)|(filter)|(order))\s+.+$)/mid);
+      if (extraMatch) {
+        const [start] = extraMatch.indices.groups.extra;
+        content = content.substring(0, start);
+      }
+      const match = content.match(/^((?<tableAlias>[a-z0-9_]+)\.)?(?<columnName>[a-z0-9_]+)$/mid);
+      if (match) {
+        tableAlias = match.groups.tableAlias;
+        columnName = match.groups.columnName;
+      }
+      let type = returnTypes[functionName] || null;
       if (columnName !== undefined && isNumber(columnName)) {
         return {
           tableAlias,
@@ -192,13 +207,15 @@ const parsers = [
           functionName
         }
       }
-      let functionContent;
-      if (indices.groups.functionContent) {
-        const [start, end] = indices.groups.functionContent;
-        functionContent = statement.substring(start, end);
-      }
-      else {
-        functionContent = '';
+      let notNull;
+      if (expressionFunctions.has(functionName)) {
+        const blanked = blank(content).split(',').at(0);
+        const expression = content.substring(0, blanked.length);
+        const parsed = parseColumn(`${expression} as ${columnAlias}`, tables);
+        type = parsed.type;
+        if (['lag', 'lead', 'nth_value'].includes(functionName)) {
+          notNull = false;
+        }
       }
       return {
         tableAlias,
@@ -206,7 +223,8 @@ const parsers = [
         columnAlias,
         type,
         functionName,
-        functionContent
+        functionContent: content,
+        notNull
       };
     }
   },

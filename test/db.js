@@ -5,7 +5,7 @@ const path = (subPath) => {
   return url.pathname;
 }
 
-const database = new Database();
+const database = new Database({ debug: true });
 
 const sqlPath = path('sql');
 
