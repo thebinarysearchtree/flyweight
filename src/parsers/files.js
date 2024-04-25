@@ -40,6 +40,9 @@ declare class Database {
   run(args: { query: any, params?: any }): Promise<number>;
   all<T>(args: { query: any, params?: any, options?: QueryOptions }): Promise<Array<T>>;
   exec(query: string): Promise<void>;
+}
+
+declare class SQLiteDatabase extends Database {
   close(): Promise<void>;
 }
 
@@ -58,6 +61,7 @@ declare function lte(value: any): Modifier | undefined;
 
 export {
   Database,
+  SQLiteDatabase,
   not,
   gt,
   gte,

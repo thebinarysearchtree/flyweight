@@ -1,5 +1,4 @@
-import { readFile, writeFile } from 'fs/promises';
-import { join } from 'path';
+import { readFile, writeFile, join } from './files.js';
 import { blank } from './parsers/utils.js';
 import { readSql } from './utils.js';
 import { preprocess } from './parsers/preprocessor.js';

@@ -1,6 +1,5 @@
-import { readFile, writeFile, readdir } from 'fs/promises';
+import { readFile, writeFile, readdir, join } from '../files.js';
 import pluralize from 'pluralize';
-import { join } from 'path';
 import { parseQuery } from './queries.js';
 import { renameColumns } from '../map.js';
 import { makeOptions } from '../proxy.js';
@@ -533,5 +532,6 @@ const createTypes = async (options) => {
 }
 
 export {
-  createTypes
+  createTypes,
+  parseParams
 }

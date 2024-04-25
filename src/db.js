@@ -1,61 +1,14 @@
-import sqlite3 from 'sqlite3';
 import { toValues, readSql } from './utils.js';
 import { parse } from './parsers.js';
 import { mapOne, mapMany } from './map.js';
 import { getTables, getViews, getVirtual } from './parsers/tables.js';
-import { readFile, writeFile, rm } from 'fs/promises';
+import { readFile, writeFile, join, rm } from './files.js';
 import { getFragments } from './parsers/tables.js';
 import { blank } from './parsers/utils.js';
 import { makeClient } from './proxy.js';
 import { createTypes } from './parsers/types.js';
 import { migrate } from './migrations.js';
-import { join } from 'path';
 import { preprocess } from './parsers/preprocessor.js';
-
-const process = (db, result, options) => {
-  if (!options) {
-    return result;
-  }
-  if (result.length === 0) {
-    if (options.result === 'object' || options.result === 'value') {
-      return undefined;
-    }
-    return result;
-  }
-  let mapper;
-  if (options.result === 'object' || options.result === 'value') {
-    mapper = mapOne;
-  }
-  else {
-    mapper = mapMany;
-  }
-  if (options.result === 'value' || options.result === 'values') {
-    if (options.parse) {
-      const parsed = parse(result, options.types);
-      const values = toValues(parsed);
-      if (options.result === 'value') {
-        return values[0];
-      }
-      return values;
-    }
-    const values = toValues(result);
-    if (options.result === 'value') {
-      return values[0];
-    }
-    return values;
-  }
-  if (options.parse && !options.map) {
-    const parsed = parse(result, options.types);
-    if (options.result === 'object') {
-      return parsed[0];
-    }
-    return parsed;
-  }
-  if (options.map) {
-    return mapper(db, result, options.columns, options.types);
-  }
-  return result;
-}
 
 const dbTypes = {
   integer: true,
@@ -72,25 +25,6 @@ const typeMap = {
   text: 'String',
   blob: 'Buffer',
   any: 'Number | String | Buffer | null'
-}
-
-const validateCustomType = (customType) => {
-  const error = `Error trying to register type '${customType.name}': `;
-  if (!customType.name || !customType.tsType || !customType.dbType) {
-    throw Error(error + 'missing required fields.');
-  }
-  if (!/^[a-z0-9_]+$/gmi.test(customType.name)) {
-    throw Error(error + `invalid name.`);
-  }
-  if (!dbTypes[customType.dbType]) {
-    throw Error(error + `${customType.dbType} is not a valid database type.`);
-  }
-  if (customType.jsToDb && !customType.valueTest) {
-    throw Error(error + 'missing valueTest function.');
-  }
-  if (!customType.jsToDb && customType.valueTest) {
-    throw Error(error + 'missing jsToDb function.');
-  }
 }
 
 const wait = async () => {
@@ -115,6 +49,7 @@ class Database {
     this.poolSize = 100;
     this.dbPath = null;
     this.sqlPath = null;
+    this.migrationPath = null;
     this.transactionCount = 0;
     this.extensions = null;
     this.databases = [];
@@ -161,6 +96,7 @@ class Database {
     const { db, sql, tables, views, types, migrations, extensions } = paths;
     this.dbPath = db;
     this.sqlPath = sql;
+    this.migrationPath = migrations;
     this.extensions = extensions;
     this.read = await this.createDatabase();
     this.write = await this.createDatabase({ serialize: true });
@@ -198,59 +134,29 @@ class Database {
         undo
       }
     };
-    const runMigration = async (name) => {
-      const path = join(migrations, `${name}.sql`);
-      const sql = await readFile(path, 'utf8');
-      this.disableForeignKeys();
-      try {
-        await this.begin();
-        await this.exec(sql);
-        await this.commit();
-      }
-      catch (e) {
-        await this.rollback();
-        throw e;
-      }
-      finally {
-        this.enableForeignKeys();
-      }
-    };
     return {
       db: client,
       makeTypes,
       getTables,
       createMigration,
-      runMigration
+      runMigration: this.runMigration
     }
   }
 
-  async createDatabase(options) {
-    const serialize = options ? options.serialize : false;
-    const db = new sqlite3.Database(this.dbPath);
-    if (serialize) {
-      db.serialize();
-    }
-    this.enableForeignKeys(db);
-    if (this.extensions) {
-      if (typeof this.extensions === 'string') {
-        await this.loadExtension(this.extensions, db);
-      }
-      else {
-        for (const extension of this.extensions) {
-          await this.loadExtension(extension, db);
-        }
-      }
-    }
-    this.databases.push(db);
-    return db;
+  async runMigration() {
+    return;
+  }
+
+  async createDatabase() {
+    return;
   }
 
   async enableForeignKeys(db) {
     await this.basicAll('pragma foreign_keys = on', db);
   }
 
-  async disableForeignKeys(db) {
-    await this.basicAll('pragma foreign_keys = off', db);
+  async deferForeignKeys() {
+    await this.basicAll('pragma defer_foreign_keys = true');
   }
 
   addTables(tables) {
@@ -308,12 +214,10 @@ class Database {
       if (name.includes(',')) {
         const names = name.split(',').map(n => n.trim());
         for (const name of names) {
-          validateCustomType({ name, ...options });
           this.customTypes[name] = options;
         }
       }
       else {
-        validateCustomType({ name, ...options });
         this.customTypes[name] = options;
       }
     }
@@ -456,19 +360,53 @@ class Database {
     return adjusted;
   }
 
-  async getTransaction() {
-    const db = this.pool.pop();
-    if (!db) {
-      if (this.databases.length < this.poolSize) {
-        const db = await this.createDatabase({ serialize: true });
-        const tx = { name: `tx${this.databases.length}`, db };
-        const client = makeClient(this, this.sqlPath, tx);
-        return client;
-      }
-      await wait();
-      return this.getTransaction();
+  process(result, options) {
+    if (!options) {
+      return result;
     }
-    return db;
+    if (result.length === 0) {
+      if (options.result === 'object' || options.result === 'value') {
+        return undefined;
+      }
+      return result;
+    }
+    let mapper;
+    if (options.result === 'object' || options.result === 'value') {
+      mapper = mapOne;
+    }
+    else {
+      mapper = mapMany;
+    }
+    if (options.result === 'value' || options.result === 'values') {
+      if (options.parse) {
+        const parsed = parse(result, options.types);
+        const values = toValues(parsed);
+        if (options.result === 'value') {
+          return values[0];
+        }
+        return values;
+      }
+      const values = toValues(result);
+      if (options.result === 'value') {
+        return values[0];
+      }
+      return values;
+    }
+    if (options.parse && !options.map) {
+      const parsed = parse(result, options.types);
+      if (options.result === 'object') {
+        return parsed[0];
+      }
+      return parsed;
+    }
+    if (options.map) {
+      return mapper(this, result, options.columns, options.types);
+    }
+    return result;
+  }
+
+  async getTransaction() {
+    return;
   }
 
   async begin(tx) {
@@ -487,184 +425,40 @@ class Database {
     this.pool.push(tx);
   }
 
-  async loadExtension(path, db) {
-    return new Promise((resolve, reject) => {
-      db.loadExtension(path, (err) => {
-        if (err) {
-          reject(err);
-        }
-        else {
-          resolve();
-        }
-      });
-    });
+  async loadExtension() {
+    return;
   }
 
-  async basicRun(sql, tx) {
-    const db = tx ? tx.db : this.write;
-    return new Promise((resolve, reject) => {
-      db.run(sql, undefined, function (err) {
-        if (err) {
-          reject(err);
-        }
-        else {
-          resolve();
-        }
-      });
-    });
+  async basicRun() {
+    return;
   }
 
-  async basicAll(sql, tx) {
-    const db = tx ? tx : this.write;
-    return new Promise((resolve, reject) => {
-      db.all(sql, undefined, function (err, rows) {
-        if (err) {
-          reject(err);
-        }
-        else {
-          resolve(rows);
-        }
-      });
-    });
+  async basicAll() {
+    return;
   }
 
-  async prepare(sql, db) {
-    return new Promise((resolve, reject) => {
-      const statement = db.prepare(sql, (err) => {
-        if (err) {
-          reject(err);
-        }
-        else {
-          this.prepared.push(statement);
-          resolve(statement);
-        }
-      });
-    });
+  async prepare() {
+    return;
   }
 
-  async finalize(statement) {
-    return new Promise((resolve) => {
-      statement.finalize(() => resolve());
-    });
+  async finalize() {
+    return;
   }
 
-  async run(props) {
-    let { query, params, options, tx, adjusted } = props;
-    if (params === null) {
-      params = undefined;
-    }
-    if (params !== undefined && !adjusted) {
-      params = this.adjust(params);
-    }
-    const db = tx ? tx.db : this.write;
-    if (typeof query === 'string') {
-      const statementKey = tx ? tx.name : 'write';
-      const statements = this.statements[statementKey];
-      const cached = statements ? this.statements.get(query) : undefined;
-      if (cached) {
-        query = cached;
-      }
-      else {
-        if (!statements) {
-          this.statements[statementKey] = new Map();
-        }
-        const statement = await this.prepare(query, db);
-        this.statements[statementKey].set(query, statement);
-        query = statement;
-      }
-    }
-    return new Promise((resolve, reject) => {
-      query.run(params, function (err) {
-        if (err) {
-          reject(err);
-        }
-        else {
-          resolve(this.changes);
-        }
-      });
-    });
+  async run() {
+    return;
   }
 
-  async all(props) {
-    let { query, params, options, tx, write, adjusted } = props;
-    if (params === null) {
-      params = undefined;
-    }
-    if (params !== undefined && !adjusted) {
-      params = this.adjust(params);
-    }
-    const client = tx ? tx.db : (write ? this.write : this.read);
-    if (typeof query === 'string') {
-      let key;
-      if (options && options.cacheName) {
-        key = options.cacheName;
-      }
-      else {
-        key = query;
-      }
-      const statementKey = tx ? tx.name : (write ? 'write' : 'read');
-      const statements = this.statements[statementKey];
-      const cached = statements ? this.statements.get(key) : undefined;
-      if (cached) {
-        query = cached;
-      }
-      else {
-        if (!statements) {
-          this.statements[statementKey] = new Map();
-        }
-        const statement = await this.prepare(query, client);
-        this.statements[statementKey].set(key, statement);
-        query = statement;
-      }
-    }
-    const db = this;
-    return new Promise((resolve, reject) => {
-      query.all(params, function (err, rows) {
-        if (err) {
-          reject(err);
-        }
-        else {
-          const result = process(db, rows, options);
-          resolve(result);
-        }
-      });
-    });
+  async all() {
+    return;
   }
 
-  async exec(sql) {
-    return new Promise((resolve, reject) => {
-      this.write.exec(sql, function (err) {
-        if (err) {
-          reject(err);
-        }
-        else {
-          resolve();
-        }
-      });
-    });
+  async exec() {
+    return;
   }
 
   async close() {
-    if (this.closed) {
-      return;
-    }
-    const makePromise = (db) => {
-      return new Promise((resolve, reject) => {
-        db.close(function (err) {
-          if (err) {
-            reject(err);
-          }
-          else {
-            resolve();
-          }
-        });
-      });
-    }
-    const finalizePromises = this.prepared.map(statement => this.finalize(statement));
-    await Promise.all(finalizePromises);
-    const promises = this.databases.map(db => makePromise(db));
-    await Promise.all(promises);
-    this.closed = true;
+    return;
   }
 }
 

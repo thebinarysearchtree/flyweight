@@ -17,28 +17,6 @@ const map = (rows, itemSelector, keySelector) => {
   return results;
 }
 
-const split = (rows, key) => {
-  const results = [];
-  if (rows.length === 0) {
-    return rows;
-  }
-  let currentKey = rows[0][key];
-  let currentRows = [];
-  for (const row of rows) {
-    const k = row[key];
-    if (k === currentKey && k !== null) {
-      currentRows.push(row);
-    }
-    else {
-      results.push(currentRows);
-      currentRows = [row];
-      currentKey = k;
-    }
-  }
-  results.push(currentRows);
-  return results;
-}
-
 const sliceProps = (o, start, end) => {
   const entries = Object.entries(o).slice(start, end);
   const result = {};
@@ -74,13 +52,6 @@ const parse = (o, types) => {
     }
   }
   return result;
-}
-
-const nullToArray = (rows, primaryKey) => {
-  if (rows.length === 1 && rows[0][primaryKey] === null) {
-    return [];
-  }
-  return rows;
 }
 
 const toArrayName = (primaryKey) => {

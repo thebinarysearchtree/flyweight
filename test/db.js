@@ -1,11 +1,11 @@
-import { Database } from '../index.js';
+import { SQLiteDatabase } from '../index.js';
 
 const path = (subPath) => {
   const url = new URL(subPath, import.meta.url);
   return url.pathname;
 }
 
-const database = new Database();
+const database = new SQLiteDatabase();
 
 const sqlPath = path('sql');
 

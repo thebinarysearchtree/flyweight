@@ -1,4 +1,4 @@
-import { readFileSync } from 'fs';
+import { readFileSync, join } from './files.js';
 import {
   insert,
   insertMany,
@@ -9,7 +9,6 @@ import {
   all,
   remove
 } from './queries.js';
-import { join } from 'path';
 import { parseQuery, isWrite } from './parsers/queries.js';
 import pluralize from 'pluralize';
 import { preprocess, insertUnsafe } from './parsers/preprocessor.js';
