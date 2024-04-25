@@ -1,4 +1,4 @@
-import { readFileSync, join } from './files.js';
+import { readFile, join } from './files.js';
 import {
   insert,
   insertMany,
@@ -243,6 +243,7 @@ const makeQueryHandler = (table, db, sqlDir, tx) => {
     isSingular = false;
     queries = multipleQueries;
   }
+  let write;
   return {
     get: function(target, query, receiver) {
       if (!target[query]) {
@@ -255,24 +256,28 @@ const makeQueryHandler = (table, db, sqlDir, tx) => {
           }
         }
         else {
-          const path = join(sqlDir, table, `${query}.sql`);
-          let sql;
-          try {
-            sql = readFileSync(path, 'utf8');
-            sql = preprocess(sql, db.tables);
-          }
-          catch (e) {
-            const makeQuery = isSingular ? singularQueries[query] : multipleQueries[query];
-            if (makeQuery) {
-              target[query] = makeQuery(db, table, tx);
-              return target[query];
+          let cachedFunction;
+          target[query] = async (params, queryOptions) => {
+            if (cachedFunction) {
+              return await cachedFunction(params, queryOptions);
             }
-            else {
-              throw e;
+            const path = join(sqlDir, table, `${query}.sql`);
+            let sql;
+            try {
+              sql = await readFile(path, 'utf8');
+              sql = preprocess(sql, db.tables);
             }
-          }
-          const write = isWrite(sql);
-          try {
+            catch (e) {
+              const makeQuery = isSingular ? singularQueries[query] : multipleQueries[query];
+              if (makeQuery) {
+                cachedFunction = makeQuery(db, table, tx);
+                return await cachedFunction(params, queryOptions);
+              }
+              else {
+                throw e;
+              }
+            }
+            write = isWrite(sql);
             const columns = parseQuery(sql, db.tables);
             const options = makeOptions(columns, db);
             options.result = getResultType(columns, isSingular);
@@ -284,7 +289,7 @@ const makeQueryHandler = (table, db, sqlDir, tx) => {
               run = db.all;
             }
             run = run.bind(db);
-            target[query] = async (params, queryOptions) => {
+            cachedFunction = async (params, queryOptions) => {
               if (queryOptions && queryOptions.unsafe) {
                 const query = insertUnsafe(sql, queryOptions.unsafe);
                 let cachedOptions = db.queryVariations.get(query);
@@ -310,17 +315,8 @@ const makeQueryHandler = (table, db, sqlDir, tx) => {
                 tx,
                 write
               });
-            }
-          }
-          catch {
-            target[query] = async (params) => {
-              return await db.all({
-                query: sql,
-                params,
-                tx,
-                write
-              });
-            }
+            };
+            return await cachedFunction(params, queryOptions);
           }
         }
       }

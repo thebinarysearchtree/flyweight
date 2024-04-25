@@ -1,5 +1,4 @@
 import { readdir, readFile, writeFile, rm } from 'fs/promises';
-import { readFileSync } from 'fs';
 import { join } from 'path';
 
 export {
@@ -7,6 +6,5 @@ export {
   readFile,
   writeFile,
   rm,
-  readFileSync,
   join
 }
