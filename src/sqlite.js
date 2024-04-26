@@ -1,15 +1,23 @@
-import { join, readFile } from './files.js';
 import Database from './db.js';
 import sqlite3 from 'sqlite3';
+import { readFile, writeFile, join, rm } from './files.js';
 import { makeClient } from './proxy.js';
+import { createTypes } from './parsers/types.js';
+import { migrate } from './migrations.js';
 
 class SQLiteDatabase extends Database {
   constructor(props) {
     super(props);
+    this.fileSystem = {
+      readFile,
+      writeFile,
+      join,
+      rm
+    };
   }
 
   async runMigration(name) {
-    const path = join(this.migrationPath, `${name}.sql`);
+    const path = join(this.migrationsPath, `${name}.sql`);
     const sql = await readFile(path, 'utf8');
     try {
       await this.begin();
@@ -45,6 +53,7 @@ class SQLiteDatabase extends Database {
   }
 
   async getTransaction() {
+    await this.initialize();
     const db = this.pool.pop();
     if (!db) {
       if (this.databases.length < this.poolSize) {
@@ -73,6 +82,7 @@ class SQLiteDatabase extends Database {
   }
 
   async basicRun(sql, tx) {
+    await this.initialize();
     const db = tx ? tx.db : this.write;
     return new Promise((resolve, reject) => {
       db.run(sql, undefined, function (err) {
@@ -87,6 +97,7 @@ class SQLiteDatabase extends Database {
   }
 
   async basicAll(sql, tx) {
+    await this.initialize();
     const db = tx ? tx : this.write;
     return new Promise((resolve, reject) => {
       db.all(sql, undefined, function (err, rows) {
@@ -121,6 +132,7 @@ class SQLiteDatabase extends Database {
   }
 
   async run(props) {
+    await this.initialize();
     let { query, params, options, tx, adjusted } = props;
     if (params === null) {
       params = undefined;
@@ -159,6 +171,7 @@ class SQLiteDatabase extends Database {
   }
 
   async all(props) {
+    await this.initialize();
     let { query, params, options, tx, write, adjusted } = props;
     if (params === null) {
       params = undefined;
@@ -200,6 +213,7 @@ class SQLiteDatabase extends Database {
   }
 
   async exec(sql) {
+    await this.initialize();
     return new Promise((resolve, reject) => {
       this.write.exec(sql, function (err) {
         if (err) {
@@ -213,6 +227,7 @@ class SQLiteDatabase extends Database {
   }
 
   async close() {
+    await this.initialize();
     if (this.closed) {
       return;
     }

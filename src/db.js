@@ -1,14 +1,11 @@
-import { toValues, readSql } from './utils.js';
+import { toValues } from './utils.js';
 import { parse } from './parsers.js';
 import { mapOne, mapMany } from './map.js';
 import { getTables, getViews, getVirtual } from './parsers/tables.js';
-import { readFile, writeFile, join, rm } from './files.js';
 import { getFragments } from './parsers/tables.js';
 import { blank } from './parsers/utils.js';
-import { makeClient } from './proxy.js';
-import { createTypes } from './parsers/types.js';
-import { migrate } from './migrations.js';
 import { preprocess } from './parsers/preprocessor.js';
+import { migrate } from './migrations.js';
 
 const dbTypes = {
   integer: true,
@@ -35,7 +32,6 @@ const wait = async () => {
 
 class Database {
   constructor(props) {
-    this.db;
     this.read = null;
     this.write = null;
     this.tables = {};
@@ -49,7 +45,10 @@ class Database {
     this.poolSize = 100;
     this.dbPath = null;
     this.sqlPath = null;
-    this.migrationPath = null;
+    this.typesPath = null;
+    this.viewsPath = null;
+    this.tablesPath = null;
+    this.migrationsPath = null;
     this.transactionCount = 0;
     this.extensions = null;
     this.databases = [];
@@ -58,6 +57,8 @@ class Database {
     this.debug = props ? props.debug : false;
     this.queryVariations = new Map();
     this.closed = false;
+    this.fileSystem = null;
+    this.initialized = false;
     this.registerTypes([
       {
         name: 'boolean',
@@ -90,57 +91,51 @@ class Database {
         dbType: 'blob'
       }
     ]);
-  }
-
-  async initialize(paths) {
-    const { db, sql, tables, views, types, migrations, extensions } = paths;
+    const { db, sql, tables, views, types, migrations, extensions } = props;
     this.dbPath = db;
     this.sqlPath = sql;
-    this.migrationPath = migrations;
+    this.typesPath = types;
+    this.viewsPath = views;
+    this.tablesPath = tables;
+    this.migrationsPath = migrations;
     this.extensions = extensions;
+  }
+
+  async makeTypes() {
+    await this.initialize();
+    await createTypes({
+      db: this,
+      sqlDir: this.sqlPath,
+      destinationPath: this.typesPath
+    });
+  }
+
+  getClient() {
+    return makeClient(this, this.sqlPath);
+  }
+
+  async getTables() {
+    await this.initialize();
+    const sql = await this.fileSystem.readFile(tables, 'utf8');
+    return this.convertTables(sql);
+  }
+
+  async createMigration(name) {
+    await this.initialize();
+    const sql = await migrate(this, this.tablesPath, this.viewsPath, this.migrationsPath, name);
+    return sql.trim();
+  }
+
+  async initialize() {
+    if (this.initialized) {
+      return;
+    }
     this.read = await this.createDatabase();
     this.write = await this.createDatabase({ serialize: true });
-    await this.setTables(tables);
-    await this.setVirtual(tables);
-    if (views) {
-      await this.setViews(views);
-    }
-    const client = makeClient(this, sql);
-    const makeTypes = async () => {
-      await createTypes({
-        db: this,
-        sqlDir: sql,
-        destinationPath: types
-      });
-    }
-    const getTables = async () => {
-      const sql = await readFile(tables, 'utf8');
-      return this.convertTables(sql);
-    }
-    const createMigration = async (name) => {
-      const lastTablesPath = join(migrations, 'lastTables.sql');
-      const lastViewsPath = join(migrations, 'lastViews.sql');
-      const lastTables = await readFile(lastTablesPath, 'utf8');
-      const lastViews = await readFile(lastViewsPath, 'utf8');
-      const migrationPath = join(migrations, `${name}.sql`);
-      const undo = async () => {
-        await rm(migrationPath);
-        await writeFile(lastTablesPath, lastTables);
-        await writeFile(lastViewsPath, lastViews);
-      };
-      const sql = await migrate(this, tables, views, migrations, name);
-      return {
-        sql: sql.trim(),
-        undo
-      }
-    };
-    return {
-      db: client,
-      makeTypes,
-      getTables,
-      createMigration,
-      runMigration: this.runMigration
-    }
+    await this.setTables();
+    await this.setVirtual();
+    await this.setViews();
+    this.initialized = true;
   }
 
   async runMigration() {
@@ -170,8 +165,8 @@ class Database {
     }
   }
 
-  async setTables(path) {
-    const sql = await readSql(path);
+  async setTables() {
+    const sql = await this.fileSystem.readSql(this.tablesPath);
     if (!sql.trim()) {
       return;
     }
@@ -179,8 +174,8 @@ class Database {
     this.addTables(tables);
   }
 
-  async setViews(path) {
-    let sql = await readSql(path);
+  async setViews() {
+    let sql = await this.fileSystem.readSql(this.viewsPath);
     if (!sql.trim()) {
       return;
     }
@@ -192,8 +187,8 @@ class Database {
     this.addTables(views);
   }
 
-  async setVirtual(path) {
-    const sql = await readSql(path);
+  async setVirtual() {
+    const sql = await this.fileSystem.readSql(this.tablesPath);
     if (!sql.trim()) {
       return;
     }

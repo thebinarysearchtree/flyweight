@@ -1,9 +1,7 @@
-import { join, readFile } from './files.js';
 import Database from './db.js';
 import { parseParams } from './parsers/types.js';
 import { blank } from './parsers/utils.js';
-
-const d1 = env.DB;
+import FileSystem from './strings.js';
 
 const replacePlaceholders = (sql, placeholderMap) => {
   const fragments = [];
@@ -26,15 +24,15 @@ const replacePlaceholders = (sql, placeholderMap) => {
 class D1Database extends Database {
   constructor(props) {
     super(props);
+    this.d1 = props.d1;
+    this.fileSystem = new FileSystem(this.d1);
   }
 
-  async runMigration(name) {
-    const path = join(this.migrationPath, `${name}.sql`);
-    const sql = await readFile(path, 'utf8');
-    const defer = d1.prepare('pragma defer_foreign_keys = true');
+  async runMigration(sql) {
+    const defer = this.d1.prepare('pragma defer_foreign_keys = true');
     const statements = sql.split(';').map(s => d1.prepare(s));
     try {
-      await d1.batch([defer, ...statements]);
+      await this.d1.batch([defer, ...statements]);
     }
     catch (e) {
       await this.rollback();
@@ -43,22 +41,22 @@ class D1Database extends Database {
   }
 
   async createDatabase() {
-    return d1;
+    return this.d1;
   }
 
   async basicRun(sql) {
-    const statement = d1.prepare(sql);
+    const statement = this.d1.prepare(sql);
     return await statement.run();
   }
 
   async basicAll(sql) {
-    const statement = d1.prepare(sql);
+    const statement = this.d1.prepare(sql);
     const meta = await statement.all();
     return meta.result;
   }
 
   async prepare(sql) {
-    return d1.prepare(sql);
+    return this.d1.prepare(sql);
   }
 
   cache(query, params) {
@@ -71,7 +69,7 @@ class D1Database extends Database {
         const mapped = parseParams(query).map((p, i) => [p, i + 1]);
         placeholders = new Map(mapped);
         const sql = replacePlaceholders(query);
-        statement = d1.prepare(sql);
+        statement = this.d1.prepare(sql);
         cached = {
           statement,
           placeholders
@@ -105,28 +103,27 @@ class D1Database extends Database {
     if (params !== undefined && !adjusted) {
       params = this.adjust(params);
     }
-    const cached = cache(query, params);
+    const cached = this.cache(query, params);
     const { statement, ordered } = cached;
     await statement.bind(...ordered).run();
   }
 
   async all(props) {
-    let { query, params, options, tx, write, adjusted } = props;
+    let { query, params, options, adjusted } = props;
     if (params === null) {
       params = undefined;
     }
     if (params !== undefined && !adjusted) {
       params = this.adjust(params);
     }
-    const cached = cache(query, params);
+    const cached = this.cache(query, params);
     const { statement, ordered } = cached;
-    const process = this.process;
     const meta = await statement.bind(...ordered).all();
-    return process(meta.result, options);
+    return this.process(meta.result, options);
   }
 
   async exec(sql) {
-    await d1.exec(sql);
+    await this.d1.exec(sql);
   }
 }
 

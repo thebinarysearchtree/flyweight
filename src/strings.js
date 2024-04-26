@@ -1,35 +1,51 @@
-const d1 = env.DB;
-
-const statements = {
-  readdir: d1.prepare('select fileName from flyweightQueries where table = ?'),
-  readFile: d1.prepare('select sql from flyweightQueries where table = ? and fileName = ?')
-};
-
-const readdir = async (table) => {
-  const meta = await statements.readdir.bind(table).all();
-  return meta.result;
-}
-
-const readFile = async (path) => {
-  if (typeof path === 'string') {
-    path = [path];
+class FileSystem {
+  constructor(db) {
+    this.db = db;
+    this.statements = {
+      readdir: d1.prepare('select path from flyweightQueries where path like ?'),
+      readFile: d1.prepare('select sql from flyweightQueries where path = ?')
+    }
   }
-  const table = path.length > 1 ? path[0] : null;
-  const fileName = path.length > 1 ? path[1] : path[0];
-  const meta = await statements.readFile.bind(table, fileName).all();
-  if (meta.result.length === 0) {
-    throw Error('File does not exist');
-  }
-  return meta.result[0].sql;
-}
-const writeFile = async () => undefined;
-const rm = async () => undefined;
-const join = (...sections) => sections;
 
-export {
-  readdir,
-  readFile,
-  writeFile,
-  rm,
-  join
+  async readdir(path) {
+    const param = `${path}%`;
+    const meta = await this.statements.readdir.bind(param).all();
+    return meta.result.map(s => s.split('/').at(-1));
+  }
+
+  async readFile(path) {
+    const meta = await this.statements.readFile.bind(path).all();
+    if (meta.result.length === 0) {
+      throw Error('File does not exist');
+    }
+    return meta.result[0].sql;
+  }
+
+  async readSql(path) {
+    let sql = '';
+    if (path.endsWith('.sql')) {
+      sql = await readFile(path);
+    }
+    else {
+      const names = await readdir(path);
+      for (const name of names) {
+        if (name.endsWith('.sql')) {
+          let text = await readFile(join(path, name), 'utf8');
+          text = text.trim();
+          if (!text.endsWith(';')) {
+            text += ';';
+          }
+          text += '\n\n';
+          sql += text;
+        }
+      }
+    }
+    return sql.trim() + '\n';
+  }
+
+  join(...sections) {
+    return sections.join('/');
+  }
 }
+
+export default FileSystem;
