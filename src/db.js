@@ -104,7 +104,9 @@ class Database {
   }
 
   async makeTypes() {
-    await this.initialize();
+    if (!this.initialized) {
+      await this.initialize();
+    }
     await createTypes({
       db: this,
       sqlDir: this.sqlPath,
@@ -117,13 +119,17 @@ class Database {
   }
 
   async getTables() {
-    await this.initialize();
+    if (!this.initialized) {
+      await this.initialize();
+    }
     const sql = await this.fileSystem.readFile(tables, 'utf8');
     return this.convertTables(sql);
   }
 
   async createMigration(name) {
-    await this.initialize();
+    if (!this.initialized) {
+      await this.initialize();
+    }
     const sql = await migrate(this, this.tablesPath, this.viewsPath, this.migrationsPath, name);
     return sql.trim();
   }
@@ -402,10 +408,6 @@ class Database {
     return result;
   }
 
-  async getTransaction() {
-    return;
-  }
-
   async begin(tx) {
     await this.basicRun('begin', tx);
   }
@@ -416,14 +418,6 @@ class Database {
 
   async rollback(tx) {
     await this.basicRun('rollback', tx);
-  }
-
-  release(tx) {
-    this.pool.push(tx);
-  }
-
-  async loadExtension() {
-    return;
   }
 
   async basicRun() {
@@ -438,10 +432,6 @@ class Database {
     return;
   }
 
-  async finalize() {
-    return;
-  }
-
   async run() {
     return;
   }
@@ -451,10 +441,6 @@ class Database {
   }
 
   async exec() {
-    return;
-  }
-
-  async close() {
     return;
   }
 }

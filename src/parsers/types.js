@@ -521,12 +521,7 @@ const createTypes = async (options) => {
     types = types.replaceAll(/^export /gm, '');
     types += `declare const database: Database;\n`;
     types += `declare const db: TypedDb;\n`;
-    types += 'declare function makeTypes(): Promise<void>;\n';
-    types += 'declare function getTables(): Promise<string>;\n';
-    types += 'declare function createMigration(name: string): Promise<{ sql: string, undo: () => Promise<void>}>;\n';
-    types += 'declare function runMigration(name: string): Promise<void>;\n';
-    types += 'declare const sqlPath: string;\n\n';
-    types += 'export {\n  database,\n  db,\n  makeTypes,\n  getTables,\n  createMigration,\n  runMigration,\n  sqlPath\n}\n';
+    types += 'export {\n  database,\n  db\n}\n';
   }
   await writeFile(destinationPath, types, 'utf8');
 }

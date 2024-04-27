@@ -50,10 +50,6 @@ class D1Database extends Database {
     }
   }
 
-  async createDatabase() {
-    return this.d1;
-  }
-
   async basicRun(sql) {
     const statement = this.d1.prepare(sql);
     return await statement.run();
@@ -106,6 +102,9 @@ class D1Database extends Database {
   }
 
   async run(props) {
+    if (!this.initialized) {
+      await this.initialize();
+    }
     let { query, params, adjusted } = props;
     if (params === null) {
       params = undefined;
@@ -119,6 +118,9 @@ class D1Database extends Database {
   }
 
   async all(props) {
+    if (!this.initialized) {
+      await this.initialize();
+    }
     let { query, params, options, adjusted } = props;
     if (params === null) {
       params = undefined;

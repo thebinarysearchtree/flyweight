@@ -149,6 +149,10 @@ class SQLiteDatabase extends Database {
     });
   }
 
+  release(tx) {
+    this.pool.push(tx);
+  }
+
   async run(props) {
     if (!this.initialized) {
       await this.initialize();
