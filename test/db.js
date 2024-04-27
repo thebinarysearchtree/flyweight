@@ -5,34 +5,18 @@ const path = (subPath) => {
   return url.pathname;
 }
 
-const database = new SQLiteDatabase();
-
-const sqlPath = path('sql');
-
-const result = await database.initialize({
+const database = new SQLiteDatabase({
   db: path('databases/test.db'),
-  sql: sqlPath,
+  sql: path('sql'),
   tables: path('sql/tables.sql'),
   views: path('views'),
   types: path('db.d.ts'),
   migrations: path('migrations')
 });
 
-const {
-  db,
-  makeTypes,
-  getTables,
-  createMigration,
-  runMigration
-} = result;
-
+const db = database.getClient();
 
 export {
   database,
-  db,
-  makeTypes,
-  getTables,
-  createMigration,
-  runMigration,
-  sqlPath
+  db
 }

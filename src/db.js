@@ -5,7 +5,9 @@ import { getTables, getViews, getVirtual } from './parsers/tables.js';
 import { getFragments } from './parsers/tables.js';
 import { blank } from './parsers/utils.js';
 import { preprocess } from './parsers/preprocessor.js';
+import { createTypes } from './parsers/types.js';
 import { migrate } from './migrations.js';
+import { makeClient } from './proxy.js';
 
 const dbTypes = {
   integer: true,
@@ -49,8 +51,8 @@ class Database {
     this.viewsPath = null;
     this.tablesPath = null;
     this.migrationsPath = null;
+    this.extensionsPath = null;
     this.transactionCount = 0;
-    this.extensions = null;
     this.databases = [];
     this.virtualSet = new Set();
     this.prepared = [];
@@ -98,7 +100,7 @@ class Database {
     this.viewsPath = views;
     this.tablesPath = tables;
     this.migrationsPath = migrations;
-    this.extensions = extensions;
+    this.extensionsPath = extensions;
   }
 
   async makeTypes() {

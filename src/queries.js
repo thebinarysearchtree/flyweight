@@ -81,6 +81,9 @@ const adjust = (params, columnTypes, db) => {
 }
 
 const insert = async (db, table, params, tx) => {
+  if (!db.initialized) {
+    await db.initialize();
+  }
   const columnSet = db.columnSets[table];
   const verify = makeVerify(table, columnSet);
   const columns = Object.keys(params);
@@ -100,6 +103,9 @@ const insert = async (db, table, params, tx) => {
 }
 
 const insertMany = async (db, table, items, tx) => {
+  if (!db.initialized) {
+    await db.initialize();
+  }
   if (items.length === 0) {
     return;
   }
@@ -259,6 +265,9 @@ const convertPatterns = (params) => {
 }
 
 const update = async (db, table, query, params, tx) => {
+  if (!db.initialized) {
+    await db.initialize();
+  }
   const columnSet = db.columnSets[table];
   const verify = makeVerify(table, columnSet);
   const keys = Object.keys(params);
@@ -369,6 +378,9 @@ const toKeywords = (keywords, verify) => {
 }
 
 const getVirtual = async (db, table, query, tx, keywords, select, returnValue, verify, once) => {
+  if (!db.initialized) {
+    await db.initialize();
+  }
   let params;
   if (keywords && keywords.highlight) {
     const highlight = keywords.highlight;
@@ -450,6 +462,9 @@ const getVirtual = async (db, table, query, tx, keywords, select, returnValue, v
 }
 
 const exists = async (db, table, query, tx) => {
+  if (!db.initialized) {
+    await db.initialize();
+  }
   const columnSet = db.columnSets[table];
   const verify = makeVerify(table, columnSet);
   let sql = `select exists(select 1 from ${table}`;
@@ -474,6 +489,9 @@ const exists = async (db, table, query, tx) => {
 }
 
 const count = async (db, table, query, keywords, tx) => {
+  if (!db.initialized) {
+    await db.initialize();
+  }
   const columnSet = db.columnSets[table];
   const verify = makeVerify(table, columnSet);
   let sql = 'select ';
@@ -501,6 +519,9 @@ const count = async (db, table, query, keywords, tx) => {
 }
 
 const get = async (db, table, query, columns, tx) => {
+  if (!db.initialized) {
+    await db.initialize();
+  }
   const columnSet = db.columnSets[table];
   const verify = makeVerify(table, columnSet);
   const keywords = columns && typeof columns !== 'string' && !Array.isArray(columns) ? columns : null;
@@ -544,6 +565,9 @@ const get = async (db, table, query, columns, tx) => {
 }
 
 const all = async (db, table, query, columns, tx) => {
+  if (!db.initialized) {
+    await db.initialize();
+  }
   const columnSet = db.columnSets[table];
   const verify = makeVerify(table, columnSet);
   const keywords = columns && typeof columns !== 'string' && !Array.isArray(columns) ? columns : null;
@@ -602,6 +626,9 @@ const all = async (db, table, query, columns, tx) => {
 }
 
 const remove = async (db, table, query, tx) => {
+  if (!db.initialized) {
+    await db.initialize();
+  }
   const columnSet = db.columnSets[table];
   const verify = makeVerify(table, columnSet);
   let sql = `delete from ${table}`;

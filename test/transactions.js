@@ -1,6 +1,5 @@
 import { db } from './db.js';
 import { strict as assert } from 'assert';
-import { compare } from './utils.js';
 
 const run = async () => {
   let javierId;

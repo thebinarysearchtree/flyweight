@@ -1,5 +1,5 @@
-import { getTables } from './db.js';
+import { database } from './db.js';
 
-const converted = await getTables();
+const converted = await database.getTables();
 console.log(converted);
 process.exit();

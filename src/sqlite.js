@@ -2,8 +2,7 @@ import Database from './db.js';
 import sqlite3 from 'sqlite3';
 import { readFile, writeFile, join, rm } from './files.js';
 import { makeClient } from './proxy.js';
-import { createTypes } from './parsers/types.js';
-import { migrate } from './migrations.js';
+import { readSql } from './utils.js';
 
 class SQLiteDatabase extends Database {
   constructor(props) {
@@ -12,8 +11,21 @@ class SQLiteDatabase extends Database {
       readFile,
       writeFile,
       join,
-      rm
+      rm,
+      readSql
     };
+  }
+
+  async initialize() {
+    if (this.initialized) {
+      return;
+    }
+    this.read = await this.createDatabase();
+    this.write = await this.createDatabase({ serialize: true });
+    await this.setTables();
+    await this.setVirtual();
+    await this.setViews();
+    this.initialized = true;
   }
 
   async runMigration(name) {
@@ -38,12 +50,12 @@ class SQLiteDatabase extends Database {
       db.serialize();
     }
     await this.enableForeignKeys(db);
-    if (this.extensions) {
-      if (typeof this.extensions === 'string') {
-        await this.loadExtension(this.extensions, db);
+    if (this.extensionsPath) {
+      if (typeof this.extensionsPath === 'string') {
+        await this.loadExtension(this.extensionsPath, db);
       }
       else {
-        for (const extension of this.extensions) {
+        for (const extension of this.extensionsPath) {
           await this.loadExtension(extension, db);
         }
       }
@@ -53,7 +65,9 @@ class SQLiteDatabase extends Database {
   }
 
   async getTransaction() {
-    await this.initialize();
+    if (!this.initialized) {
+      await this.initialize();
+    }
     const db = this.pool.pop();
     if (!db) {
       if (this.databases.length < this.poolSize) {
@@ -82,7 +96,9 @@ class SQLiteDatabase extends Database {
   }
 
   async basicRun(sql, tx) {
-    await this.initialize();
+    if (!tx && !this.initialized) {
+      await this.initialize();
+    }
     const db = tx ? tx.db : this.write;
     return new Promise((resolve, reject) => {
       db.run(sql, undefined, function (err) {
@@ -97,7 +113,9 @@ class SQLiteDatabase extends Database {
   }
 
   async basicAll(sql, tx) {
-    await this.initialize();
+    if (!tx && !this.initialized) {
+      await this.initialize();
+    }
     const db = tx ? tx : this.write;
     return new Promise((resolve, reject) => {
       db.all(sql, undefined, function (err, rows) {
@@ -132,7 +150,9 @@ class SQLiteDatabase extends Database {
   }
 
   async run(props) {
-    await this.initialize();
+    if (!this.initialized) {
+      await this.initialize();
+    }
     let { query, params, options, tx, adjusted } = props;
     if (params === null) {
       params = undefined;
@@ -171,7 +191,9 @@ class SQLiteDatabase extends Database {
   }
 
   async all(props) {
-    await this.initialize();
+    if (!this.initialized) {
+      await this.initialize();
+    }
     let { query, params, options, tx, write, adjusted } = props;
     if (params === null) {
       params = undefined;
@@ -213,7 +235,9 @@ class SQLiteDatabase extends Database {
   }
 
   async exec(sql) {
-    await this.initialize();
+    if (!this.initialized) {
+      await this.initialize();
+    }
     return new Promise((resolve, reject) => {
       this.write.exec(sql, function (err) {
         if (err) {
@@ -227,7 +251,6 @@ class SQLiteDatabase extends Database {
   }
 
   async close() {
-    await this.initialize();
     if (this.closed) {
       return;
     }

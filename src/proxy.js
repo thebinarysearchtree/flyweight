@@ -1,4 +1,3 @@
-import { readFile, join } from './files.js';
 import {
   insert,
   insertMany,
@@ -232,6 +231,7 @@ const getResultType = (columns, isSingular) => {
 }
 
 const makeQueryHandler = (table, db, sqlDir, tx) => {
+  const { readFile, join } = db.fileSystem;
   let isSingular;
   let queries;
   if (pluralize.isSingular(table)) {
@@ -264,6 +264,9 @@ const makeQueryHandler = (table, db, sqlDir, tx) => {
             const path = join(sqlDir, table, `${query}.sql`);
             let sql;
             try {
+              if (!db.initialized) {
+                await db.initialize();
+              }
               sql = await readFile(path, 'utf8');
               sql = preprocess(sql, db.tables);
             }

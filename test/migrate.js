@@ -1,3 +1,3 @@
-import { createMigration } from './db.js';
+import { database } from './db.js';
 
-await createMigration(process.argv[2]);
+await database.createMigration(process.argv[2]);

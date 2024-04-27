@@ -28,6 +28,16 @@ class D1Database extends Database {
     this.fileSystem = new FileSystem(this.d1);
   }
 
+  async initialize() {
+    if (this.initialized) {
+      return;
+    }
+    await this.setTables();
+    await this.setVirtual();
+    await this.setViews();
+    this.initialized = true;
+  }
+
   async runMigration(sql) {
     const defer = this.d1.prepare('pragma defer_foreign_keys = true');
     const statements = sql.split(';').map(s => d1.prepare(s));
