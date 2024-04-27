@@ -130,7 +130,7 @@ class Database {
     if (!this.initialized) {
       await this.initialize();
     }
-    const sql = await migrate(this, this.tablesPath, this.viewsPath, this.migrationsPath, name);
+    const sql = await migrate(this, name);
     return sql.trim();
   }
 

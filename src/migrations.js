@@ -235,17 +235,17 @@ const getViews = (sql) => {
   });
 }
 
-const migrate = async (db, tablesPath, viewsPath, migrationPath, migrationName) => {
-  const outputPath = join(migrationPath, `${migrationName}.sql`);
-  const lastTablesPath = join(migrationPath, 'lastTables.sql');
-  const lastViewsPath = join(migrationPath, 'lastViews.sql');
-  const currentSql = await readSql(tablesPath);
+const migrate = async (db, migrationName) => {
+  const outputPath = join(db.migrationsPath, `${migrationName}.sql`);
+  const lastTablesPath = join(db.migrationsPath, 'lastTables.sql');
+  const lastViewsPath = join(db.migrationsPath, 'lastViews.sql');
+  const currentSql = await readSql(db.tablesPath);
   const current = db.convertTables(currentSql);
   const blankedCurrent = blank(current);
   const changedTables = new Set();
   let last;
   let blankedLast;
-  const currentViewsText = await readSql(viewsPath);
+  const currentViewsText = await readSql(db.viewsPath);
   try {
     const lastSql = await readSql(lastTablesPath);
     last = db.convertTables(lastSql);
