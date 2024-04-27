@@ -1,6 +1,6 @@
 import { readFile, writeFile, readdir, rm } from 'fs/promises';
 import { join } from 'path';
-import { createMigration } from './db.js';
+import { database } from './db.js';
 
 const existing = [];
 const tablesPath = join('sql', 'tables.sql');
@@ -53,7 +53,7 @@ const runTests = async (printOnly) => {
     else {
       await writeFile(tablesPath, data);
     }
-    const migration = await createMigration(`m${i}`);
+    const migration = await database.createMigration(`m${i}`);
     if (printOnly) {
       if (!processed.has(name)) {
         const path = join('sql', `${name}p.sql`);
