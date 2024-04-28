@@ -210,7 +210,7 @@ const fighters = await db.fighters.get({ isActive: true }, {
 });
 ```
 
-While the default interpretation of the query parameters is ```=```, you can modify the meaning by importing ```not```, ```gt```, ```gte```, ```lt```, ```lte```, ```like```, and ```match```.
+While the default interpretation of the query parameters is ```=```, you can modify the meaning by importing ```not```, ```gt```, ```gte```, ```lt```, ```lte```, ```like```, ```match``` and ```glob```.
 
 For example:
 

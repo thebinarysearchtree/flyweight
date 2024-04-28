@@ -17,6 +17,7 @@ const lt = create('lt', '<');
 const lte = create('lte', '<=');
 const like = create('like', 'like');
 const match = create('match', 'match');
+const glob = create('glob', 'glob');
 
 export {
   Modifier,
@@ -26,5 +27,6 @@ export {
   lt,
   lte,
   like,
-  match
+  match,
+  glob
 }

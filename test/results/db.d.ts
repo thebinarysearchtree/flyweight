@@ -45,6 +45,7 @@ declare function lt(value: any): Modifier | undefined;
 declare function lte(value: any): Modifier | undefined;
 declare function like(value: any): Modifier | undefined;
 declare function match(value: any): Modifier | undefined;
+declare function glob(value: any): Modifier | undefined;
 
 
 
