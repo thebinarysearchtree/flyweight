@@ -118,14 +118,6 @@ Tables are defined in ```./database/sql/tables.sql```. You can add or change tab
 
 If you want to add a new column to a table without needing to drop the table, make sure you put the column at the end of the list of columns.
 
-## Regular expressions
-
-Flyweight supports regular expressions in some of its methods. These regular expressions are converted to ```like``` statements, which limits what kind of regular expressions you can make.
-
-```js
-const coach = await db.coach.get({ name: /^Eugene.+/ });
-```
-
 ## Default values
 
 Default values can be set for boolean and date columns using the following syntax:
@@ -218,7 +210,7 @@ const fighters = await db.fighters.get({ isActive: true }, {
 });
 ```
 
-While the default interpretation of the query parameters is ```=```, you can modify the meaning by importing ```not```, ```gt```, ```gte```, ```lt```, and ```lte```.
+While the default interpretation of the query parameters is ```=```, you can modify the meaning by importing ```not```, ```gt```, ```gte```, ```lt```, ```lte```, and ```like```.
 
 For example:
 
@@ -302,6 +294,7 @@ Transactions involve taking a connection from a pool of connections by calling `
 
 ```js
 import { db } from './db.js';
+import { like } from 'flyweightjs';
 
 try {
   const tx = await db.getTransaction();
@@ -311,7 +304,7 @@ try {
     name: 'Eugene Bareman',
     city: 'Auckland'
   });
-  const fighterId = await tx.fighter.get({ name: /Israel/ }, 'id');
+  const fighterId = await tx.fighter.get({ name: like('Israel%') }, 'id');
   await tx.fighterCoach.insert({
     fighterId,
     coachId

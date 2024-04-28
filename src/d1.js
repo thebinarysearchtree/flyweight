@@ -25,7 +25,7 @@ class D1Database extends Database {
   constructor(props) {
     super(props);
     this.d1 = props.d1;
-    this.fileSystem = new FileSystem(this.d1);
+    this.fileSystem = new FileSystem(this);
   }
 
   async initialize() {
@@ -66,38 +66,33 @@ class D1Database extends Database {
   }
 
   cache(query, params) {
-    let cached;
-    let statement;
-    let placeholders;
-    if (typeof query === 'string') {
-      cached = this.statements.get(query);
-      if (!cached) {
-        const mapped = parseParams(query).map((p, i) => [p, i + 1]);
-        placeholders = new Map(mapped);
-        const sql = replacePlaceholders(query);
-        statement = this.d1.prepare(sql);
-        cached = {
-          statement,
-          placeholders
-        };
-        this.statements.set(query, cached);
-        this.statements.set(statement, placeholders);
-      }
+    let placeholdersMap;
+    let sql;
+    const cached = this.statements.get(query);
+    if (!cached) {
+      const mapped = parseParams(query).map((p, i) => [p, i + 1]);
+      placeholdersMap = new Map(mapped);
+      sql = replacePlaceholders(query);
+      const cached = {
+        placeholdersMap,
+        sql
+      };
+      this.statements.set(query, cached);
     }
     else {
-      placeholders = this.statements.get(query);
-      statement = query;
+      sql = cached.sql;
+      placeholdersMap = cached.placeholdersMap;
     }
-    const ordered = [];
+    const orderedParams = [];
     if (params) {
       for (const [key, value] of Object.entries(params)) {
-        const index = placeholders.get(key);
-        ordered[index] = value;
+        const index = placeholdersMap.get(key);
+        orderedParams[index] = value;
       }
     }
     return {
-      statement,
-      ordered
+      sql,
+      orderedParams
     }
   }
 
@@ -112,9 +107,8 @@ class D1Database extends Database {
     if (params !== undefined && !adjusted) {
       params = this.adjust(params);
     }
-    const cached = this.cache(query, params);
-    const { statement, ordered } = cached;
-    await statement.bind(...ordered).run();
+    const { sql, orderedParams } = this.cache(query, params);
+    await this.d1.prepare(sql).bind(...orderedParams).run();
   }
 
   async all(props) {
@@ -128,9 +122,8 @@ class D1Database extends Database {
     if (params !== undefined && !adjusted) {
       params = this.adjust(params);
     }
-    const cached = this.cache(query, params);
-    const { statement, ordered } = cached;
-    const meta = await statement.bind(...ordered).all();
+    const { sql, orderedParams } = this.cache(query, params);
+    const meta = await this.d1.prepare(sql).bind(...orderedParams).all();
     return this.process(meta.result, options);
   }
 

@@ -1,10 +1,11 @@
 import { db } from './db.js';
 import { strict as assert } from 'assert';
 import { compare } from './utils.js';
+import { like } from '../index.js';
 
 const run = async () => {
   const cards = await db.cards.get({ eventId: 100 });
-  const fighterId = await db.fighter.get({ name: /Israel/ }, 'id');
+  const fighterId = await db.fighter.get({ name: like('Israel%') }, 'id');
 
   compare(cards, 'cardsGet');
   assert.equal(fighterId, 17);

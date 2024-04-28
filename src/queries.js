@@ -1,62 +1,5 @@
 import { Modifier } from './modifiers.js';
 
-const isSpecial = (char) => ['.', '+', '*', '^', '$', '(', ')', '{', '}', '[', ']', '|'].includes(char);
-
-const convert = (regexp) => {
-  const chars = regexp.source.split('');
-  let escape = false;
-  let processed = [];
-  for (let i = 0; i < chars.length; i++) {
-    const isLastChar = i === chars.length - 1;
-    const nextChar = isLastChar ? null : chars[i + 1];
-    const char = chars[i];
-    if (i === 0 && char !== '^') {
-      processed.push('%');
-    }
-    if (i === 0 && char === '^') {
-      continue;
-    }
-    if (isLastChar && char === '$') {
-      continue;
-    }
-    if (char === '\\') {
-      escape = !escape;
-      if (!isLastChar && nextChar !== '\'' && nextChar !== '\\' && escape) {
-        if (isSpecial(nextChar)) {
-          escape = false;
-          continue;
-        }
-        throw Error('Cannot convert RegExp to LIKE statement.');
-      }
-    }
-    if (char === '.' && !escape) {
-      if (nextChar === '*') {
-        processed.push('%');
-        i++;
-      }
-      if (nextChar === '+') {
-        processed.push('_%');
-        i++;
-      }
-      if (!isSpecial(nextChar)) {
-        processed.push('_');
-      }
-      continue;
-    }
-    if (char === '_' || char === '%') {
-      processed.push('\\');
-    }
-    processed.push(char);
-    if (isLastChar && char !== '$') {
-      processed.push('%');
-    }
-    if (char !== '\\') {
-      escape = false;
-    }
-  }
-  return processed.join('');
-}
-
 const getPlaceholders = (columnNames, columnTypes) => {
   return columnNames.map(columnName => {
     if (columnTypes[columnName] === 'jsonb') {
@@ -251,19 +194,6 @@ const removeUndefined = (query) => {
   return result;
 }
 
-const convertPatterns = (params) => {
-  const processed = {};
-  if (!params) {
-    return processed;
-  }
-  for (const [key, value] of Object.entries(params)) {
-    if (value instanceof RegExp) {
-      processed[key] = convert(value);
-    }
-  }
-  return processed;
-}
-
 const update = async (db, table, query, params, tx) => {
   if (!db.initialized) {
     await db.initialize();
@@ -274,10 +204,8 @@ const update = async (db, table, query, params, tx) => {
   verify(keys);
   const set = keys.map(param => `${param} = $${param}`).join(', ');
   let sql;
-  let converted = {};
   if (query) {
     query = removeUndefined(query);
-    converted = convertPatterns(query);
     const where = toClause(query, verify);
     query = convertModifiers(query);
     query = removeNulls(query);
@@ -288,7 +216,7 @@ const update = async (db, table, query, params, tx) => {
   }
   return await db.run({
     query: sql,
-    params: { ...params, ...query, ...converted },
+    params: { ...params, ...query },
     tx
   });
 }
@@ -469,7 +397,6 @@ const exists = async (db, table, query, tx) => {
   const verify = makeVerify(table, columnSet);
   let sql = `select exists(select 1 from ${table}`;
   query = removeUndefined(query);
-  const converted = convertPatterns(query);
   const where = toClause(query, verify);
   query = convertModifiers(query);
   query = removeNulls(query);
@@ -479,7 +406,7 @@ const exists = async (db, table, query, tx) => {
   sql += ') as result';
   const results = await db.all({
     query: sql,
-    params: { ...query, ...converted },
+    params: { ...query },
     tx
   });
   if (results.length > 0) {
@@ -500,7 +427,6 @@ const count = async (db, table, query, keywords, tx) => {
   }
   sql += `count(*) as count from ${table}`;
   query = removeUndefined(query);
-  const converted = convertPatterns(query);
   const where = toClause(query, verify);
   query = convertModifiers(query);
   query = removeNulls(query);
@@ -509,7 +435,7 @@ const count = async (db, table, query, keywords, tx) => {
   }
   const results = await db.all({
     query: sql,
-    params: { ...query, ...converted },
+    params: { ...query },
     tx
   });
   if (results.length > 0) {
@@ -536,7 +462,6 @@ const get = async (db, table, query, columns, tx) => {
   }
   sql += `${select} from ${table}`;
   query = removeUndefined(query);
-  const converted = convertPatterns(query);
   const where = toClause(query, verify);
   query = convertModifiers(query);
   query = removeNulls(query);
@@ -546,7 +471,7 @@ const get = async (db, table, query, columns, tx) => {
   sql += toKeywords(keywords, verify);
   const results = await db.all({
     query: sql,
-    params: { ...query, ...converted },
+    params: { ...query },
     tx
   });
   if (results.length > 0) {
@@ -582,7 +507,6 @@ const all = async (db, table, query, columns, tx) => {
   }
   sql += `${select} from ${table}`;
   query = removeUndefined(query);
-  const converted = convertPatterns(query);
   const where = toClause(query, verify);
   query = convertModifiers(query);
   query = removeNulls(query);
@@ -592,7 +516,7 @@ const all = async (db, table, query, columns, tx) => {
   sql += toKeywords(keywords, verify);
   const rows = await db.all({
     query: sql,
-    params: { ...query, ...converted },
+    params: { ...query },
     tx
   });
   if (rows.length === 0) {
@@ -633,7 +557,6 @@ const remove = async (db, table, query, tx) => {
   const verify = makeVerify(table, columnSet);
   let sql = `delete from ${table}`;
   query = removeUndefined(query);
-  const converted = convertPatterns(query);
   const where = toClause(query, verify);
   query = convertModifiers(query);
   query = removeNulls(query);
@@ -642,7 +565,7 @@ const remove = async (db, table, query, tx) => {
   }
   return await db.run({
     query: sql,
-    params: { ...query, ...converted },
+    params: { ...query },
     tx
   });
 }

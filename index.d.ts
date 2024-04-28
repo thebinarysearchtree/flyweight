@@ -43,6 +43,7 @@ declare function gt(value: any): Modifier | undefined;
 declare function gte(value: any): Modifier | undefined;
 declare function lt(value: any): Modifier | undefined;
 declare function lte(value: any): Modifier | undefined;
+declare function like(value: any): Modifier | undefined;
 
 export {
   Database,
@@ -51,5 +52,6 @@ export {
   gt,
   gte,
   lt,
-  lte
+  lte,
+  like
 }

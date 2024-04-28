@@ -1,20 +1,20 @@
 class FileSystem {
-  constructor(db) {
-    this.db = db;
-    this.statements = {
-      readdir: d1.prepare('select path from flyweightQueries where path like ?'),
-      readFile: d1.prepare('select sql from flyweightQueries where path = ?')
-    }
+  constructor(database) {
+    this.database = database;
   }
 
   async readdir(path) {
     const param = `${path}%`;
-    const meta = await this.statements.readdir.bind(param).all();
+    const d1 = this.database.d1;
+    const sql = 'select path from flyweightQueries where path like ?';
+    const meta = await d1.prepare(sql).bind(param).all();
     return meta.result.map(s => s.split('/').at(-1));
   }
 
   async readFile(path) {
-    const meta = await this.statements.readFile.bind(path).all();
+    const d1 = this.database.d1;
+    const sql = 'select sql from flyweightQueries where path = ?';
+    const meta = await d1.prepare(sql).bind(path).all();
     if (meta.result.length === 0) {
       throw Error('File does not exist');
     }
@@ -24,13 +24,13 @@ class FileSystem {
   async readSql(path) {
     let sql = '';
     if (path.endsWith('.sql')) {
-      sql = await readFile(path);
+      sql = await this.readFile(path);
     }
     else {
-      const names = await readdir(path);
+      const names = await this.readdir(path);
       for (const name of names) {
         if (name.endsWith('.sql')) {
-          let text = await readFile(join(path, name), 'utf8');
+          let text = await this.readFile(join(path, name), 'utf8');
           text = text.trim();
           if (!text.endsWith(';')) {
             text += ';';
