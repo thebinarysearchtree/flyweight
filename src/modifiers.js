@@ -6,12 +6,17 @@ class Modifier {
   }
 }
 
-const not = (value) => value === undefined ? value : new Modifier('not', value, '!=');
-const gt = (value) => value === undefined ? value : new Modifier('gt', value, '>');
-const gte = (value) => value === undefined ? value : new Modifier('gte', value, '>=');
-const lt = (value) => value === undefined ? value : new Modifier('lt', value, '<');
-const lte = (value) => value === undefined ? value : new Modifier('lte', value, '<=');
-const like = (value) => value === undefined ? value : new Modifier('like', value, 'like');
+const create = (name, operator) => {
+  return (value) => value === undefined ? value : new Modifier(name, value, operator);
+}
+
+const not = create('not', '!=');
+const gt = create('gt', '>');
+const gte = create('gte', '>=');
+const lt = create('lt', '<');
+const lte = create('lte', '<=');
+const like = create('like', 'like');
+const match = create('match', 'match');
 
 export {
   Modifier,
@@ -20,5 +25,6 @@ export {
   gte,
   lt,
   lte,
-  like
+  like,
+  match
 }

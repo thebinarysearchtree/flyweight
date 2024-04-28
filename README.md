@@ -168,7 +168,7 @@ translates to
 select * from fights where cardId = 9 and titleFight = 1;
 ```
 
-The keys to ```params``` must be the column names of the table. The values can either be of the same type as the column, an array of values that are the same type as the column, null, or a regular expression if the column is text. If an array is passed in, an ```in``` clause is used, such as:
+The keys to ```params``` must be the column names of the table. The values can either be of the same type as the column, an array of values that are the same type as the column or null. If an array is passed in, an ```in``` clause is used, such as:
 
 ```js
 const fights = await db.fights.get({ cardId: [1, 2, 3] });
@@ -180,7 +180,7 @@ which translates to
 select * from fights where cardId in (1, 2, 3);
 ```
 
-If null is passed in as the value, the SQL will use ```is null```. If a regular expression is passed in, the SQL will use ```like```.
+If null is passed in as the value, the SQL will use ```is null```.
 
 All of the arguments are passed in as parameters for security reasons.
 
@@ -210,7 +210,7 @@ const fighters = await db.fighters.get({ isActive: true }, {
 });
 ```
 
-While the default interpretation of the query parameters is ```=```, you can modify the meaning by importing ```not```, ```gt```, ```gte```, ```lt```, ```lte```, and ```like```.
+While the default interpretation of the query parameters is ```=```, you can modify the meaning by importing ```not```, ```gt```, ```gte```, ```lt```, ```lte```, ```like```, and ```match```.
 
 For example:
 
