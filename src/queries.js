@@ -35,14 +35,98 @@ const insert = async (db, table, params, tx) => {
   const adjusted = adjust(params, db.columns[table], db);
   const sql = `insert into ${table}(${columns.join(', ')}) values(${placeholders.join(', ')})`;
   const primaryKey = db.getPrimaryKey(table);
-  const result = await db.all({
+  const options = {
     query: `${sql} returning ${primaryKey}`,
     params: adjusted,
     tx,
     write: true,
     adjusted: true
-  });
-  return result[0][primaryKey];
+  };
+  const post = (result) => result[0][primaryKey];
+  if (tx && tx.isBatch) {
+    options.isBatch = true;
+    const statement = await db.all(options);
+    return {
+      statement,
+      post
+    }
+  }
+  const result = await db.all(options);
+  return post(result);
+}
+
+const makeManySql = (columns, columnTypes, table) => {
+  const placeholders = getPlaceholders(columns, columnTypes);
+  return `insert into ${table}(${columns.join(', ')}) values(${placeholders.join(', ')})`;
+}
+
+const batch = async (tx, db, columns, columnTypes, items) => {
+  const sql = makeManySql(columns, columnTypes, table);
+  const promises = [];
+  for (const item of items) {
+    const adjusted = adjust(item, columnTypes, db);
+    const promise = db.run({
+      query: sql,
+      params: adjusted,
+      tx,
+      adjusted: true,
+      isBatch: true
+    });
+    promises.push(promise);
+  }
+  const statements = await Promise.all(promises);
+  if (tx && tx.isBatch) {
+    return statements.map(s => {
+      return {
+        statement: s
+      }
+    });
+  }
+  await db.d1.batch(statements);
+}
+
+const many = async (tx, db, columns, columnTypes, items) => {
+  let createdTransaction;
+  if (!tx) {
+    tx = await db.getTransaction();
+    createdTransaction = true;
+  }
+  let statement;
+  try {
+    if (createdTransaction) {
+      await tx.begin();
+    }
+    const sql = makeManySql(columns, columnTypes, table);
+    statement = await db.prepare(sql, tx.db);
+    const promises = [];
+    for (const item of items) {
+      const adjusted = adjust(item, columnTypes, db);
+      const promise = db.run({
+        query: statement,
+        params: adjusted,
+        tx,
+        adjusted: true
+      });
+      promises.push(promise);
+    }
+    await Promise.all(promises);
+    if (createdTransaction) {
+      await tx.commit();
+    }
+  }
+  catch (e) {
+    if (createdTransaction) {
+      await tx.rollback();
+    }
+    throw e;
+  }
+  finally {
+    if (createdTransaction) {
+      db.release(tx);
+    }
+    await db.finalize(statement);
+    return;
+  }
 }
 
 const insertMany = async (db, table, items, tx) => {
@@ -53,53 +137,23 @@ const insertMany = async (db, table, items, tx) => {
     return;
   }
   const columnSet = db.columnSets[table];
-  const columTypes = db.columns[table];
+  const columnTypes = db.columns[table];
   const verify = makeVerify(table, columnSet);
   const sample = items[0];
   const columns = Object.keys(sample);
   verify(columns);
   const hasBlob = db.tables[table].filter(c => columns.includes(c.name)).some(c => c.type === 'blob');
   if (hasBlob) {
-    let createdTransaction;
-    if (!tx) {
-      tx = await db.getTransaction();
-      createdTransaction = true;
+    if (!db.d1) {
+      return await many(tx, db, columns, columnTypes, items);
     }
-    let statement;
-    try {
-      await tx.begin();
-      const placeholders = getPlaceholders(columns, columTypes);
-      const sql = `insert into ${table}(${columns.join(', ')}) values(${placeholders.join(', ')})`;
-      statement = await db.prepare(sql, tx.db);
-      const promises = [];
-      for (const item of items) {
-        const adjusted = adjust(item, columTypes, db);
-        const promise = db.run({
-          query: statement,
-          params: adjusted,
-          tx,
-          adjusted: true
-        });
-        promises.push(promise);
-      }
-      await Promise.all(promises);
-      await tx.commit();
-    }
-    catch (e) {
-      await tx.rollback();
-      throw e;
-    }
-    finally {
-      if (createdTransaction) {
-        db.release(tx);
-      }
-      await db.finalize(statement);
-      return;
+    else {
+      return await batch(tx, db, columns, columnTypes, items);
     }
   }
   let sql = `insert into ${table}(${columns.join(', ')}) select `;
   const select = columns.map(column => {
-    if (columTypes[column] === 'jsonb') {
+    if (columnTypes[column] === 'jsonb') {
       return `jsonb(json_each.value ->> '${column}')`;
     }
     return `json_each.value ->> '${column}'`;
@@ -109,11 +163,18 @@ const insertMany = async (db, table, items, tx) => {
   const params = {
     items: JSON.stringify(items)
   };
-  await db.run({
+  const options = {
     query: sql,
     params,
     tx
-  });
+  };
+  if (tx && tx.isBatch) {
+    const statement = await db.run(options);
+    return {
+      statement
+    }
+  }
+  await db.run(options);
 }
 
 const toClause = (query, verify) => {
@@ -214,11 +275,19 @@ const update = async (db, table, query, params, tx) => {
   else {
     sql = `update ${table} set ${set}`;
   }
-  return await db.run({
+  const options = {
     query: sql,
     params: { ...params, ...query },
     tx
-  });
+  };
+  if (tx && tx.isBatch) {
+    options.isBatch = true;
+    const statement = await db.run(options);
+    return {
+      statement
+    }
+  }
+  return await db.run(options);
 }
 
 const makeVerify = (table, columnSet) => {
@@ -363,30 +432,42 @@ const getVirtual = async (db, table, query, tx, keywords, select, returnValue, v
     sql += ')';
   }
   sql += toKeywords(keywords, verify);
-  const results = await db.all({
+  const options = {
     query: sql,
     params,
     tx
-  });
-  if (once) {
+  };
+  const post = (results) => {
+    if (once) {
+      if (results.length === 0) {
+        return undefined;
+      }
+      if (returnValue) {
+        const result = results[0];
+        const key = Object.keys(result)[0];
+        return result[key];
+      }
+      return results[0];
+    }
     if (results.length === 0) {
-      return undefined;
+      return results;
     }
     if (returnValue) {
-      const result = results[0];
-      const key = Object.keys(result)[0];
-      return result[key];
+      const key = Object.keys(results[0])[0];
+      return results.map(r => r[key]);
     }
-    return results[0];
-  }
-  if (results.length === 0) {
     return results;
   }
-  if (returnValue) {
-    const key = Object.keys(results[0])[0];
-    return results.map(r => r[key]);
+  if (tx && tx.isBatch) {
+    options.isBatch = true;
+    const statement = await db.all(options);
+    return {
+      statement,
+      post
+    }
   }
-  return results;
+  const results = await db.all(options);
+  return post(results);
 }
 
 const exists = async (db, table, query, tx) => {
@@ -404,15 +485,27 @@ const exists = async (db, table, query, tx) => {
     sql += ` where ${where}`;
   }
   sql += ') as result';
-  const results = await db.all({
+  const options = {
     query: sql,
     params: { ...query },
     tx
-  });
-  if (results.length > 0) {
-    return Boolean(results[0].result);
+  };
+  const post = (results) => {
+    if (results.length > 0) {
+      return Boolean(results[0].result);
+    }
+    return undefined;
   }
-  return undefined;
+  if (tx && tx.isBatch) {
+    options.isBatch = true;
+    const statement = await db.all(options);
+    return {
+      statement,
+      post
+    }
+  }
+  const results = await db.all(options);
+  return post(results);
 }
 
 const count = async (db, table, query, keywords, tx) => {
@@ -433,15 +526,27 @@ const count = async (db, table, query, keywords, tx) => {
   if (where) {
     sql += ` where ${where}`;
   }
-  const results = await db.all({
+  const options = {
     query: sql,
     params: { ...query },
     tx
-  });
-  if (results.length > 0) {
-    return results[0].count;
+  };
+  const post = (results) => {
+    if (results.length > 0) {
+      return results[0].count;
+    }
+    return undefined;
+  };
+  if (tx && tx.isBatch) {
+    options.isBatch = true;
+    const statement = await db.all(options);
+    return {
+      statement,
+      post
+    }
   }
-  return undefined;
+  const results = await db.all(options);
+  return post(results);
 }
 
 const get = async (db, table, query, columns, tx) => {
@@ -469,24 +574,36 @@ const get = async (db, table, query, columns, tx) => {
     sql += ` where ${where}`;
   }
   sql += toKeywords(keywords, verify);
-  const results = await db.all({
+  const options = {
     query: sql,
     params: { ...query },
     tx
-  });
-  if (results.length > 0) {
-    const result = results[0];
-    const adjusted = {};
-    const entries = Object.entries(result);
-    for (const [key, value] of entries) {
-      adjusted[key] = db.convertToJs(table, key, value);
+  };
+  const post = (results) => {
+    if (results.length > 0) {
+      const result = results[0];
+      const adjusted = {};
+      const entries = Object.entries(result);
+      for (const [key, value] of entries) {
+        adjusted[key] = db.convertToJs(table, key, value);
+      }
+      if (returnValue) {
+        return adjusted[entries[0][0]];
+      }
+      return adjusted;
     }
-    if (returnValue) {
-      return adjusted[entries[0][0]];
-    }
-    return adjusted;
+    return undefined;
   }
-  return undefined;
+  if (tx && tx.isBatch) {
+    options.isBatch = true;
+    const statement = await db.all(options);
+    return {
+      statement,
+      post
+    }
+  }
+  const results = await db.all(options);
+  return post(results);
 }
 
 const all = async (db, table, query, columns, tx) => {
@@ -514,39 +631,51 @@ const all = async (db, table, query, columns, tx) => {
     sql += ` where ${where}`;
   }
   sql += toKeywords(keywords, verify);
-  const rows = await db.all({
+  const options = {
     query: sql,
     params: { ...query },
     tx
-  });
-  if (rows.length === 0) {
-    return rows;
-  }
-  const sample = rows[0];
-  const keys = Object.keys(sample);
-  const needsParsing = db.needsParsing(table, keys);
-  let adjusted;
-  if (needsParsing) {
-    adjusted = [];
-    for (const row of rows) {
-      const created = {};
-      for (const [key, value] of Object.entries(row)) {
-        created[key] = db.convertToJs(table, key, value);
+  };
+  const post = (rows) => {
+    if (rows.length === 0) {
+      return rows;
+    }
+    const sample = rows[0];
+    const keys = Object.keys(sample);
+    const needsParsing = db.needsParsing(table, keys);
+    let adjusted;
+    if (needsParsing) {
+      adjusted = [];
+      for (const row of rows) {
+        const created = {};
+        for (const [key, value] of Object.entries(row)) {
+          created[key] = db.convertToJs(table, key, value);
+        }
+        adjusted.push(created);
       }
-      adjusted.push(created);
+    }
+    else {
+      adjusted = rows;
+    }
+    if (returnValue) {
+      if (keywords && keywords.count) {
+        return adjusted[0].count;
+      }
+      const key = keys[0];
+      return adjusted.map(item => item[key]);
+    }
+    return adjusted;
+  };
+  if (tx && tx.isBatch) {
+    options.isBatch = true;
+    const statement = await db.all(options);
+    return {
+      statement,
+      post
     }
   }
-  else {
-    adjusted = rows;
-  }
-  if (returnValue) {
-    if (keywords && keywords.count) {
-      return adjusted[0].count;
-    }
-    const key = keys[0];
-    return adjusted.map(item => item[key]);
-  }
-  return adjusted;
+  const rows = await db.all(options);
+  return post(rows);
 }
 
 const remove = async (db, table, query, tx) => {
@@ -563,11 +692,19 @@ const remove = async (db, table, query, tx) => {
   if (where) {
     sql += ` where ${where}`;
   }
-  return await db.run({
+  const options = {
     query: sql,
     params: { ...query },
     tx
-  });
+  };
+  if (tx && tx.isBatch) {
+    options.isBatch = true;
+    const statement = await db.run(options);
+    return {
+      statement
+    }
+  }
+  return await db.run(options);
 }
 
 export {

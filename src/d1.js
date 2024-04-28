@@ -100,7 +100,10 @@ class D1Database extends Database {
     if (!this.initialized) {
       await this.initialize();
     }
-    let { query, params, adjusted } = props;
+    let { query, params, adjusted, isBatch } = props;
+    if (props.statement) {
+      return await props.statement.run();
+    }
     if (params === null) {
       params = undefined;
     }
@@ -108,14 +111,22 @@ class D1Database extends Database {
       params = this.adjust(params);
     }
     const { sql, orderedParams } = this.cache(query, params);
-    await this.d1.prepare(sql).bind(...orderedParams).run();
+    const statement = this.d1.prepare(sql).bind(...orderedParams);
+    if (isBatch) {
+      return statement;
+    }
+    await statement.run();
   }
 
   async all(props) {
     if (!this.initialized) {
       await this.initialize();
     }
-    let { query, params, options, adjusted } = props;
+    let { query, params, options, adjusted, isBatch } = props;
+    if (props.statement) {
+      const meta = await statement.all();
+      return this.process(meta.result, options);
+    }
     if (params === null) {
       params = undefined;
     }
@@ -123,7 +134,11 @@ class D1Database extends Database {
       params = this.adjust(params);
     }
     const { sql, orderedParams } = this.cache(query, params);
-    const meta = await this.d1.prepare(sql).bind(...orderedParams).all();
+    const statement = this.d1.prepare(sql).bind(...orderedParams);
+    if (isBatch) {
+      return statement;
+    }
+    const meta = await statement.all();
     return this.process(meta.result, options);
   }
 
