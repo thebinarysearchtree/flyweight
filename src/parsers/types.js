@@ -374,10 +374,8 @@ const createTypes = async (options) => {
     destinationPath
   } = options;
   let index = files.index;
-  index = index.replace('export default class Database', 'export class Database');
   index = index.replace(/export \{[^\}]+\}/, '');
   const definitions = files.interfaces;
-  
   const typeSet = new Set();
   let i = 1;
   const matches = (index + '\n' + definitions).matchAll(/^(export )?(default )?(interface|class) (?<name>[a-z0-9_]+)/gmi);
@@ -385,14 +383,7 @@ const createTypes = async (options) => {
     typeSet.add(match.groups.name.toLowerCase());
   }
   const tables = Object.entries(db.tables).map(([key, value]) => ({ name: key, columns: value }));
-  let types = '';
-  if (/\.d\.ts/.test(destinationPath)) {
-    types += index;
-    types += '\n';
-    types = types.replace(/^export class Database {/gm, 'declare class Database {');
-  }
-  types += definitions;
-  types += '\n\n';
+  let types = `${index}\n${definitions}\n\n`;
   const returnTypes = [];
   for (const table of tables) {
     const singular = pluralize.singular(table.name);
@@ -511,18 +502,22 @@ const createTypes = async (options) => {
   for (const returnType of returnTypes) {
     types += returnType + ',\n';
   }
-  types += '  begin(): Promise<void>,\n';
-  types += '  commit(): Promise<void>,\n';
-  types += '  rollback(): Promise<void>,\n';
-  types += `  getTransaction(): Promise<TypedDb>,\n`;
-  types += `  release(transaction: TypedDb): void`;
-  types += '\n}\n\n';
-  if (/\.d\.ts/.test(destinationPath)) {
-    types = types.replaceAll(/^export /gm, '');
-    types += `declare const database: Database;\n`;
-    types += `declare const db: TypedDb;\n`;
-    types += 'export {\n  database,\n  db\n}\n';
+  if (!db.d1) {
+    types += '  begin(): Promise<void>,\n';
+    types += '  commit(): Promise<void>,\n';
+    types += '  rollback(): Promise<void>,\n';
+    types += `  getTransaction(): Promise<TypedDb>,\n`;
+    types += `  release(transaction: TypedDb): void`;
   }
+  else {
+    types += '  batch<T extends any[]>(batcher: (bx: TypgedDb) => any[]): Promise<T[]>'
+  }
+  types += '\n}\n\n';
+  types = types.replaceAll(/^export /gm, '');
+  const dbName = db.d1 ? 'D1Database' : 'SQLiteDatabase';
+  types += `declare const database: ${dbName};\n`;
+  types += `declare const db: TypedDb;\n`;
+  types += 'export {\n  database,\n  db\n}\n';
   await writeFile(destinationPath, types, 'utf8');
 }
 

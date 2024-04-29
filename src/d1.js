@@ -24,7 +24,7 @@ const replacePlaceholders = (sql, placeholderMap) => {
 class D1Database extends Database {
   constructor(props) {
     super(props);
-    this.d1 = props.d1;
+    this.d1 = {};
     this.fileSystem = new FileSystem(this);
   }
 

@@ -357,15 +357,19 @@ const makeQueryHandler = (table, db, sqlDir, tx) => {
 const makeClient = (db, sqlDir, tx) => {
   const tableHandler = {
     get: function(target, table) {
-      if (['begin', 'commit', 'rollback'].includes(table)) {
+      if (!db.d1 && ['begin', 'commit', 'rollback'].includes(table)) {
         db[table] = db[table].bind(db);
         return () => db[table](tx);
       }
-      if (table === 'getTransaction') {
+      if (!db.d1 && table === 'getTransaction') {
         db[table] = db[table].bind(db);
         return db[table];
       }
-      if (table === 'release') {
+      if (db.d1 && table === 'batch') {
+        db[table] = db[table].bind(db);
+        return db[table];
+      }
+      if (!db.d1 && table === 'release') {
         return (tx) => db.pool.push(tx);
       }
       if (!target[table]) {
