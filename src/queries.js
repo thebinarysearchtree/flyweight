@@ -23,6 +23,22 @@ const adjust = (params, columnTypes, db) => {
   return processed;
 }
 
+const makeInsertSql = (columns, columnTypes, table) => {
+  const placeholders = getPlaceholders(columns, columnTypes);
+  return `insert into ${table}(${columns.join(', ')}) values(${placeholders.join(', ')})`;
+}
+
+const processBatch = async (db, options, post) => {
+  const result = await db.all(options);
+  return {
+    statement: result.statement,
+    post: (meta) => {
+      const response = result.post(meta);
+      return post(response);
+    }
+  }
+}
+
 const insert = async (db, table, params, tx) => {
   if (!db.initialized) {
     await db.initialize();
@@ -31,9 +47,8 @@ const insert = async (db, table, params, tx) => {
   const verify = makeVerify(table, columnSet);
   const columns = Object.keys(params);
   verify(columns);
-  const placeholders = getPlaceholders(columns, db.columns[table]);
   const adjusted = adjust(params, db.columns[table], db);
-  const sql = `insert into ${table}(${columns.join(', ')}) values(${placeholders.join(', ')})`;
+  const sql = makeInsertSql(columns, db.columns[table], table);
   const primaryKey = db.getPrimaryKey(table);
   const options = {
     query: `${sql} returning ${primaryKey}`,
@@ -44,24 +59,14 @@ const insert = async (db, table, params, tx) => {
   };
   const post = (result) => result[0][primaryKey];
   if (tx && tx.isBatch) {
-    options.isBatch = true;
-    const statement = await db.all(options);
-    return {
-      statement,
-      post
-    }
+    return await processBatch(db, options, post);
   }
   const result = await db.all(options);
   return post(result);
 }
 
-const makeManySql = (columns, columnTypes, table) => {
-  const placeholders = getPlaceholders(columns, columnTypes);
-  return `insert into ${table}(${columns.join(', ')}) values(${placeholders.join(', ')})`;
-}
-
 const batch = async (tx, db, columns, columnTypes, items) => {
-  const sql = makeManySql(columns, columnTypes, table);
+  const sql = makeInsertSql(columns, columnTypes, table);
   const promises = [];
   for (const item of items) {
     const adjusted = adjust(item, columnTypes, db);
@@ -69,18 +74,13 @@ const batch = async (tx, db, columns, columnTypes, items) => {
       query: sql,
       params: adjusted,
       tx,
-      adjusted: true,
-      isBatch: true
+      adjusted: true
     });
     promises.push(promise);
   }
   const statements = await Promise.all(promises);
   if (tx && tx.isBatch) {
-    return statements.map(s => {
-      return {
-        statement: s
-      }
-    });
+    return statements;
   }
   await db.d1.batch(statements);
 }
@@ -96,7 +96,7 @@ const many = async (tx, db, columns, columnTypes, items) => {
     if (createdTransaction) {
       await tx.begin();
     }
-    const sql = makeManySql(columns, columnTypes, table);
+    const sql = makeInsertSql(columns, columnTypes, table);
     statement = await db.prepare(sql, tx.db);
     const promises = [];
     for (const item of items) {
@@ -168,13 +168,7 @@ const insertMany = async (db, table, items, tx) => {
     params,
     tx
   };
-  if (tx && tx.isBatch) {
-    const statement = await db.run(options);
-    return {
-      statement
-    }
-  }
-  await db.run(options);
+  return await db.run(options);
 }
 
 const toClause = (query, verify) => {
@@ -280,13 +274,6 @@ const update = async (db, table, query, params, tx) => {
     params: { ...params, ...query },
     tx
   };
-  if (tx && tx.isBatch) {
-    options.isBatch = true;
-    const statement = await db.run(options);
-    return {
-      statement
-    }
-  }
   return await db.run(options);
 }
 
@@ -459,12 +446,7 @@ const getVirtual = async (db, table, query, tx, keywords, select, returnValue, v
     return results;
   }
   if (tx && tx.isBatch) {
-    options.isBatch = true;
-    const statement = await db.all(options);
-    return {
-      statement,
-      post
-    }
+    return await processBatch(db, options, post);
   }
   const results = await db.all(options);
   return post(results);
@@ -497,12 +479,7 @@ const exists = async (db, table, query, tx) => {
     return undefined;
   }
   if (tx && tx.isBatch) {
-    options.isBatch = true;
-    const statement = await db.all(options);
-    return {
-      statement,
-      post
-    }
+    return await processBatch(db, options, post);
   }
   const results = await db.all(options);
   return post(results);
@@ -538,12 +515,7 @@ const count = async (db, table, query, keywords, tx) => {
     return undefined;
   };
   if (tx && tx.isBatch) {
-    options.isBatch = true;
-    const statement = await db.all(options);
-    return {
-      statement,
-      post
-    }
+    return await processBatch(db, options, post);
   }
   const results = await db.all(options);
   return post(results);
@@ -595,12 +567,7 @@ const get = async (db, table, query, columns, tx) => {
     return undefined;
   }
   if (tx && tx.isBatch) {
-    options.isBatch = true;
-    const statement = await db.all(options);
-    return {
-      statement,
-      post
-    }
+    return await processBatch(db, options, post);
   }
   const results = await db.all(options);
   return post(results);
@@ -667,12 +634,7 @@ const all = async (db, table, query, columns, tx) => {
     return adjusted;
   };
   if (tx && tx.isBatch) {
-    options.isBatch = true;
-    const statement = await db.all(options);
-    return {
-      statement,
-      post
-    }
+    return await processBatch(db, options, post);
   }
   const rows = await db.all(options);
   return post(rows);
@@ -697,13 +659,6 @@ const remove = async (db, table, query, tx) => {
     params: { ...query },
     tx
   };
-  if (tx && tx.isBatch) {
-    options.isBatch = true;
-    const statement = await db.run(options);
-    return {
-      statement
-    }
-  }
   return await db.run(options);
 }
 

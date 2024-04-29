@@ -245,7 +245,7 @@ const makeQueryHandler = (table, db, sqlDir, tx) => {
   }
   let write;
   return {
-    get: function(target, query, receiver) {
+    get: function(target, query) {
       if (!target[query]) {
         if (!sqlDir) {
           if (!queries[query]) {
@@ -303,21 +303,47 @@ const makeQueryHandler = (table, db, sqlDir, tx) => {
                   db.queryVariations.set(query, { ...options });
                   cachedOptions = options;
                 }
-                return await run({
+                const options = {
                   query,
                   params,
                   options: cachedOptions,
                   tx,
                   write
-                });
+                };
+                if (tx && tx.isBatch) {
+                  if (options.result === 'none') {
+                    return await run(options);
+                  }
+                  const result = await run(options);
+                  return {
+                    statement: result.statement,
+                    post: (meta) => {
+                      return result.post(meta);
+                    }
+                  }
+                }
+                return await run(options);
               }
-              return await run({
+              const props = {
                 query: sql,
                 params,
                 options,
                 tx,
                 write
-              });
+              };
+              if (tx && tx.isBatch) {
+                if (options.result === 'none') {
+                  return await run(props);
+                }
+                const result = await run(props);
+                return {
+                  statement: result.statement,
+                  post: (meta) => {
+                    return result.post(meta);
+                  }
+                }
+              }
+              return await run(props);
             };
             return await cachedFunction(params, queryOptions);
           }
@@ -330,7 +356,7 @@ const makeQueryHandler = (table, db, sqlDir, tx) => {
 
 const makeClient = (db, sqlDir, tx) => {
   const tableHandler = {
-    get: function(target, table, receiver) {
+    get: function(target, table) {
       if (['begin', 'commit', 'rollback'].includes(table)) {
         db[table] = db[table].bind(db);
         return () => db[table](tx);

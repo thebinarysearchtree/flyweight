@@ -65,6 +65,20 @@ class D1Database extends Database {
     return this.d1.prepare(sql);
   }
 
+  async batch(handler) {
+    const client = makeClient(this, this.sqlPath, { isBatch: true });
+    const handlers = handler(client).flat();
+    const results = await Promise.all(handlers);
+    const responses = await this.d1.batch(results.map(r => r.statement));
+    return responses.map((response, i) => {
+      const handler = results[i];
+      if (handler.post) {
+        return handler.post(response);
+      }
+      return response;
+    });
+  }
+
   cache(query, params) {
     let placeholdersMap;
     let sql;
@@ -100,7 +114,7 @@ class D1Database extends Database {
     if (!this.initialized) {
       await this.initialize();
     }
-    let { query, params, adjusted, isBatch } = props;
+    let { query, params, adjusted, tx } = props;
     if (props.statement) {
       return await props.statement.run();
     }
@@ -112,8 +126,10 @@ class D1Database extends Database {
     }
     const { sql, orderedParams } = this.cache(query, params);
     const statement = this.d1.prepare(sql).bind(...orderedParams);
-    if (isBatch) {
-      return statement;
+    if (tx && tx.isBatch) {
+      return {
+        statement
+      }
     }
     await statement.run();
   }
@@ -122,7 +138,7 @@ class D1Database extends Database {
     if (!this.initialized) {
       await this.initialize();
     }
-    let { query, params, options, adjusted, isBatch } = props;
+    let { query, params, options, adjusted, tx } = props;
     if (props.statement) {
       const meta = await statement.all();
       return this.process(meta.result, options);
@@ -135,8 +151,11 @@ class D1Database extends Database {
     }
     const { sql, orderedParams } = this.cache(query, params);
     const statement = this.d1.prepare(sql).bind(...orderedParams);
-    if (isBatch) {
-      return statement;
+    if (tx && tx.isBatch) {
+      return {
+        statement,
+        post: (meta) => this.process(meta.result, options)
+      }
     }
     const meta = await statement.all();
     return this.process(meta.result, options);
