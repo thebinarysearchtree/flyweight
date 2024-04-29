@@ -28,7 +28,13 @@ declare class Database {
 }
 
 declare class SQLiteDatabase extends Database {
+  runMigration(name: string): Promise<void>;
   close(): Promise<void>;
+}
+
+declare class D1Database extends Database {
+  runMigration(sql: string): Promise<void>;
+  batch(handler: (batcher: any) => any[]): Promise<any[]>;
 }
 
 declare class Modifier {
@@ -50,6 +56,7 @@ declare function glob(value: any): Modifier | undefined;
 export {
   Database,
   SQLiteDatabase,
+  D1Database,
   not,
   gt,
   gte,
