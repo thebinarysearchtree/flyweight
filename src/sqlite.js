@@ -7,13 +7,6 @@ import { readSql } from './utils.js';
 class SQLiteDatabase extends Database {
   constructor(props) {
     super(props);
-    this.fileSystem = {
-      readFile,
-      writeFile,
-      join,
-      rm,
-      readSql
-    };
   }
 
   async initialize() {
@@ -26,6 +19,19 @@ class SQLiteDatabase extends Database {
     await this.setVirtual();
     await this.setViews();
     this.initialized = true;
+  }
+
+  async readQuery(table, queryName) {
+    const path = join(this.sqlPath, table, `${queryName}.sql`);
+    return await readFile(path, 'utf8');
+  }
+
+  async readTables() {
+    return await readSql(this.tablesPath);
+  }
+
+  async readViews() {
+    return await readSql(this.viewsPath);
   }
 
   async runMigration(name) {

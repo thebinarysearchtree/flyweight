@@ -59,7 +59,6 @@ class Database {
     this.debug = props ? props.debug : false;
     this.queryVariations = new Map();
     this.closed = false;
-    this.fileSystem = null;
     this.initialized = false;
     this.registerTypes([
       {
@@ -122,8 +121,20 @@ class Database {
     if (!this.initialized) {
       await this.initialize();
     }
-    const sql = await this.fileSystem.readFile(tables, 'utf8');
+    const sql = await this.readTables();
     return this.convertTables(sql);
+  }
+
+  async readQuery(table, name) {
+    return;
+  }
+
+  async readTables() {
+    return;
+  }
+
+  async readViews() {
+    return;
   }
 
   async createMigration(name) {
@@ -174,7 +185,7 @@ class Database {
   }
 
   async setTables() {
-    const sql = await this.fileSystem.readSql(this.tablesPath);
+    const sql = await this.readTables();
     if (!sql.trim()) {
       return;
     }
@@ -183,7 +194,7 @@ class Database {
   }
 
   async setViews() {
-    let sql = await this.fileSystem.readSql(this.viewsPath);
+    let sql = await this.readViews();
     if (!sql.trim()) {
       return;
     }
@@ -196,7 +207,7 @@ class Database {
   }
 
   async setVirtual() {
-    const sql = await this.fileSystem.readSql(this.tablesPath);
+    const sql = await this.readTables();
     if (!sql.trim()) {
       return;
     }

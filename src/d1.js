@@ -1,7 +1,6 @@
 import Database from './db.js';
 import { parseParams } from './parsers/types.js';
 import { blank } from './parsers/utils.js';
-import FileSystem from './strings.js';
 
 const replacePlaceholders = (sql, placeholderMap) => {
   const fragments = [];
@@ -25,7 +24,6 @@ class D1Database extends Database {
   constructor(props) {
     super(props);
     this.d1 = {};
-    this.fileSystem = new FileSystem(this);
   }
 
   async initialize() {
@@ -36,6 +34,33 @@ class D1Database extends Database {
     await this.setVirtual();
     await this.setViews();
     this.initialized = true;
+  }
+
+  async readFile(sql, params) {
+    const statement = this.d1.prepare(sql);
+    if (params) {
+      statement.bind(...params);
+    }
+    const meta = await statement.all();
+    if (meta.result.length === 0) {
+      throw Error('File does not exist');
+    }
+    return meta.result[0].sql;
+  }
+
+  async readQuery(table, queryName) {
+    const sql = 'select sql from flyweightQueries where type = "query" and table = ? and name = ?';
+    return await this.readFile(sql, [table, queryName]);
+  }
+
+  async readTables() {
+    const sql = 'select sql from flyweightQueries where type = "tables"';
+    return await this.readFile(sql);
+  }
+
+  async readViews() {
+    const sql = 'select sql from flyweightQueries where type = "views"';
+    return await this.readFile(sql);
   }
 
   async runMigration(sql) {

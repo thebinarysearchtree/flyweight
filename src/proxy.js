@@ -231,7 +231,6 @@ const getResultType = (columns, isSingular) => {
 }
 
 const makeQueryHandler = (table, db, sqlDir, tx) => {
-  const { readFile, join } = db.fileSystem;
   let isSingular;
   let queries;
   if (pluralize.isSingular(table)) {
@@ -261,13 +260,12 @@ const makeQueryHandler = (table, db, sqlDir, tx) => {
             if (cachedFunction) {
               return await cachedFunction(params, queryOptions);
             }
-            const path = join(sqlDir, table, `${query}.sql`);
             let sql;
             try {
               if (!db.initialized) {
                 await db.initialize();
               }
-              sql = await readFile(path, 'utf8');
+              sql = await db.readQuery(table, query);
               sql = preprocess(sql, db.tables);
             }
             catch (e) {
