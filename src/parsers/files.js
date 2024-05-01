@@ -3,19 +3,26 @@ const index = `interface QueryOptions {
 }
 
 interface DatabaseOptions {
-  db: string | URL;
   sql?: string | URL;
   tables: string | URL;
   views?: string | URL;
   types?: string | URL;
   migrations?: string | URL;
-  extensions?: string | URL | Array<string | URL>;
   debug?: boolean;
-  files?: any;
+}
+
+interface SQLiteOptions extends DatabaseOptions {
+  db: string | URL;
+  extensions?: string | URL | Array<string | URL>;
+}
+
+interface D1Config extends DatabaseOptions {
+  db: any;
+  files: any;
 }
 
 declare class Database {
-  constructor(options?: DatabaseOptions);
+  constructor(options: DatabaseOptions);
   makeTypes(): Promise<void>;
   getClient<T>(): T; 
   getTables(): Promise<string>;
@@ -29,11 +36,13 @@ declare class Database {
 }
 
 declare class SQLiteDatabase extends Database {
+  constructor(options: SQLiteOptions);
   runMigration(name: string): Promise<void>;
   close(): Promise<void>;
 }
 
 declare class D1Database extends Database {
+  constructor(options: D1Config);
   runMigration(sql: string): Promise<void>;
   batch(handler: (batcher: any) => any[]): Promise<any[]>;
 }

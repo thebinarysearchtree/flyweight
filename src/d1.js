@@ -24,7 +24,7 @@ class D1Database extends Database {
   constructor(props) {
     super(props);
     this.files = props.files;
-    this.d1 = {};
+    this.d1 = props.db;
   }
 
   async initialize() {

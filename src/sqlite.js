@@ -7,6 +7,8 @@ import { readSql } from './utils.js';
 class SQLiteDatabase extends Database {
   constructor(props) {
     super(props);
+    this.dbPath = props.db;
+    this.extensionsPath = props.extensions;
   }
 
   async initialize() {

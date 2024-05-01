@@ -92,14 +92,12 @@ class Database {
         dbType: 'blob'
       }
     ]);
-    const { db, sql, tables, views, types, migrations, extensions } = props;
-    this.dbPath = db;
+    const { sql, tables, views, types, migrations } = props;
     this.sqlPath = sql;
     this.typesPath = types;
     this.viewsPath = views;
     this.tablesPath = tables;
     this.migrationsPath = migrations;
-    this.extensionsPath = extensions;
   }
 
   async makeTypes() {
