@@ -23,6 +23,7 @@ const replacePlaceholders = (sql, placeholderMap) => {
 class D1Database extends Database {
   constructor(props) {
     super(props);
+    this.files = props.files;
     this.d1 = {};
   }
 
@@ -49,17 +50,17 @@ class D1Database extends Database {
   }
 
   async readQuery(table, queryName) {
-    const sql = 'select sql from flyweightQueries where type = "query" and table = ? and name = ?';
+    const sql = this.files.queries[table][queryName];
     return await this.readFile(sql, [table, queryName]);
   }
 
   async readTables() {
-    const sql = 'select sql from flyweightQueries where type = "tables"';
+    const sql = this.files.tables;
     return await this.readFile(sql);
   }
 
   async readViews() {
-    const sql = 'select sql from flyweightQueries where type = "views"';
+    const sql = this.files.views;
     return await this.readFile(sql);
   }
 

@@ -11,6 +11,7 @@ interface DatabaseOptions {
   migrations?: string | URL;
   extensions?: string | URL | Array<string | URL>;
   debug?: boolean;
+  files?: any;
 }
 
 declare class Database {
