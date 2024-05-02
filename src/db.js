@@ -100,14 +100,15 @@ class Database {
     this.migrationsPath = migrations;
   }
 
-  async makeTypes() {
+  async makeTypes(fileSystem) {
     if (!this.initialized) {
       await this.initialize();
     }
     await createTypes({
       db: this,
       sqlDir: this.sqlPath,
-      destinationPath: this.typesPath
+      destinationPath: this.typesPath,
+      fileSystem
     });
   }
 

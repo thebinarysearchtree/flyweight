@@ -13,6 +13,7 @@ interface DatabaseOptions {
 
 interface SQLiteOptions extends DatabaseOptions {
   db: string | URL;
+  adaptor: any;
   extensions?: string | URL | Array<string | URL>;
 }
 
@@ -21,9 +22,16 @@ interface D1Config extends DatabaseOptions {
   files: any;
 }
 
+interface FileSystem {
+  readFile: (path: string, encoding: string) => Promise<string>;
+  writeFile: (path: string, content: string) => Promise<void>;
+  readdir: (path: string) => Promise<string[]>;
+  join: (...paths: string[]) => string;
+}
+
 declare class Database {
   constructor(options: DatabaseOptions);
-  makeTypes(): Promise<void>;
+  makeTypes(fileSystem: FileSystem): Promise<void>;
   getClient<T>(): T; 
   getTables(): Promise<string>;
   createMigration(name: string): Promise<string>;

@@ -1,4 +1,5 @@
 import { SQLiteDatabase } from '../index.js';
+import adaptor from 'flyweight-sqlite';
 
 const path = (subPath) => {
   const url = new URL(subPath, import.meta.url);
@@ -11,7 +12,8 @@ const database = new SQLiteDatabase({
   tables: path('sql/tables.sql'),
   views: path('views'),
   types: path('db.d.ts'),
-  migrations: path('migrations')
+  migrations: path('migrations'),
+  adaptor
 });
 
 const db = database.getClient();

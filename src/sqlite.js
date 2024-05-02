@@ -1,14 +1,12 @@
 import Database from './db.js';
-import sqlite3 from 'sqlite3';
-import { readFile, writeFile, join, rm } from './files.js';
 import { makeClient } from './proxy.js';
-import { readSql } from './utils.js';
 
 class SQLiteDatabase extends Database {
   constructor(props) {
     super(props);
     this.dbPath = props.db;
     this.extensionsPath = props.extensions;
+    this.adaptor = props.adaptor;
   }
 
   async initialize() {
@@ -24,21 +22,21 @@ class SQLiteDatabase extends Database {
   }
 
   async readQuery(table, queryName) {
-    const path = join(this.sqlPath, table, `${queryName}.sql`);
-    return await readFile(path, 'utf8');
+    const path = this.adaptor.join(this.sqlPath, table, `${queryName}.sql`);
+    return await this.adaptor.readFile(path, 'utf8');
   }
 
   async readTables() {
-    return await readSql(this.tablesPath);
+    return await this.adaptor.readSql(this.tablesPath);
   }
 
   async readViews() {
-    return await readSql(this.viewsPath);
+    return await this.adaptor.readSql(this.viewsPath);
   }
 
   async runMigration(name) {
-    const path = join(this.migrationsPath, `${name}.sql`);
-    const sql = await readFile(path, 'utf8');
+    const path = this.adaptor.join(this.migrationsPath, `${name}.sql`);
+    const sql = await this.adaptor.readFile(path, 'utf8');
     try {
       await this.begin();
       await this.deferForeignKeys();
@@ -53,7 +51,7 @@ class SQLiteDatabase extends Database {
 
   async createDatabase(options) {
     const serialize = options ? options.serialize : false;
-    const db = new sqlite3.Database(this.dbPath);
+    const db = new this.adaptor.sqlite3.Database(this.dbPath);
     if (serialize) {
       db.serialize();
     }

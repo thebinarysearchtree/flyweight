@@ -1,4 +1,3 @@
-import { readFile, writeFile, readdir, join } from '../files.js';
 import pluralize from 'pluralize';
 import { parseQuery } from './queries.js';
 import { renameColumns } from '../map.js';
@@ -219,11 +218,11 @@ const makeUnique = (name, typeSet, i) => {
   return name;
 }
 
-const getQueries = async (db, sqlDir, tableName, typeSet, i) => {
-  const path = join(sqlDir, tableName);
+const getQueries = async (fileSystem, db, sqlDir, tableName, typeSet, i) => {
+  const path = fileSystem.join(sqlDir, tableName);
   let fileNames;
   try {
-    fileNames = await readdir(path);
+    fileNames = await fileSystem.readdir(path);
   }
   catch {
     return null;
@@ -234,8 +233,8 @@ const getQueries = async (db, sqlDir, tableName, typeSet, i) => {
       continue;
     }
     const queryName = fileName.substring(0, fileName.length - 4);
-    const queryPath = join(path, fileName);
-    let sql = await readFile(queryPath, 'utf8');
+    const queryPath = fileSystem.join(path, fileName);
+    let sql = await fileSystem.readFile(queryPath, 'utf8');
     try {
       sql = preprocess(sql, db.tables);
       const params = parseParams(sql);
@@ -371,7 +370,8 @@ const createTypes = async (options) => {
   const {
     db,
     sqlDir,
-    destinationPath
+    destinationPath,
+    fileSystem
   } = options;
   let index = files.index;
   index = index.replace(/export \{[^\}]+\}/, '');
@@ -420,7 +420,7 @@ const createTypes = async (options) => {
     }
     let queries;
     if (sqlDir) {
-      queries = await getQueries(db, sqlDir, table.name, typeSet, i);
+      queries = await getQueries(fileSystem, db, sqlDir, table.name, typeSet, i);
       if (queries) {
         multipleReturnType += ` & ${queries.multipleInterfaceName}`;
         singularReturnType += ` & ${queries.singularInterfaceName}`;
@@ -518,7 +518,7 @@ const createTypes = async (options) => {
   types += `declare const database: ${dbName};\n`;
   types += `declare const db: TypedDb;\n`;
   types += 'export {\n  database,\n  db\n}\n';
-  await writeFile(destinationPath, types, 'utf8');
+  await fileSystem.writeFile(destinationPath, types, 'utf8');
 }
 
 export {

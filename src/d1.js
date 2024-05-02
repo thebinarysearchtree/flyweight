@@ -50,18 +50,15 @@ class D1Database extends Database {
   }
 
   async readQuery(table, queryName) {
-    const sql = this.files.queries[table][queryName];
-    return await this.readFile(sql, [table, queryName]);
+    return this.files.queries[table][queryName];
   }
 
   async readTables() {
-    const sql = this.files.tables;
-    return await this.readFile(sql);
+    return this.files.tables;
   }
 
   async readViews() {
-    const sql = this.files.views;
-    return await this.readFile(sql);
+    return this.files.views;
   }
 
   async runMigration(sql) {
