@@ -226,6 +226,14 @@ interface WhereLocation {
   long?: number | Array<number>;
 }
 
+interface LocationsById {
+  id: number;
+  name: string;
+  address: string;
+  lat: number;
+  long: number;
+}
+
 interface LocationsByMethod {
   id: number;
   name: string;
@@ -249,6 +257,7 @@ interface LocationsWinners {
 }
 
 interface LocationsQueries {
+  byId(params: { id: any; }): Promise<Array<LocationsById>>;
   byMethod(params: { id: any; }): Promise<Array<LocationsByMethod>>;
   detailedEvents(): Promise<Array<LocationsDetailedEvents>>;
   events(): Promise<Array<LocationsEvents>>;
@@ -256,6 +265,7 @@ interface LocationsQueries {
 }
 
 interface LocationQueries {
+  byId(params: { id: any; }): Promise<LocationsById | undefined>;
   byMethod(params: { id: any; }): Promise<LocationsByMethod | undefined>;
   detailedEvents(): Promise<LocationsDetailedEvents | undefined>;
   events(): Promise<LocationsEvents | undefined>;

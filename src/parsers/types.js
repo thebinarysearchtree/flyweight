@@ -200,11 +200,11 @@ const parsePattern = (sql, pattern) => {
 }
 
 const parseParams = (sql) => {
-  return parsePattern(sql, /(\s|,|\()\$(?<param>[a-z0-9_]+)(\s|,|\)|$)/gmi);
+  return parsePattern(sql, /(\s|,|\()\$(?<param>[a-z0-9_]+)(\s|,|\)|;|$)/gmi);
 }
 
 const parseUnsafe = (sql) => {
-  return parsePattern(sql, /(\s|,|\()\$\{(?<param>[a-z0-9_]+)\}(\s|,|\)|$)/gmi);
+  return parsePattern(sql, /(\s|,|\()\$\{(?<param>[a-z0-9_]+)\}(\s|,|\)|;|$)/gmi);
 }
 
 const makeUnique = (name, typeSet, i) => {
@@ -235,6 +235,9 @@ const getQueries = async (fileSystem, db, sqlDir, tableName, typeSet, i) => {
     const queryName = fileName.substring(0, fileName.length - 4);
     const queryPath = fileSystem.join(path, fileName);
     let sql = await fileSystem.readFile(queryPath, 'utf8');
+    if (sql.endsWith(';')) {
+      sql = sql.substring(0, sql.length - 1);
+    }
     try {
       sql = preprocess(sql, db.tables);
       const params = parseParams(sql);

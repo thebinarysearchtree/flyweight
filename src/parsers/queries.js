@@ -108,6 +108,9 @@ const isWrite = (sql) => {
 const parseQuery = (sql, tables) => {
   tables = {...tables };
   sql = sql.replaceAll(/\s+/gm, ' ');
+  if (sql.endsWith(';')) {
+    sql = sql.substring(0, sql.length - 1);
+  }
   const queryType = getQueryType(sql);
   if (queryType === 'select' || queryType === 'cte') {
     return parseSelect(sql, tables);

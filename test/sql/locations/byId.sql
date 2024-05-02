@@ -1,0 +1,1 @@
+select * from locations where id = $id;
