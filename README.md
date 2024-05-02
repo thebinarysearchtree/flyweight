@@ -95,7 +95,7 @@ const id = await db.coach.insert({
 mkdir test
 cd test
 npm init
-npx create-flyweight@latest database
+npx create-flyweight database
 ```
 
 You can run the ```npx``` command at the root of either an existing or a new project. Once that is done, you can import the database this way:
