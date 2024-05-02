@@ -4,19 +4,24 @@ import adaptor from 'flyweight-sqlite';
 
 const path = (subPath) => join(import.meta.dirname, subPath);
 
-const database = new SQLiteDatabase({
-  db: path('app.db'),
+const paths = {
   sql: path('sql'),
   tables: path('sql/tables.sql'),
   views: path('views'),
   types: path('db.d.ts'),
-  migrations: path('migrations'),
-  adaptor
+  migrations: path('migrations')
+};
+
+const database = new SQLiteDatabase({
+  db: path('app.db'),
+  adaptor,
+  ...paths
 });
 
 const db = database.getClient();
 
 export {
   database,
-  db
+  db,
+  paths
 }

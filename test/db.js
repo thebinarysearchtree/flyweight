@@ -6,19 +6,24 @@ const path = (subPath) => {
   return url.pathname;
 }
 
-const database = new SQLiteDatabase({
-  db: path('databases/test.db'),
+const paths = {
   sql: path('sql'),
   tables: path('sql/tables.sql'),
   views: path('views'),
   types: path('db.d.ts'),
-  migrations: path('migrations'),
-  adaptor
+  migrations: path('migrations')
+}
+
+const database = new SQLiteDatabase({
+  db: path('databases/test.db'),
+  adaptor,
+  ...paths
 });
 
 const db = database.getClient();
 
 export {
   database,
-  db
+  db,
+  paths
 }

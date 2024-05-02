@@ -230,7 +230,7 @@ const getResultType = (columns, isSingular) => {
   }
 }
 
-const makeQueryHandler = (table, db, sqlDir, tx) => {
+const makeQueryHandler = (table, db, tx) => {
   let isSingular;
   let queries;
   if (pluralize.isSingular(table)) {
@@ -246,94 +246,64 @@ const makeQueryHandler = (table, db, sqlDir, tx) => {
   return {
     get: function(target, query) {
       if (!target[query]) {
-        if (!sqlDir) {
-          if (!queries[query]) {
-            throw Error(`Query ${query} of table ${table} not found`);
+        let cachedFunction;
+        target[query] = async (params, queryOptions) => {
+          if (cachedFunction) {
+            return await cachedFunction(params, queryOptions);
           }
-          else {
-            target[query] = queries[query](db, table, tx);
+          let sql;
+          try {
+            if (!db.initialized) {
+              await db.initialize();
+            }
+            sql = await db.readQuery(table, query);
+            sql = preprocess(sql, db.tables);
           }
-        }
-        else {
-          let cachedFunction;
-          target[query] = async (params, queryOptions) => {
-            if (cachedFunction) {
+          catch (e) {
+            const makeQuery = isSingular ? singularQueries[query] : multipleQueries[query];
+            if (makeQuery) {
+              cachedFunction = makeQuery(db, table, tx);
               return await cachedFunction(params, queryOptions);
             }
-            let sql;
-            try {
-              if (!db.initialized) {
-                await db.initialize();
-              }
-              sql = await db.readQuery(table, query);
-              sql = preprocess(sql, db.tables);
-            }
-            catch (e) {
-              const makeQuery = isSingular ? singularQueries[query] : multipleQueries[query];
-              if (makeQuery) {
-                cachedFunction = makeQuery(db, table, tx);
-                return await cachedFunction(params, queryOptions);
-              }
-              else {
-                throw e;
-              }
-            }
-            write = isWrite(sql);
-            const columns = parseQuery(sql, db.tables);
-            const options = makeOptions(columns, db);
-            options.result = getResultType(columns, isSingular);
-            let run;
-            if (options.result === 'none') {
-              run = db.run;
-            }
             else {
-              run = db.all;
+              throw e;
             }
-            run = run.bind(db);
-            cachedFunction = async (params, queryOptions) => {
-              if (queryOptions && queryOptions.unsafe) {
-                const query = insertUnsafe(sql, queryOptions.unsafe);
-                let cachedOptions = db.queryVariations.get(query);
-                if (!cachedOptions) {
-                  const columns = parseQuery(query, db.tables);
-                  const options = makeOptions(columns, db);
-                  options.result = getResultType(columns, isSingular);
-                  db.queryVariations.set(query, { ...options });
-                  cachedOptions = options;
-                }
-                const options = {
-                  query,
-                  params,
-                  options: cachedOptions,
-                  tx,
-                  write
-                };
-                if (tx && tx.isBatch) {
-                  if (options.result === 'none') {
-                    return await run(options);
-                  }
-                  const result = await run(options);
-                  return {
-                    statement: result.statement,
-                    post: (meta) => {
-                      return result.post(meta);
-                    }
-                  }
-                }
-                return await run(options);
+          }
+          write = isWrite(sql);
+          const columns = parseQuery(sql, db.tables);
+          const options = makeOptions(columns, db);
+          options.result = getResultType(columns, isSingular);
+          let run;
+          if (options.result === 'none') {
+            run = db.run;
+          }
+          else {
+            run = db.all;
+          }
+          run = run.bind(db);
+          cachedFunction = async (params, queryOptions) => {
+            if (queryOptions && queryOptions.unsafe) {
+              const query = insertUnsafe(sql, queryOptions.unsafe);
+              let cachedOptions = db.queryVariations.get(query);
+              if (!cachedOptions) {
+                const columns = parseQuery(query, db.tables);
+                const options = makeOptions(columns, db);
+                options.result = getResultType(columns, isSingular);
+                db.queryVariations.set(query, { ...options });
+                cachedOptions = options;
               }
-              const props = {
-                query: sql,
+              const options = {
+                query,
                 params,
-                options,
+                options: cachedOptions,
                 tx,
                 write
               };
               if (tx && tx.isBatch) {
                 if (options.result === 'none') {
-                  return await run(props);
+                  return await run(options);
                 }
-                const result = await run(props);
+                const result = await run(options);
                 return {
                   statement: result.statement,
                   post: (meta) => {
@@ -341,10 +311,30 @@ const makeQueryHandler = (table, db, sqlDir, tx) => {
                   }
                 }
               }
-              return await run(props);
+              return await run(options);
+            }
+            const props = {
+              query: sql,
+              params,
+              options,
+              tx,
+              write
             };
-            return await cachedFunction(params, queryOptions);
-          }
+            if (tx && tx.isBatch) {
+              if (options.result === 'none') {
+                return await run(props);
+              }
+              const result = await run(props);
+              return {
+                statement: result.statement,
+                post: (meta) => {
+                  return result.post(meta);
+                }
+              }
+            }
+            return await run(props);
+          };
+          return await cachedFunction(params, queryOptions);
         }
       }
       return target[query];
@@ -352,7 +342,7 @@ const makeQueryHandler = (table, db, sqlDir, tx) => {
   }
 }
 
-const makeClient = (db, sqlDir, tx) => {
+const makeClient = (db, tx) => {
   const tableHandler = {
     get: function(target, table) {
       if (!db.d1 && ['begin', 'commit', 'rollback'].includes(table)) {
@@ -371,7 +361,7 @@ const makeClient = (db, sqlDir, tx) => {
         return (tx) => db.pool.push(tx);
       }
       if (!target[table]) {
-        target[table] = new Proxy({}, makeQueryHandler(table, db, sqlDir, tx));
+        target[table] = new Proxy({}, makeQueryHandler(table, db, tx));
       }
       return target[table];
     }

@@ -1,6 +1,7 @@
 import Database from './db.js';
 import { parseParams } from './parsers/types.js';
 import { blank } from './parsers/utils.js';
+import { makeClient } from './proxy.js';
 
 const replacePlaceholders = (sql, placeholderMap) => {
   const fragments = [];
@@ -89,7 +90,7 @@ class D1Database extends Database {
   }
 
   async batch(handler) {
-    const client = makeClient(this, this.sqlPath, { isBatch: true });
+    const client = makeClient(this, { isBatch: true });
     const handlers = handler(client).flat();
     const results = await Promise.all(handlers);
     const responses = await this.d1.batch(results.map(r => r.statement));

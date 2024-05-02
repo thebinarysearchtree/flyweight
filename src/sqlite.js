@@ -7,6 +7,18 @@ class SQLiteDatabase extends Database {
     this.dbPath = props.db;
     this.extensionsPath = props.extensions;
     this.adaptor = props.adaptor;
+    this.pool = [];
+    this.poolSize = 100;
+    this.dbPath = props.db;
+    this.sqlPath = props.sql;
+    this.typesPath = props.types;
+    this.viewsPath = props.views;
+    this.tablesPath = props.tables;
+    this.migrationsPath = props.migrations;
+    this.extensionsPath = props.extensions;
+    this.transactionCount = 0;
+    this.databases = [];
+    this.prepared = [];
   }
 
   async initialize() {
@@ -79,7 +91,7 @@ class SQLiteDatabase extends Database {
       if (this.databases.length < this.poolSize) {
         const db = await this.createDatabase({ serialize: true });
         const tx = { name: `tx${this.databases.length}`, db };
-        const client = makeClient(this, this.sqlPath, tx);
+        const client = makeClient(this, tx);
         return client;
       }
       await wait();

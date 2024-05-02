@@ -3,18 +3,18 @@ interface QueryOptions {
 }
 
 interface DatabaseOptions {
-  sql?: string | URL;
-  tables: string | URL;
-  views?: string | URL;
-  types?: string | URL;
-  migrations?: string | URL;
   debug?: boolean;
 }
 
 interface SQLiteOptions extends DatabaseOptions {
   db: string | URL;
-  adaptor: any;
+  sql: string | URL;
+  tables: string | URL;
+  views: string | URL;
+  types: string | URL;
+  migrations: string | URL;
   extensions?: string | URL | Array<string | URL>;
+  adaptor: any;
 }
 
 interface D1Config extends DatabaseOptions {
@@ -27,14 +27,23 @@ interface FileSystem {
   writeFile: (path: string, content: string) => Promise<void>;
   readdir: (path: string) => Promise<string[]>;
   join: (...paths: string[]) => string;
+  readSql: (path: string) => Promise<string>;
+}
+
+interface Paths {
+  tables: string;
+  views: string;
+  sql: string;
+  types: string;
+  migrations: string;
 }
 
 declare class Database {
   constructor(options: DatabaseOptions);
-  makeTypes(fileSystem: FileSystem): Promise<void>;
+  makeTypes(fileSystem: FileSystem, paths: Paths): Promise<void>;
   getClient<T>(): T; 
   getTables(): Promise<string>;
-  createMigration(name: string): Promise<string>;
+  createMigration(fileSystem: FileSystem, paths: Paths, name: string): Promise<string>;
   begin(): Promise<void>;
   commit(): Promise<void>;
   rollback(): Promise<void>;

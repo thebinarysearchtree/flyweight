@@ -1,4 +1,4 @@
-import { database } from './db.js';
+import { database, paths } from './db.js';
 import fileSystem from './files.js';
 
-await database.createMigration(fileSystem, process.argv[2]);
+await database.createMigration(fileSystem, paths, process.argv[2]);

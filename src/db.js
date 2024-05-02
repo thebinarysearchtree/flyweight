@@ -43,19 +43,7 @@ class Database {
     this.columns = {};
     this.statements = new Map();
     this.viewSet = new Set();
-    this.pool = [];
-    this.poolSize = 100;
-    this.dbPath = null;
-    this.sqlPath = null;
-    this.typesPath = null;
-    this.viewsPath = null;
-    this.tablesPath = null;
-    this.migrationsPath = null;
-    this.extensionsPath = null;
-    this.transactionCount = 0;
-    this.databases = [];
     this.virtualSet = new Set();
-    this.prepared = [];
     this.debug = props ? props.debug : false;
     this.queryVariations = new Map();
     this.closed = false;
@@ -92,28 +80,22 @@ class Database {
         dbType: 'blob'
       }
     ]);
-    const { sql, tables, views, types, migrations } = props;
-    this.sqlPath = sql;
-    this.typesPath = types;
-    this.viewsPath = views;
-    this.tablesPath = tables;
-    this.migrationsPath = migrations;
   }
 
-  async makeTypes(fileSystem) {
+  async makeTypes(fileSystem, paths) {
     if (!this.initialized) {
       await this.initialize();
     }
     await createTypes({
       db: this,
-      sqlDir: this.sqlPath,
-      destinationPath: this.typesPath,
+      sqlDir: paths.sql,
+      destinationPath: paths.types,
       fileSystem
     });
   }
 
   getClient() {
-    return makeClient(this, this.sqlPath);
+    return makeClient(this);
   }
 
   async getTables() {
@@ -136,11 +118,11 @@ class Database {
     return;
   }
 
-  async createMigration(fileSystem, name) {
+  async createMigration(fileSystem, paths, name) {
     if (!this.initialized) {
       await this.initialize();
     }
-    const sql = await migrate(fileSystem, this, name);
+    const sql = await migrate(fileSystem, paths, this, name);
     return sql.trim();
   }
 
