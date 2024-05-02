@@ -1,3 +1,4 @@
 import { database } from './db.js';
+import fileSystem from './files.js';
 
-await database.createMigration(process.argv[2]);
+await database.createMigration(fileSystem, process.argv[2]);

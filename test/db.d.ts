@@ -27,6 +27,7 @@ interface FileSystem {
   writeFile: (path: string, content: string) => Promise<void>;
   readdir: (path: string) => Promise<string[]>;
   join: (...paths: string[]) => string;
+  readSql: (path: string) => Promise<string>;
 }
 
 declare class Database {
@@ -34,7 +35,7 @@ declare class Database {
   makeTypes(fileSystem: FileSystem): Promise<void>;
   getClient<T>(): T; 
   getTables(): Promise<string>;
-  createMigration(name: string): Promise<string>;
+  createMigration(fileSystem: FileSystem, name: string): Promise<string>;
   begin(): Promise<void>;
   commit(): Promise<void>;
   rollback(): Promise<void>;

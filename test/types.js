@@ -2,13 +2,7 @@ import { database } from './db.js';
 import { compareTypes } from './utils.js';
 import { readFile, writeFile, readdir, rm } from 'fs/promises';
 import { join } from 'path';
-
-const fileSystem = {
-  readFile,
-  writeFile,
-  readdir,
-  join
-};
+import fileSystem from './files.js';
 
 const run = async () => {
   await database.makeTypes(fileSystem);

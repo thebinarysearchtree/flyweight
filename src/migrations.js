@@ -1,6 +1,4 @@
-import { readFile, writeFile, join } from './files.js';
 import { blank } from './parsers/utils.js';
-import { readSql } from './utils.js';
 import { preprocess } from './parsers/preprocessor.js';
 import { getTableNames } from './parsers/queries.js';
 
@@ -140,13 +138,13 @@ const getVirtualMigrations = (currentTables, lastTables) => {
   return migrations;
 }
 
-const getViewMigrations = async (tables, currentViewsText, lastViewsPath, changedTables) => {
+const getViewMigrations = async (fileSystem, tables, currentViewsText, lastViewsPath, changedTables) => {
   const drop = [];
   const create = [];
   currentViewsText = currentViewsText.split(';').map(s => preprocess(s.trim(), tables, true)).join(';\n\n').slice(0, -1);
   let lastViewsText;
   try {
-    lastViewsText = await readSql(lastViewsPath);
+    lastViewsText = await fileSystem.readSql(lastViewsPath);
     lastViewsText = lastViewsText.split(';').map(s => preprocess(s.trim(), tables, true)).join(';\n\n').slice(0, -1);
     const currentViews = getViews(currentViewsText);
     const lastViews = getViews(lastViewsText);
@@ -172,7 +170,7 @@ const getViewMigrations = async (tables, currentViewsText, lastViewsPath, change
   }
   catch {
     create.push(currentViewsText);
-    await writeFile(lastViewsPath, currentViewsText, 'utf8');
+    await fileSystem.writeFile(lastViewsPath, currentViewsText, 'utf8');
   }
   return {
     drop,
@@ -235,32 +233,32 @@ const getViews = (sql) => {
   });
 }
 
-const migrate = async (db, migrationName) => {
-  const outputPath = join(db.migrationsPath, `${migrationName}.sql`);
-  const lastTablesPath = join(db.migrationsPath, 'lastTables.sql');
-  const lastViewsPath = join(db.migrationsPath, 'lastViews.sql');
-  const currentSql = await readSql(db.tablesPath);
+const migrate = async (fileSystem, db, migrationName) => {
+  const outputPath = fileSystem.join(db.migrationsPath, `${migrationName}.sql`);
+  const lastTablesPath = fileSystem.join(db.migrationsPath, 'lastTables.sql');
+  const lastViewsPath = fileSystem.join(db.migrationsPath, 'lastViews.sql');
+  const currentSql = await fileSystem.readSql(db.tablesPath);
   const current = db.convertTables(currentSql);
   const blankedCurrent = blank(current);
   const changedTables = new Set();
   let last;
   let blankedLast;
-  const currentViewsText = await readSql(db.viewsPath);
+  const currentViewsText = await fileSystem.readSql(db.viewsPath);
   try {
-    const lastSql = await readSql(lastTablesPath);
+    const lastSql = await fileSystem.readSql(lastTablesPath);
     last = db.convertTables(lastSql);
     blankedLast = blank(last);
   }
   catch {
     let sql = current;
-    const viewMigrations = await getViewMigrations(db.tables, currentViewsText, lastViewsPath, changedTables);
+    const viewMigrations = await getViewMigrations(fileSystem, db.tables, currentViewsText, lastViewsPath, changedTables);
     if (viewMigrations.create.length > 0) {
       sql += '\n';
       sql += viewMigrations.create.join('\n');
       sql += '\n';
     }
-    await writeFile(outputPath, sql, 'utf8');
-    await writeFile(lastTablesPath, currentSql, 'utf8');
+    await fileSystem.writeFile(outputPath, sql, 'utf8');
+    await fileSystem.writeFile(lastTablesPath, currentSql, 'utf8');
     return sql;
   }
   const currentTriggers = getTriggers(current, blankedCurrent);
@@ -400,7 +398,7 @@ const migrate = async (db, migrationName) => {
       tableMigrations.push(`drop table ${table.name};`);
     }
   }
-  const viewMigrations = await getViewMigrations(db.tables, currentViewsText, lastViewsPath, changedTables);
+  const viewMigrations = await getViewMigrations(fileSystem, db.tables, currentViewsText, lastViewsPath, changedTables);
   const migrationGroups = [
     viewMigrations.drop,
     tableMigrations, 
@@ -424,13 +422,13 @@ const migrate = async (db, migrationName) => {
   sql = sql.trim();
   sql += '\n';
   try {
-    await readFile(outputPath, 'utf8');
+    await fileSystem.readFile(outputPath, 'utf8');
     throw Error(`${outputPath} already exists.`);
   }
   catch {
-    await writeFile(outputPath, sql, 'utf8');
-    await writeFile(lastTablesPath, currentSql, 'utf8');
-    await writeFile(lastViewsPath, currentViewsText, 'utf8');
+    await fileSystem.writeFile(outputPath, sql, 'utf8');
+    await fileSystem.writeFile(lastTablesPath, currentSql, 'utf8');
+    await fileSystem.writeFile(lastViewsPath, currentViewsText, 'utf8');
     return sql;
   }
 }
