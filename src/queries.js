@@ -207,30 +207,18 @@ const toClause = (query, verify) => {
   }).join(' and ');
 }
 
-const convertModifiers = (query) => {
+const adjustWhere = (query) => {
   if (!query) {
     return query;
   }
   const result = {};
   for (const [key, param] of Object.entries(query)) {
+    const adjusted = `where_${key}`;
     if (param instanceof Modifier) {
-      result[key] = param.value;
+      result[adjusted] = param.value;
     }
-    else {
-      result[key] = param;
-    }
-  }
-  return result;
-}
-
-const removeNulls = (query) => {
-  if (!query) {
-    return query;
-  }
-  const result = {};
-  for (const [key, value] of Object.entries(query)) {
-    if (value !== null) {
-      result[key] = value;
+    else if (param !== null) {
+      result[adjusted] = param;
     }
   }
   return result;
@@ -249,17 +237,6 @@ const removeUndefined = (query) => {
   return result;
 }
 
-const addWhere = (query) => {
-  if (!query) {
-    return query;
-  }
-  const adjusted = {};
-  for (const [key, value] of Object.entries(query)) {
-    adjusted[`where_${key}`] = value;
-  }
-  return adjusted;
-}
-
 const update = async (db, table, query, params, tx) => {
   if (!db.initialized) {
     await db.initialize();
@@ -273,9 +250,7 @@ const update = async (db, table, query, params, tx) => {
   if (query) {
     query = removeUndefined(query);
     const where = toClause(query, verify);
-    query = convertModifiers(query);
-    query = removeNulls(query);
-    query = addWhere(query);
+    query = adjustWhere(query);
     sql = `update ${table} set ${set} where ${where}`;
   }
   else {
@@ -473,9 +448,7 @@ const exists = async (db, table, query, tx) => {
   let sql = `select exists(select 1 from ${table}`;
   query = removeUndefined(query);
   const where = toClause(query, verify);
-  query = convertModifiers(query);
-  query = removeNulls(query);
-  query = addWhere(query);
+  query = adjustWhere(query);
   if (where) {
     sql += ` where ${where}`;
   }
@@ -511,9 +484,7 @@ const count = async (db, table, query, keywords, tx) => {
   sql += `count(*) as count from ${table}`;
   query = removeUndefined(query);
   const where = toClause(query, verify);
-  query = convertModifiers(query);
-  query = removeNulls(query);
-  query = addWhere(query);
+  query = adjustWhere(query);
   if (where) {
     sql += ` where ${where}`;
   }
@@ -554,9 +525,7 @@ const get = async (db, table, query, columns, tx) => {
   sql += `${select} from ${table}`;
   query = removeUndefined(query);
   const where = toClause(query, verify);
-  query = convertModifiers(query);
-  query = removeNulls(query);
-  query = addWhere(query);
+  query = adjustWhere(query);
   if (where) {
     sql += ` where ${where}`;
   }
@@ -607,9 +576,7 @@ const all = async (db, table, query, columns, tx) => {
   sql += `${select} from ${table}`;
   query = removeUndefined(query);
   const where = toClause(query, verify);
-  query = convertModifiers(query);
-  query = removeNulls(query);
-  query = addWhere(query);
+  query = adjustWhere(query);
   if (where) {
     sql += ` where ${where}`;
   }
@@ -665,9 +632,7 @@ const remove = async (db, table, query, tx) => {
   let sql = `delete from ${table}`;
   query = removeUndefined(query);
   const where = toClause(query, verify);
-  query = convertModifiers(query);
-  query = removeNulls(query);
-  query = addWhere(query);
+  query = adjustWhere(query);
   if (where) {
     sql += ` where ${where}`;
   }
