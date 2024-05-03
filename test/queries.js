@@ -39,6 +39,13 @@ const run = async () => {
     limit: 5
   });
   compare(profiles, 'fighterProfiles');
+  await db.coaches.remove();
+  await db.coach.insert({ name: 'Andrew', city: 'Brisbane' });
+  await db.coach.insert({ name: 'Andrew', city: 'Brisbane' });
+  await db.coaches.update({ name: 'Andrew' }, { name: 'Eugene' });
+  const count = await db.coaches.count({ name: 'Eugene' });
+  assert.equal(count, 2);
+  await db.coaches.remove();
 }
 
 const cleanUp = async () => {

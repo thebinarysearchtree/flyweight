@@ -184,26 +184,26 @@ const toClause = (query, verify) => {
     if (param instanceof Modifier) {
       const value = param.value;
       if (Array.isArray(value)) {
-        return `${column} not in (select json_each.value from json_each($${column}))`;
+        return `${column} not in (select json_each.value from json_each($where_${column}))`;
       }
       if (value instanceof RegExp) {
-        return `${column} not like $${column}`;
+        return `${column} not like $where_${column}`;
       }
       if (value === null) {
         return `${column} is not null`;
       }
-      return `${column} ${param.operator} $${column}`;
+      return `${column} ${param.operator} $where_${column}`;
     }
     if (Array.isArray(param)) {
-      return `${column} in (select json_each.value from json_each($${column}))`;
+      return `${column} in (select json_each.value from json_each($where_${column}))`;
     }
     if (param instanceof RegExp) {
-      return `${column} like $${column}`;
+      return `${column} like $where_${column}`;
     }
     if (param === null) {
       return `${column} is null`;
     }
-    return `${column} = $${column}`;
+    return `${column} = $where_${column}`;
   }).join(' and ');
 }
 
@@ -249,6 +249,17 @@ const removeUndefined = (query) => {
   return result;
 }
 
+const addWhere = (query) => {
+  if (!query) {
+    return query;
+  }
+  const adjusted = {};
+  for (const [key, value] of Object.entries(query)) {
+    adjusted[`where_${key}`] = value;
+  }
+  return adjusted;
+}
+
 const update = async (db, table, query, params, tx) => {
   if (!db.initialized) {
     await db.initialize();
@@ -264,6 +275,7 @@ const update = async (db, table, query, params, tx) => {
     const where = toClause(query, verify);
     query = convertModifiers(query);
     query = removeNulls(query);
+    query = addWhere(query);
     sql = `update ${table} set ${set} where ${where}`;
   }
   else {
@@ -463,6 +475,7 @@ const exists = async (db, table, query, tx) => {
   const where = toClause(query, verify);
   query = convertModifiers(query);
   query = removeNulls(query);
+  query = addWhere(query);
   if (where) {
     sql += ` where ${where}`;
   }
@@ -500,6 +513,7 @@ const count = async (db, table, query, keywords, tx) => {
   const where = toClause(query, verify);
   query = convertModifiers(query);
   query = removeNulls(query);
+  query = addWhere(query);
   if (where) {
     sql += ` where ${where}`;
   }
@@ -542,6 +556,7 @@ const get = async (db, table, query, columns, tx) => {
   const where = toClause(query, verify);
   query = convertModifiers(query);
   query = removeNulls(query);
+  query = addWhere(query);
   if (where) {
     sql += ` where ${where}`;
   }
@@ -594,6 +609,7 @@ const all = async (db, table, query, columns, tx) => {
   const where = toClause(query, verify);
   query = convertModifiers(query);
   query = removeNulls(query);
+  query = addWhere(query);
   if (where) {
     sql += ` where ${where}`;
   }
@@ -651,6 +667,7 @@ const remove = async (db, table, query, tx) => {
   const where = toClause(query, verify);
   query = convertModifiers(query);
   query = removeNulls(query);
+  query = addWhere(query);
   if (where) {
     sql += ` where ${where}`;
   }
