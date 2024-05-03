@@ -6,10 +6,10 @@ import { makeClient } from './proxy.js';
 const replacePlaceholders = (sql, placeholderMap) => {
   const fragments = [];
   const blanked = blank(sql, { stringsOnly: true });
-  const matches = blanked.matchAll(/(\s|,|\()\$(?<param>[a-z0-9_]+)(\s|,|\)|$)/gmi);
+  const matches = blanked.matchAll(/(\s|,|\()\$(?<param>[a-z0-9_]+)(\s|,|\)|$)/gmid);
   let lastEnd = 0;
   for (const match of matches) {
-    const [start, end] = match.indices.groups.placeholder;
+    const [start, end] = match.indices.groups.param;
     const index = placeholderMap.get(match.groups.param);
     if (lastEnd !== start) {
       fragments.push(sql.substring(lastEnd, start));
@@ -110,7 +110,7 @@ class D1Database extends Database {
     if (!cached) {
       const mapped = parseParams(query).map((p, i) => [p, i + 1]);
       placeholdersMap = new Map(mapped);
-      sql = replacePlaceholders(query);
+      sql = replacePlaceholders(query, placeholdersMap);
       const cached = {
         placeholdersMap,
         sql
@@ -124,8 +124,9 @@ class D1Database extends Database {
     const orderedParams = [];
     if (params) {
       for (const [key, value] of Object.entries(params)) {
-        const index = placeholdersMap.get(key);
-        orderedParams[index] = value;
+        const param = key.substring(1);
+        const index = placeholdersMap.get(param);
+        orderedParams[index - 1] = value;
       }
     }
     return {
@@ -165,7 +166,7 @@ class D1Database extends Database {
     let { query, params, options, adjusted, tx } = props;
     if (props.statement) {
       const meta = await statement.all();
-      return this.process(meta.result, options);
+      return this.process(meta.results, options);
     }
     if (params === null) {
       params = undefined;
@@ -178,11 +179,11 @@ class D1Database extends Database {
     if (tx && tx.isBatch) {
       return {
         statement,
-        post: (meta) => this.process(meta.result, options)
+        post: (meta) => this.process(meta.results, options)
       }
     }
     const meta = await statement.all();
-    return this.process(meta.result, options);
+    return this.process(meta.results, options);
   }
 
   async exec(sql) {
