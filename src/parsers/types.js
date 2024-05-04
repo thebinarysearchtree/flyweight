@@ -518,10 +518,14 @@ const createTypes = async (options) => {
   }
   types += '\n}\n\n';
   types = types.replaceAll(/^export /gm, '');
-  const dbName = db.d1 ? 'D1Database' : 'SQLiteDatabase';
-  types += `declare const database: ${dbName};\n`;
-  types += `declare const db: TypedDb;\n`;
-  types += 'export {\n  database,\n  db\n}\n';
+  if (!db.d1) {
+    types += `declare const database: SQLiteDatabase;\n`;
+    types += `declare const db: TypedDb;\n`;
+    types += 'export {\n  database,\n  db\n}\n';
+  }
+  else {
+    types += 'export default D1Database;\n';
+  }
   await fileSystem.writeFile(destinationPath, types, 'utf8');
 }
 

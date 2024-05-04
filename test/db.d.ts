@@ -41,7 +41,7 @@ interface Paths {
 declare class Database {
   constructor(options: DatabaseOptions);
   makeTypes(fileSystem: FileSystem, paths: Paths): Promise<void>;
-  getClient<T>(): T; 
+  getClient(): TypedDb; 
   getTables(): Promise<string>;
   createMigration(fileSystem: FileSystem, paths: Paths, name: string): Promise<string>;
   begin(): Promise<void>;
@@ -79,6 +79,10 @@ declare function lte(value: any): Modifier | undefined;
 declare function like(value: any): Modifier | undefined;
 declare function match(value: any): Modifier | undefined;
 declare function glob(value: any): Modifier | undefined;
+
+type Unwrap<T extends any[]> = {
+  [K in keyof T]: T[K] extends Promise<infer U> ? U : T[K];
+};
 
 
 
