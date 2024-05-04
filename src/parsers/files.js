@@ -40,6 +40,7 @@ interface Paths {
 
 declare class Database {
   constructor(options: DatabaseOptions);
+  runMigration(sql: string): Promise<void>;
   makeTypes(fileSystem: FileSystem, paths: Paths): Promise<void>;
   getClient<T>(): T; 
   getTables(): Promise<string>;
@@ -54,13 +55,11 @@ declare class Database {
 
 declare class SQLiteDatabase extends Database {
   constructor(options: SQLiteOptions);
-  runMigration(name: string): Promise<void>;
   close(): Promise<void>;
 }
 
 declare class D1Database extends Database {
   constructor(options: D1Config);
-  runMigration(sql: string): Promise<void>;
   batch(handler: (batcher: any) => any[]): Promise<any[]>;
 }
 

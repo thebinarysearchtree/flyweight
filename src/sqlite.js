@@ -46,9 +46,7 @@ class SQLiteDatabase extends Database {
     return await this.adaptor.readSql(this.viewsPath);
   }
 
-  async runMigration(name) {
-    const path = this.adaptor.join(this.migrationsPath, `${name}.sql`);
-    const sql = await this.adaptor.readFile(path, 'utf8');
+  async runMigration(sql) {
     try {
       await this.begin();
       await this.deferForeignKeys();
