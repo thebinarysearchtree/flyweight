@@ -378,6 +378,7 @@ const createTypes = async (options) => {
   } = options;
   let index = files.index;
   index = index.replace(/export \{[^\}]+\}/, '');
+  index = index.replace('getClient<T>(): T; ', 'getClient(): TypedDb; ');
   const definitions = files.interfaces;
   const typeSet = new Set();
   let i = 1;
@@ -513,7 +514,7 @@ const createTypes = async (options) => {
     types += `  release(transaction: TypedDb): void`;
   }
   else {
-    types += '  batch<T extends any[]>(batcher: (bx: TypgedDb) => any[]): Promise<T[]>'
+    types += '  batch:<T> (batcher: (bx: TypedDb) => T) => Promise<Unwrap<T>>'
   }
   types += '\n}\n\n';
   types = types.replaceAll(/^export /gm, '');

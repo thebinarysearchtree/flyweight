@@ -80,6 +80,10 @@ declare function like(value: any): Modifier | undefined;
 declare function match(value: any): Modifier | undefined;
 declare function glob(value: any): Modifier | undefined;
 
+type Unwrap<T extends any[]> = {
+  [K in keyof T]: T[K] extends Promise<infer U> ? U : T[K];
+};
+
 export {
   Database,
   SQLiteDatabase,
