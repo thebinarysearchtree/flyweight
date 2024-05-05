@@ -37,6 +37,7 @@ interface Paths {
   types: string;
   migrations: string;
   wrangler?: string;
+  files?: string;
 }
 
 declare class Database {
