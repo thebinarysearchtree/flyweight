@@ -514,7 +514,7 @@ const createTypes = async (options) => {
     types += `  release(transaction: TypedDb): void`;
   }
   else {
-    types += '  batch:<T> (batcher: (bx: TypedDb) => T) => Promise<Unwrap<T>>'
+    types += '  batch:<T extends any[]> (batcher: (bx: TypedDb) => T) => Promise<Unwrap<T>>'
   }
   types += '\n}\n\n';
   types = types.replaceAll(/^export /gm, '');
