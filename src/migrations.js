@@ -234,7 +234,7 @@ const getViews = (sql) => {
 }
 
 const migrate = async (fileSystem, paths, db, migrationName) => {
-  const outputPath = fileSystem.join(paths.migrations, `${migrationName}.sql`);
+  const outputPath = paths.wrangler || fileSystem.join(paths.migrations, `${migrationName}.sql`);
   const lastTablesPath = fileSystem.join(paths.migrations, 'lastTables.sql');
   const lastViewsPath = fileSystem.join(paths.migrations, 'lastViews.sql');
   const currentSql = await fileSystem.readSql(paths.tables);
