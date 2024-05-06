@@ -350,25 +350,25 @@ import Database from './database/db';
 import files from './database/files';
 
 export default {
-	async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-		const database = new Database({
-			db: env.DB,
-			files
-		});
-		const db = database.getClient();
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    const database = new Database({
+      db: env.DB,
+      files
+    });
+    const db = database.getClient();
 
     const projectId = 1;
-		const [project, tags, issues] = await db.batch((bx) => [
-			bx.projects.get({ id: projectId }),
-			bx.tags.get({ projectId }),
+    const [project, tags, issues] = await db.batch((bx) => [
+      bx.projects.get({ id: projectId }),
+      bx.tags.get({ projectId }),
       bx.issues.get({ projectId })
-		]);
+    ]);
 
     project.tags = tags;
     project.issues = issues;
 
-		return Response.json(project);
-	}
+    return Response.json(project);
+  }
 };
 ```
 
