@@ -378,11 +378,19 @@ To get started, run this command in the root of your Cloudflare Workers project.
 npx create-flyweight d1 src/database
 ```
 
-If your database already has tables created on it, go into ```src/database/sql/tables.sql``` and add all of the ```create``` statements and then run ```npm run reset``` to reset the migration system to the current state of the database. 
+If your database already has tables created on it, go into ```src/database/sql/tables.sql``` and add all of the ```create``` statements and then run:
 
-All migration commands work on the local version of the database and interface with the wrangler migration system so that you can run ```apply``` on the remote database yourself to add any migrations.
+```
+npm run reset
+```
 
-If you have more than one database and want to create a migration for a specific database, you can run ```npm run migrate dbName migrationName```.
+to reset the migration system to the current state of the database. All migration commands work on the local version of the database and interface with the wrangler migration system so that you can run ```apply``` on the remote database yourself to add any migrations.
+
+If you have more than one database and want to create a migration for a specific database, you can run:
+
+```
+npm run migrate dbName migrationName
+```
 
 You should run ```npm run watch``` to keep the ```src/database/files.js``` updated with any new sql files or table changes while you write the code.
 
