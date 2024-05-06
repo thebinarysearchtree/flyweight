@@ -359,7 +359,7 @@ export default {
 
     const projectId = 1;
     const [project, tags, issues] = await db.batch((bx) => [
-      bx.projects.get({ id: projectId }),
+      bx.project.get({ id: projectId }),
       bx.tags.get({ projectId }),
       bx.issues.get({ projectId })
     ]);

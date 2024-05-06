@@ -237,6 +237,15 @@ const removeUndefined = (query) => {
   return result;
 }
 
+const rename = (params, prefix) => {
+  const results = {};
+  for (const [key, value] of Object.entries(params)) {
+    const adjusted = `${prefix}_${key}`;
+    results[adjusted] = value;
+  }
+  return results;
+}
+
 const update = async (db, table, query, params, tx) => {
   if (!db.initialized) {
     await db.initialize();
@@ -245,7 +254,8 @@ const update = async (db, table, query, params, tx) => {
   const verify = makeVerify(table, columnSet);
   const keys = Object.keys(params);
   verify(keys);
-  const set = keys.map(param => `${param} = $${param}`).join(', ');
+  const set = keys.map(param => `${param} = $set_${param}`).join(', ');
+  params = rename(params, 'set');
   let sql;
   if (query) {
     query = removeUndefined(query);
