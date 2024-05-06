@@ -233,7 +233,7 @@ const getViews = (sql) => {
   });
 }
 
-const migrate = async (fileSystem, paths, db, migrationName) => {
+const migrate = async (fileSystem, paths, db, migrationName, reset) => {
   const outputPath = paths.wrangler || fileSystem.join(paths.migrations, `${migrationName}.sql`);
   const lastTablesPath = fileSystem.join(paths.migrations, 'lastTables.sql');
   const lastViewsPath = fileSystem.join(paths.migrations, 'lastViews.sql');
@@ -244,6 +244,11 @@ const migrate = async (fileSystem, paths, db, migrationName) => {
   let last;
   let blankedLast;
   const currentViewsText = await fileSystem.readSql(paths.views);
+  if (reset) {
+    await fileSystem.writeFile(lastTablesPath, currentSql, 'utf8');
+    await fileSystem.writeFile(lastViewsPath, currentViewsText, 'utf8');
+    return `${currentSql}\n\n${currentViewsText}`;
+  }
   try {
     const lastSql = await fileSystem.readSql(lastTablesPath);
     last = db.convertTables(lastSql);

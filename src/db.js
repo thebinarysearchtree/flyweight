@@ -118,11 +118,11 @@ class Database {
     return;
   }
 
-  async createMigration(fileSystem, paths, name) {
+  async createMigration(fileSystem, paths, name, reset) {
     if (!this.initialized) {
       await this.initialize();
     }
-    const sql = await migrate(fileSystem, paths, this, name);
+    const sql = await migrate(fileSystem, paths, this, name, reset);
     return sql.trim();
   }
 

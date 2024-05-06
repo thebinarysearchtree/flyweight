@@ -116,6 +116,8 @@ You can update types whenever you change the SQL by either calling ```npm run wa
 
 Tables are defined in ```./database/sql/tables.sql```. You can add or change tables from here and then run the migration command ```npm run migrate <migration-name>```.
 
+If you want to reset the migration system to a new database that already has tables created on it, edit the ```tables.sql``` file and then run ```npm run reset```.
+
 If you want to add a new column to a table without needing to drop the table, make sure you put the column at the end of the list of columns.
 
 ## Default values
@@ -338,6 +340,59 @@ import { db } from './database/db.js';
 const user = await db.activeUser.get({ id: 100 }, ['name', 'email']);
 console.log(user.email);
 ```
+
+## Cloudflare D1
+
+Flyweight provides first-class support for D1. The only difference between the D1 API and the SQLite API is that D1 doesn't support transactions. Instead, there is a ```batch``` method available that can be used like this:
+
+```ts
+import Database from './database/db';
+import files from './database/files';
+
+export default {
+	async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+		const database = new Database({
+			db: env.DB,
+			files
+		});
+		const db = database.getClient();
+
+    const projectId = 1;
+		const [project, tags, issues] = await db.batch((bx) => [
+			bx.projects.get({ id: projectId }),
+			bx.tags.get({ projectId }),
+      bx.issues.get({ projectId })
+		]);
+
+    project.tags = tags;
+    project.issues = issues;
+
+		return Response.json(project);
+	}
+};
+```
+
+To get started, run this command in the root of your Cloudflare Workers project.
+
+```
+npx create-flyweight d1 src/database
+```
+
+If your database already has tables created on it, go into ```src/database/sql/tables.sql``` and add all of the ```create``` statements and then run
+
+```
+npm run reset
+```
+
+To reset the migration system to the current state of the database. All migration commands work on the local version of the database and interface with the wrangler migration system so that you can run ```apply``` on the remote database yourself to add any migrations.
+
+If you have more than one database and want to create a migration for a specific database, you can run
+
+```
+npm run migrate dbName migrationName
+```
+
+You should run ```npm run watch``` to keep the ```src/database/files.js``` updated with any new sql files or table changes while you write the code.
 
 ## Running tests
 
