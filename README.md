@@ -364,10 +364,11 @@ export default {
       bx.issues.get({ projectId })
     ]);
 
-    project.tags = tags;
-    project.issues = issues;
-
-    return Response.json(project);
+    return Response.json({
+      ...project
+      tags,
+      issues
+    });
   }
 };
 ```
