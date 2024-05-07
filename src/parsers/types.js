@@ -524,7 +524,8 @@ const createTypes = async (options) => {
     types += 'export {\n  database,\n  db\n}\n';
   }
   else {
-    types += 'export default D1Database;\n';
+    types += 'declare function makeClient(options: D1Config): TypedDb;\n\n'
+    types += 'export default makeClient;\n';
   }
   await fileSystem.writeFile(destinationPath, types, 'utf8');
 }

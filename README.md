@@ -351,11 +351,10 @@ import files from './database/files';
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    const database = new Database({
+    const db = Database({
       db: env.DB,
       files
     });
-    const db = database.getClient();
 
     const projectId = 1;
     const [project, tags, issues] = await db.batch((bx) => [
