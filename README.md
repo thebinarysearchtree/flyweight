@@ -242,7 +242,7 @@ const changes = await db.fighters.remove({ id: 100 });
 
 ## Creating SQL queries
 
-When the basic API doesn't do what you need it to do, you can create SQL queries. You can do this by creating a folder that is the plural version of the table name, such as ```./database/sql/users```. You can then put SQL files in this folder that will be available in the API in both singular and plural form, depending on whether you want a single item returned, or an array of items.
+When the basic API doesn't do what you need it to do, you can create SQL queries. You can do this by creating a folder that is the plural version of the table name, such as ```./database/sql/users```. You can then put SQL files in this folder that will be available in the API in both singular and plural form, depending on whether you want a single item returned, or an array of items returned.
 
 When creating SQL queries, make sure you give an alias to any columns in the select statement that don't have a name. For example, do not do:
 
