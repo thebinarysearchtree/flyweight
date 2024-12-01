@@ -13,7 +13,6 @@ yarn-error.log*
 *.njsproj
 *.sln
 
-*.db
 *.db-shm
 *.db-wal
 *.dylib
