@@ -25,7 +25,7 @@ class D1Database extends Database {
   constructor(props) {
     super(props);
     this.files = props.files;
-    this.d1 = props.db;
+    this.raw = props.db;
   }
 
   async initialize() {
@@ -39,7 +39,7 @@ class D1Database extends Database {
   }
 
   async readFile(sql, params) {
-    const statement = this.d1.prepare(sql);
+    const statement = this.raw.prepare(sql);
     if (params) {
       statement.bind(...params);
     }
@@ -63,37 +63,39 @@ class D1Database extends Database {
   }
 
   async runMigration(sql) {
-    const defer = this.d1.prepare('pragma defer_foreign_keys = true');
-    const statements = sql.split(';').map(s => d1.prepare(s));
+    const defer = this.raw.prepare('pragma defer_foreign_keys = true');
+    const statements = sql
+      .split(';')
+      .filter(s => s.length > 2)
+      .map(s => raw.prepare(s));
     try {
-      await this.d1.batch([defer, ...statements]);
+      await this.raw.batch([defer, ...statements]);
     }
     catch (e) {
-      await this.rollback();
       throw e;
     }
   }
 
   async basicRun(sql) {
-    const statement = this.d1.prepare(sql);
+    const statement = this.raw.prepare(sql);
     return await statement.run();
   }
 
   async basicAll(sql) {
-    const statement = this.d1.prepare(sql);
+    const statement = this.raw.prepare(sql);
     const meta = await statement.all();
     return meta.result;
   }
 
   async prepare(sql) {
-    return this.d1.prepare(sql);
+    return this.raw.prepare(sql);
   }
 
   async batch(handler) {
     const client = makeClient(this, { isBatch: true });
     const handlers = handler(client).flat();
     const results = await Promise.all(handlers);
-    const responses = await this.d1.batch(results.map(r => r.statement));
+    const responses = await this.raw.batch(results.map(r => r.statement));
     return responses.map((response, i) => {
       const handler = results[i];
       if (handler.post) {
@@ -150,7 +152,7 @@ class D1Database extends Database {
       params = this.adjust(params);
     }
     const { sql, orderedParams } = this.cache(query, params);
-    const statement = this.d1.prepare(sql).bind(...orderedParams);
+    const statement = this.raw.prepare(sql).bind(...orderedParams);
     if (tx && tx.isBatch) {
       return {
         statement
@@ -175,7 +177,7 @@ class D1Database extends Database {
       params = this.adjust(params);
     }
     const { sql, orderedParams } = this.cache(query, params);
-    const statement = this.d1.prepare(sql).bind(...orderedParams);
+    const statement = this.raw.prepare(sql).bind(...orderedParams);
     if (tx && tx.isBatch) {
       return {
         statement,
@@ -187,7 +189,7 @@ class D1Database extends Database {
   }
 
   async exec(sql) {
-    await this.d1.exec(sql);
+    await this.raw.exec(sql);
   }
 }
 

@@ -2,11 +2,11 @@ interface QueryOptions {
   parse: boolean;
 }
 
-interface DatabaseOptions {
+interface DatabaseConfig {
   debug?: boolean;
 }
 
-interface SQLiteOptions extends DatabaseOptions {
+interface SQLiteConfig extends DatabaseConfig {
   db: string | URL;
   sql: string | URL;
   tables: string | URL;
@@ -17,7 +17,17 @@ interface SQLiteOptions extends DatabaseOptions {
   adaptor: any;
 }
 
-interface D1Config extends DatabaseOptions {
+interface TursoConfig extends DatabaseConfig {
+  db: any;
+  sql: string | URL;
+  tables: string | URL;
+  views: string | URL;
+  types: string | URL;
+  migrations: string | URL;
+  adaptor: any;
+}
+
+interface D1Config extends DatabaseConfig {
   db: any;
   files: any;
 }
@@ -56,8 +66,13 @@ declare class Database {
 }
 
 declare class SQLiteDatabase extends Database {
-  constructor(options: SQLiteOptions);
+  constructor(options: SQLiteConfig);
   close(): Promise<void>;
+}
+
+declare class TursoDatabase extends Database {
+  constructor(options: TursoConfig);
+  batch(handler: (batcher: any) => any[]): Promise<any[]>;
 }
 
 declare class D1Database extends Database {
@@ -88,6 +103,7 @@ type Unwrap<T extends any[]> = {
 export {
   Database,
   SQLiteDatabase,
+  TursoDatabase,
   D1Database,
   not,
   gt,

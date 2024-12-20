@@ -65,7 +65,7 @@ const insert = async (db, table, params, tx) => {
   return post(result);
 }
 
-const batch = async (tx, db, columns, columnTypes, items) => {
+const batchInserts = async (tx, db, columns, columnTypes, items) => {
   const sql = makeInsertSql(columns, columnTypes, table);
   const promises = [];
   for (const item of items) {
@@ -82,7 +82,7 @@ const batch = async (tx, db, columns, columnTypes, items) => {
   if (tx && tx.isBatch) {
     return statements;
   }
-  await db.d1.batch(statements);
+  await db.raw.batch(statements);
 }
 
 const many = async (tx, db, columns, columnTypes, items) => {
@@ -148,7 +148,7 @@ const insertMany = async (db, table, items, tx) => {
       return await many(tx, db, columns, columnTypes, items);
     }
     else {
-      return await batch(tx, db, columns, columnTypes, items);
+      return await batchInserts(tx, db, columns, columnTypes, items);
     }
   }
   let sql = `insert into ${table}(${columns.join(', ')}) select `;

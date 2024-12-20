@@ -232,15 +232,12 @@ const getResultType = (columns, isSingular) => {
 
 const makeQueryHandler = (table, db, tx) => {
   let isSingular;
-  let queries;
   if (pluralize.isSingular(table)) {
     isSingular = true;
     table = pluralize.plural(table);
-    queries = singularQueries;
   }
   else {
     isSingular = false;
-    queries = multipleQueries;
   }
   let write;
   return {
@@ -345,7 +342,7 @@ const makeQueryHandler = (table, db, tx) => {
 const makeClient = (db, tx) => {
   const tableHandler = {
     get: function(target, table) {
-      if (!db.d1 && ['begin', 'commit', 'rollback'].includes(table)) {
+      if (db.type === 'sqlite' && ['begin', 'commit', 'rollback'].includes(table)) {
         db[table] = db[table].bind(db);
         return () => db[table](tx);
       }
@@ -353,7 +350,7 @@ const makeClient = (db, tx) => {
         db[table] = db[table].bind(db);
         return db[table];
       }
-      if (db.d1 && table === 'batch') {
+      if (db.type !== 'sqlite' && table === 'batch') {
         db[table] = db[table].bind(db);
         return db[table];
       }

@@ -9,7 +9,6 @@ class SQLiteDatabase extends Database {
     this.adaptor = props.adaptor;
     this.pool = [];
     this.poolSize = 100;
-    this.dbPath = props.db;
     this.sqlPath = props.sql;
     this.typesPath = props.types;
     this.viewsPath = props.views;
@@ -173,7 +172,7 @@ class SQLiteDatabase extends Database {
     if (!this.initialized) {
       await this.initialize();
     }
-    let { query, params, options, tx, adjusted } = props;
+    let { query, params, tx, adjusted } = props;
     if (params === null) {
       params = undefined;
     }
