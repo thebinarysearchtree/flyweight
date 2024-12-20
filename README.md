@@ -396,6 +396,29 @@ npm run migrate dbName migrationName
 
 You should run ```npm run watch``` to keep the ```src/database/files.js``` updated with any new sql files or table changes while you write the code.
 
+## Turso
+
+When run in a non-edge environment, Turso uses the same features as the standard SQLite database, but includes the ```batch``` function instead of transactions. Edge environments are not yet supported.
+
+You should have a ```.env``` file in the root directory of the project and it should use the following variable names when needed:
+
+```
+TURSO_DATABASE_URL
+TURSO_AUTH_TOKEN
+TURSO_ENCRYPTION_KEY
+TURSO_SYNC_URL
+TURSO_SYNC_INTERVAL
+TURSO_TLS
+TURSO_INT_MODE
+TURSO_CONCURRENCY
+```
+
+In the root directory of the project, you can install flyweight with
+
+```
+npx create-flyweight turso database
+```
+
 ## Running tests
 
 To run the tests, first go into the ```test``` folder and run ```node setup.js``` to move the test database to the right location. You can then run the tests with ```node test.js``` or ```npm test```.
