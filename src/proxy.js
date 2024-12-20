@@ -342,19 +342,19 @@ const makeQueryHandler = (table, db, tx) => {
 const makeClient = (db, tx) => {
   const tableHandler = {
     get: function(target, table) {
-      if (db.type === 'sqlite' && ['begin', 'commit', 'rollback'].includes(table)) {
+      if (['begin', 'commit', 'rollback'].includes(table)) {
         db[table] = db[table].bind(db);
         return () => db[table](tx);
       }
-      if (!db.d1 && table === 'getTransaction') {
+      if (table === 'getTransaction') {
         db[table] = db[table].bind(db);
         return db[table];
       }
-      if (db.type !== 'sqlite' && table === 'batch') {
+      if (table === 'batch') {
         db[table] = db[table].bind(db);
         return db[table];
       }
-      if (!db.d1 && table === 'release') {
+      if (table === 'release') {
         return (tx) => db.pool.push(tx);
       }
       if (!target[table]) {
