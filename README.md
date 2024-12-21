@@ -1,5 +1,13 @@
 # Flyweight
-An ORM for SQLite and NodeJS. Flyweight combines a very simple API for performing basic operations, with the ability to create SQL queries that are parsed by the ORM.
+Flyweight is a NodeJS and edge ORM for databases that are compatible with SQLite.
+
+Other ORMS try to create an abstraction that covers as many of the features of SQL as possible, while leaving you with no support when you drop down into SQL itself. Flyweight takes a different approach by providing a very simple API for basic functions, such as the following:
+
+```js
+const fights = await db.fights.get({ cardId: [1, 2, 3] });
+```
+
+while providing types, autocomplete, and other features for the results of SQL queries by being able to understand the queries themselves.
 
 For example, if you create a query in ```./database/sql/users/roles.sql``` that looks like this:
 
