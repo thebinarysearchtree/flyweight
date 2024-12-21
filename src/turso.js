@@ -13,7 +13,6 @@ class TursoDatabase extends Database {
     this.tablesPath = props.tables;
     this.migrationsPath = props.migrations;
     this.extensionsPath = props.extensions;
-    this.databases = [];
   }
 
   async initialize() {
@@ -49,6 +48,26 @@ class TursoDatabase extends Database {
     catch (e) {
       throw e;
     }
+  }
+
+  async getTransaction(type) {
+    if (!this.initialized) {
+      await this.initialize();
+    }
+    const db = await this.raw.transaction(type);
+    return makeClient(this, { db });
+  }
+
+  async begin(tx) {
+    await tx.db.begin();
+  }
+
+  async commit(tx) {
+    await tx.db.commit();
+  }
+
+  async rollback(tx) {
+    await tx.db.rollback();
   }
 
   async basicRun(sql) {

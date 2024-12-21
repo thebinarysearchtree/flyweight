@@ -406,7 +406,7 @@ You should run ```npm run watch``` to keep the ```src/database/files.js``` updat
 
 ## Turso
 
-When run in a non-edge environment, Turso uses the same features as the standard SQLite database, but includes the ```batch``` function instead of transactions. Edge environments are not yet supported.
+When run in a non-edge environment, Turso uses the same features as the standard SQLite database, with the only difference being that ```getTransaction``` needs a type of either ```read``` or ```write``` and ```release``` does not need to be called. It also supports the ```batch``` function using the same syntax as D1. Edge environments are not yet supported.
 
 You should have a ```.env``` file in the root directory of the project and it should use the following variable names when needed:
 
