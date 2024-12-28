@@ -6,13 +6,7 @@ class TursoDatabase extends Database {
   constructor(props) {
     super(props);
     this.raw = props.db;
-    this.adaptor = props.adaptor;
-    this.sqlPath = props.sql;
-    this.typesPath = props.types;
-    this.viewsPath = props.views;
-    this.tablesPath = props.tables;
-    this.migrationsPath = props.migrations;
-    this.extensionsPath = props.extensions;
+    this.files = props.files;
   }
 
   async initialize() {
@@ -26,16 +20,15 @@ class TursoDatabase extends Database {
   }
 
   async readQuery(table, queryName) {
-    const path = this.adaptor.join(this.sqlPath, table, `${queryName}.sql`);
-    return await this.adaptor.readFile(path, 'utf8');
+    return this.files.queries[table][queryName];
   }
 
   async readTables() {
-    return await this.adaptor.readSql(this.tablesPath);
+    return this.files.tables;
   }
 
   async readViews() {
-    return await this.adaptor.readSql(this.viewsPath);
+    return this.files.views;
   }
 
   async runMigration(sql) {

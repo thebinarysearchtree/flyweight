@@ -356,14 +356,12 @@ console.log(user.email);
 Flyweight provides first-class support for D1. The only difference between the D1 API and the SQLite API is that D1 doesn't support transactions. Instead, there is a ```batch``` method available that can be used like this:
 
 ```ts
-import Database from './database/db';
-import files from './database/files';
+import createClient from './database/db';
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    const db = Database({
-      db: env.DB,
-      files
+    const db = createClient({
+      db: env.DB
     });
 
     const projectId = 1;
@@ -406,26 +404,32 @@ You should run ```npm run watch``` to keep the ```src/database/files.js``` updat
 
 ## Turso
 
-When run in a non-edge environment, Turso uses the same features as the standard SQLite database, with the only difference being that ```getTransaction``` needs a type of either ```read``` or ```write``` and ```release``` does not need to be called. It also supports the ```batch``` function using the same syntax as D1. Edge environments are not yet supported.
-
-You should have a ```.env``` file in the root directory of the project and it should use the following variable names when needed:
-
-```
-TURSO_DATABASE_URL
-TURSO_AUTH_TOKEN
-TURSO_ENCRYPTION_KEY
-TURSO_SYNC_URL
-TURSO_SYNC_INTERVAL
-TURSO_TLS
-TURSO_INT_MODE
-TURSO_CONCURRENCY
-```
+Turso uses the same npm commands as D1. Turso also supports the same transaction API that the standard SQLite database uses. The only difference is that the ```getTransaction``` function for Turso needs a type of either ```read``` or ```write``` and ```release``` does not need to be called. It also supports the ```batch``` that D1 uses.
 
 In the root directory of the project, you can install flyweight with
 
 ```
 npx create-flyweight turso database
 ```
+
+You will then need to edit the file in ```database/db.js``` to change the ```url``` and any other arguments you need. You will also want to change the import statement for turso to use the web version of the client if you are running in a edge-based environment.
+
+You can then use it like this:
+
+```ts
+import createClient from './database/db';
+
+export default {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    const db = createClient();
+    const users = await db.users.get();
+
+    return Response.json(users);
+  }
+};
+```
+
+
 
 ## Running tests
 

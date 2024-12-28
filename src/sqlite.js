@@ -10,10 +10,8 @@ class SQLiteDatabase extends Database {
     this.pool = [];
     this.poolSize = 100;
     this.sqlPath = props.sql;
-    this.typesPath = props.types;
     this.viewsPath = props.views;
     this.tablesPath = props.tables;
-    this.migrationsPath = props.migrations;
     this.extensionsPath = props.extensions;
     this.transactionCount = 0;
     this.databases = [];

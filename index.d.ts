@@ -11,20 +11,13 @@ interface SQLiteConfig extends DatabaseConfig {
   sql: string | URL;
   tables: string | URL;
   views: string | URL;
-  types: string | URL;
-  migrations: string | URL;
   extensions?: string | URL | Array<string | URL>;
   adaptor: any;
 }
 
 interface TursoConfig extends DatabaseConfig {
   db: any;
-  sql: string | URL;
-  tables: string | URL;
-  views: string | URL;
-  types: string | URL;
-  migrations: string | URL;
-  adaptor: any;
+  files: any;
 }
 
 interface D1Config extends DatabaseConfig {
