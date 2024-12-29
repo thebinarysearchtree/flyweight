@@ -1,6 +1,6 @@
 {
   "name": "flyweightjs",
-  "version": "2.0.51",
+  "version": "2.0.52",
   "description": "An ORM for SQLite",
   "types": "index.d.ts",
   "type": "module",
@@ -19,6 +19,6 @@
   },
   "devDependencies": {
     "esbuild": "0.20.2",
-    "flyweight-sqlite": "^1.0.0"
+    "sqlite3": "^5.1.7"
   }
 }
