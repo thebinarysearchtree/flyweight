@@ -3,7 +3,8 @@ import { strict as assert } from 'assert';
 import { compare } from './utils.js';
 
 const run = async () => {
-  const lastFights = await db.fighter.lastFights({ id: 17 });
+  const result = await db.fighters.lastFights({ id: 17 });
+  const lastFights = result.at(0);
   for (const date of lastFights.dates) {
     assert.equal(date instanceof Date, true);
   }

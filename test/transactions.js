@@ -6,7 +6,7 @@ const run = async () => {
   const tx = await db.getTransaction();
   try {
     await tx.begin();
-    javierId = await tx.coach.insert({
+    javierId = await tx.coaches.insert({
       name: 'Javier Mendez',
       city: 'San Jose'
     });
@@ -15,12 +15,12 @@ const run = async () => {
   catch {
     await tx.rollback();
   }
-  let javier = await tx.coach.get({ id: javierId });
+  let javier = await tx.coaches.get({ id: javierId });
   assert.equal(javier, undefined);
 
   try {
     await tx.begin();
-    javierId = await tx.coach.insert({
+    javierId = await tx.coaches.insert({
       name: 'Javier Mendez',
       city: 'San Jose'
     });
@@ -29,11 +29,11 @@ const run = async () => {
   catch {
     await tx.rollback();
   }
-  javier = await tx.coach.get({ id: javierId });
+  javier = await tx.coaches.get({ id: javierId });
   assert.notEqual(javier, undefined);
-  await tx.coach.remove({ id: javierId });
+  await tx.coaches.remove({ id: javierId });
 
-  await tx.coaches.insert([
+  await tx.coaches.insertMany([
     {
       name: 'Eugene Bareman',
       city: 'Auckland'
@@ -43,10 +43,10 @@ const run = async () => {
       city: 'Denver'
     },
   ]);
-  let coaches = await tx.coaches.get();
+  let coaches = await tx.coaches.many();
   assert.equal(coaches.length, 2);
-  await tx.coach.remove({ name: 'Eugene Bareman' });
-  coaches = await tx.coaches.get();
+  await tx.coaches.remove({ name: 'Eugene Bareman' });
+  coaches = await tx.coaches.many();
   assert.equal(coaches.length, 1);
   await tx.coaches.remove();
   db.release(tx);
@@ -63,7 +63,7 @@ const run = async () => {
   const t1 = async () => {
     const tx = await db.getTransaction();
     await tx.begin();
-    await tx.coach.insert({
+    await tx.coaches.insert({
       name: 'Test User',
       city: 'Whatever'
     });
@@ -74,7 +74,7 @@ const run = async () => {
   const t2 = async () => {
     const tx = await db.getTransaction();
     await tx.begin();
-    await tx.coach.insert({
+    await tx.coaches.insert({
       name: 'Test User 2',
       city: 'Whatever 2'
     });

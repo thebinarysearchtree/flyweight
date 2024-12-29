@@ -2,22 +2,25 @@ const index = `interface QueryOptions {
   parse: boolean;
 }
 
-interface DatabaseOptions {
+interface DatabaseConfig {
   debug?: boolean;
 }
 
-interface SQLiteOptions extends DatabaseOptions {
+interface SQLiteConfig extends DatabaseConfig {
   db: string | URL;
   sql: string | URL;
   tables: string | URL;
   views: string | URL;
-  types: string | URL;
-  migrations: string | URL;
   extensions?: string | URL | Array<string | URL>;
   adaptor: any;
 }
 
-interface D1Config extends DatabaseOptions {
+interface TursoConfig extends DatabaseConfig {
+  db: any;
+  files: any;
+}
+
+interface D1Config extends DatabaseConfig {
   db: any;
   files: any;
 }
@@ -56,8 +59,13 @@ declare class Database {
 }
 
 declare class SQLiteDatabase extends Database {
-  constructor(options: SQLiteOptions);
+  constructor(options: SQLiteConfig);
   close(): Promise<void>;
+}
+
+declare class TursoDatabase extends Database {
+  constructor(options: TursoConfig);
+  batch(handler: (batcher: any) => any[]): Promise<any[]>;
 }
 
 declare class D1Database extends Database {
@@ -88,6 +96,7 @@ type Unwrap<T extends any[]> = {
 export {
   Database,
   SQLiteDatabase,
+  TursoDatabase,
   D1Database,
   not,
   gt,
@@ -150,28 +159,25 @@ export interface VirtualKeywordsSnippet<T> {
   offset?: number;
 }
 
-export interface SingularVirtualQueries<T, W> {
+export interface VirtualQueries<T, W> {
   [key: string]: any;
   get(params?: W | null): Promise<T | undefined>;
   get<K extends keyof T>(params: W | null, column: K): Promise<T[K] | undefined>;
   get<K extends keyof T>(params: W | null, keywords: VirtualKeywordsSelect<T, K[]>): Promise<Pick<T, K> | undefined>;
   get(params: W | null, keywords: VirtualKeywordsHighlight<T>): Promise<{ id: number, highlight: string } | undefined>;
   get(params: W | null, keywords: VirtualKeywordsSnippet<T>): Promise<{ id: number, snippet: string } | undefined>;
+  many(params?: W): Promise<Array<T>>;
+  many<K extends keyof T>(params: W | null, columns: K[]): Promise<Array<Pick<T, K>>>;
+  many<K extends keyof T>(params: W | null, column: K): Promise<Array<T[K]>>;
+  many<K extends keyof T>(params: W | null, keywords: VirtualKeywordsSelect<T, K[]>): Promise<Array<Pick<T, K>>>;
+  many(params: W | null, keywords: VirtualKeywordsHighlight<T>): Promise<Array<{ id: number, highlight: string }>>;
+  many(params: W | null, keywords: VirtualKeywordsSnippet<T>): Promise<Array<{ id: number, snippet: string }>>;
 }
 
-export interface MultipleVirtualQueries<T, W> {
-  [key: string]: any;
-  get(params?: W): Promise<Array<T>>;
-  get<K extends keyof T>(params: W | null, columns: K[]): Promise<Array<Pick<T, K>>>;
-  get<K extends keyof T>(params: W | null, column: K): Promise<Array<T[K]>>;
-  get<K extends keyof T>(params: W | null, keywords: VirtualKeywordsSelect<T, K[]>): Promise<Array<Pick<T, K>>>;
-  get(params: W | null, keywords: VirtualKeywordsHighlight<T>): Promise<Array<{ id: number, highlight: string }>>;
-  get(params: W | null, keywords: VirtualKeywordsSnippet<T>): Promise<Array<{ id: number, snippet: string }>>;
-}
-
-export interface SingularQueries<T, I, W, R> {
+export interface Queries<T, I, W, R> {
   [key: string]: any;
   insert(params: I): Promise<R>;
+  insertMany(params: Array<I>): Promise<void>;
   update(query: W | null, params: Partial<T>): Promise<number>;
   get(params?: W | null): Promise<T | undefined>;
   get<K extends keyof T>(params: W | null, columns: K[]): Promise<Pick<T, K> | undefined>;
@@ -180,22 +186,15 @@ export interface SingularQueries<T, I, W, R> {
   get<K extends keyof T>(params: W | null, keywords: Keywords<K>): Promise<T[K] | undefined>;
   get<K extends keyof T>(params: W | null, keywords: Keywords<K[]>): Promise<Pick<T, K> | undefined>;
   get<K extends keyof T>(params: W | null, keywords: KeywordsWithExclude<K[]>): Promise<Omit<T, K> | undefined>;
-  exists(params: W | null): Promise<boolean>;
-  remove(params?: W): Promise<number>;
-}
-
-export interface MultipleQueries<T, I, W> {
-  [key: string]: any;
-  insert(params: Array<I>): Promise<void>;
-  update(query: W | null, params: Partial<T>): Promise<number>;
-  get(params?: W): Promise<Array<T>>;
-  get<K extends keyof T>(params: W | null, columns: K[]): Promise<Array<Pick<T, K>>>;
-  get<K extends keyof T>(params: W | null, column: K): Promise<Array<T[K]>>;
-  get(params: W | null, keywords: KeywordsWithoutSelect): Promise<Array<T>>;
-  get<K extends keyof T>(params: W | null, keywords: Keywords<K>): Promise<Array<T[K]>>;
-  get<K extends keyof T>(params: W | null, keywords: Keywords<K[]>): Promise<Array<Pick<T, K>>>;
-  get<K extends keyof T>(params: W | null, keywords: KeywordsWithExclude<K[]>): Promise<Array<Omit<T, K>>>;
+  many(params?: W): Promise<Array<T>>;
+  many<K extends keyof T>(params: W | null, columns: K[]): Promise<Array<Pick<T, K>>>;
+  many<K extends keyof T>(params: W | null, column: K): Promise<Array<T[K]>>;
+  many(params: W | null, keywords: KeywordsWithoutSelect): Promise<Array<T>>;
+  many<K extends keyof T>(params: W | null, keywords: Keywords<K>): Promise<Array<T[K]>>;
+  many<K extends keyof T>(params: W | null, keywords: Keywords<K[]>): Promise<Array<Pick<T, K>>>;
+  many<K extends keyof T>(params: W | null, keywords: KeywordsWithExclude<K[]>): Promise<Array<Omit<T, K>>>;
   count(params: W | null, keywords?: { distinct: true }): Promise<number>;
+  exists(params: W | null): Promise<boolean>;
   remove(params?: W): Promise<number>;
 }`;
 

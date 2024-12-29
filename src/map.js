@@ -1,5 +1,3 @@
-import pluralize from 'pluralize';
-
 const map = (rows, itemSelector, keySelector) => {
   const results = [];
   if (rows.length === 0) {
@@ -54,15 +52,6 @@ const parse = (o, types) => {
   return result;
 }
 
-const toArrayName = (primaryKey) => {
-  const name = primaryKey.name;
-  if (/^.+Id$/.test(name)) {
-    const arrayName = name.substring(0, name.length - 2);
-    return pluralize.plural(arrayName);
-  }
-  return primaryKey.table;
-}
-
 const auto = (db, rows, columns, types, one) => {
   if (rows.length === 0) {
     return [];
@@ -96,6 +85,5 @@ export {
   mapOne,
   mapMany,
   renameColumns,
-  sliceProps,
-  toArrayName
+  sliceProps
 }

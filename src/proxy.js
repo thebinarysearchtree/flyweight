@@ -9,34 +9,17 @@ import {
   remove
 } from './queries.js';
 import { parseQuery, isWrite } from './parsers/queries.js';
-import pluralize from 'pluralize';
 import { preprocess, insertUnsafe } from './parsers/preprocessor.js';
 
-const queries = {
+const basic = {
   insert: (database, table, tx) => async (params) => await insert(database, table, params, tx),
   insertMany: (database, table, tx) => async (items) => await insertMany(database, table, items, tx),
   update: (database, table, tx) => async (params, query) => await update(database, table, params, query, tx),
   exists: (database, table, tx) => async (query) => await exists(database, table, query, tx),
   count: (database, table, tx) => async (query, keywords) => await count(database, table, query, keywords, tx),
   get: (database, table, tx) => async (query, columns) => await get(database, table, query, columns, tx),
-  all: (database, table, tx) => async (query, columns) => await all(database, table, query, columns, tx),
+  many: (database, table, tx) => async (query, columns) => await all(database, table, query, columns, tx),
   remove: (database, table, tx) => async (query) => await remove(database, table, query, tx)
-}
-
-const singularQueries = {
-  insert: queries.insert,
-  update: queries.update,
-  exists: queries.exists,
-  get: queries.get,
-  remove: queries.remove
-}
-
-const multipleQueries = {
-  insert: queries.insertMany,
-  update: queries.update,
-  count: queries.count,
-  get: queries.all,
-  remove: queries.remove
 }
 
 const convertItem = (item, converters) => {
@@ -208,37 +191,19 @@ const makeOptions = (columns, db) => {
   return options;
 }
 
-const getResultType = (columns, isSingular) => {
+const getResultType = (columns) => {
   if (columns.length === 0) {
     return 'none';
   }
-  else if (isSingular) {
-    if (columns.length === 1) {
-      return 'value';
-    }
-    else {
-      return 'object';
-    }
+  if (columns.length === 1) {
+    return 'values';
   }
   else {
-    if (columns.length === 1) {
-      return 'values';
-    }
-    else {
-      return 'array';
-    }
+    return 'array';
   }
 }
 
 const makeQueryHandler = (table, db, tx) => {
-  let isSingular;
-  if (pluralize.isSingular(table)) {
-    isSingular = true;
-    table = pluralize.plural(table);
-  }
-  else {
-    isSingular = false;
-  }
   let write;
   return {
     get: function(target, query) {
@@ -257,7 +222,7 @@ const makeQueryHandler = (table, db, tx) => {
             sql = preprocess(sql, db.tables);
           }
           catch (e) {
-            const makeQuery = isSingular ? singularQueries[query] : multipleQueries[query];
+            const makeQuery = basic[query];
             if (makeQuery) {
               cachedFunction = makeQuery(db, table, tx);
               return await cachedFunction(params, queryOptions);
@@ -269,7 +234,7 @@ const makeQueryHandler = (table, db, tx) => {
           write = isWrite(sql);
           const columns = parseQuery(sql, db.tables);
           const options = makeOptions(columns, db);
-          options.result = getResultType(columns, isSingular);
+          options.result = getResultType(columns);
           let run;
           if (options.result === 'none') {
             run = db.run;
@@ -285,7 +250,7 @@ const makeQueryHandler = (table, db, tx) => {
               if (!cachedOptions) {
                 const columns = parseQuery(query, db.tables);
                 const options = makeOptions(columns, db);
-                options.result = getResultType(columns, isSingular);
+                options.result = getResultType(columns);
                 db.queryVariations.set(query, { ...options });
                 cachedOptions = options;
               }

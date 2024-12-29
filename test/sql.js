@@ -7,7 +7,8 @@ const run = async () => {
   const record = await db.fights.byFighter({ id: 342 });
   const common = await db.fighters.common({ fighter1: 17, fighter2: 2624 });
   const methods = await db.methods.byFighter({ fighterId: 17 });
-  const submission = await db.method.topSubmission();
+  const result = await db.methods.topSubmission();
+  const submission = result.at(0);
   const winners = await db.locations.winners();
   const orderBy = await db.locations.events();
   const detailedEvents = await db.locations.detailedEvents();

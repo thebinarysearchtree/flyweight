@@ -4,7 +4,7 @@ Flyweight is a NodeJS and edge ORM for databases that are compatible with SQLite
 Other ORMS try to create an abstraction that covers as many of the features of SQL as possible, while leaving you with no support when you drop down into SQL itself. Flyweight takes a different approach by providing a very simple API for basic functions, such as the following:
 
 ```js
-const fights = await db.fights.get({ cardId: [1, 2, 3] });
+const fights = await db.fights.many({ cardId: [1, 2, 3] });
 ```
 
 while providing types, autocomplete, and other features for the results of SQL queries by being able to understand the queries themselves.
@@ -76,22 +76,22 @@ create table events (
 );
 ```
 
-Each table has a singular and plural form. If you want to get one row with the basic API, you can use:
+If you want to get one row with the basic API, you can use:
 
 ```js
-const event = await db.event.get({ id: 100 });
+const event = await db.events.get({ id: 100 });
 ```
 
 If you want to get many rows, you can use:
 
 ```js
-const names = await db.events.get({ id: eventIds }, 'name');
+const names = await db.events.many({ id: eventIds }, 'name');
 ```
 
 If you want to insert a row, you can do:
 
 ```js
-const id = await db.coach.insert({
+const id = await db.coaches.insert({
   name: 'Eugene Bareman',
   city: 'Auckland'
 });
@@ -111,8 +111,8 @@ You can run the ```npx``` command at the root of either an existing or a new pro
 ```js
 import { db } from './database/db.js';
 
-await db.user.insert({ name: 'Andrew' });
-const users = await db.users.get();
+await db.users.insert({ name: 'Andrew' });
+const users = await db.users.many();
 console.log(users);
 ```
 
@@ -144,18 +144,18 @@ create table users (
 
 ## The API
 
-Every table has ```get```, ```update```, ```insert```, and ```remove``` methods available to it, along with any of the custom methods that are created when you add a new SQL file to the corresponding table's folder. Views only have the ```get``` method available to them.
+Every table has ```get```, ```many```, ```update```, ```insert```, ```insertMany```, and ```remove``` methods available to it, along with any of the custom methods that are created when you add a new SQL file to the corresponding table's folder. Views only have the ```get``` and ```many``` methods available to them.
 
 ### Insert
 
-```insert``` simply takes one argument - ```params```, with the keys and values corresponding to the column names and values you want to insert. It returns the primary key, or part of the primary key if the table has a composite primary key. The plural version of ```insert``` is for batch inserts and takes an array of ```params```. It doesn't return anything.
+```insert``` simply takes one argument - ```params```, with the keys and values corresponding to the column names and values you want to insert. It returns the primary key, or part of the primary key if the table has a composite primary key. For batch inserts you can use ```insertMany``` and it takes an array of ```params```. It doesn't return anything.
 
 ### Update
 
 ```update``` takes two arguments - the ```query``` (or null), and the ```params``` you want to update. It returns a number representing the number of rows that were affected by the query. For example:
 
 ```js
-await db.coach.update({ id: 100 }, { city: 'Brisbane' });
+await db.coaches.update({ id: 100 }, { city: 'Brisbane' });
 ```
 
 which corresponds to
@@ -166,10 +166,10 @@ update coaches set city = 'Brisbane' where id = 100;
 
 ### Get
 
-```get``` takes two optional arguments. The first is ```params``` - an object representing the where clause. For example:
+```get``` and ```many``` take two optional arguments. The first is ```params``` - an object representing the where clause. For example:
 
 ```js
-const fights = await db.fights.get({ cardId: 9, titleFight: true });
+const fights = await db.fights.many({ cardId: 9, titleFight: true });
 ```
 
 translates to
@@ -181,7 +181,7 @@ select * from fights where cardId = 9 and titleFight = 1;
 The keys to ```params``` must be the column names of the table. The values can either be of the same type as the column, an array of values that are the same type as the column or null. If an array is passed in, an ```in``` clause is used, such as:
 
 ```js
-const fights = await db.fights.get({ cardId: [1, 2, 3] });
+const fights = await db.fights.many({ cardId: [1, 2, 3] });
 ```
 
 which translates to
@@ -194,9 +194,9 @@ If null is passed in as the value, the SQL will use ```is null```.
 
 All of the arguments are passed in as parameters for security reasons.
 
-The second argument to ```get``` can be one of three possible values:
+The second argument to ```get``` or ```many``` can be one of three possible values:
 
-1. a string representing a column to select. In this case, the result returned is a single value or array of single values, depending on whether a plural or singular table name is used in the query.
+1. a string representing a column to select. In this case, the result returned is a single value or array of single values, depending on whether ```get``` or ```many``` is used.
 2. an array of strings, representing the columns to select.
 3. An object with one or more of the following properties:
 
@@ -213,7 +213,7 @@ The second argument to ```get``` can be one of three possible values:
 For example:
 
 ```js
-const fighters = await db.fighters.get({ isActive: true }, {
+const fighters = await db.fighters.many({ isActive: true }, {
   select: ['name', 'hometown'],
   orderBy: 'reachCm',
   limit: 10
@@ -228,7 +228,7 @@ For example:
 import { not } from 'flyweightjs';
 
 const excluded = [1, 2, 3];
-const users = await db.users.get({ id: not(excluded) });
+const users = await db.users.many({ id: not(excluded) });
 ```
 
 ### Exists and Count
@@ -237,7 +237,7 @@ These functions take one argument representing the where clause.
 
 ```js
 const count = await db.fighters.count({ hometown: 'Brisbane, Australia' });
-const exists = await db.fighter.exists({ name: 'Israel Adesanya' });
+const exists = await db.fighters.exists({ name: 'Israel Adesanya' });
 ```
 
 ### Remove
@@ -250,7 +250,7 @@ const changes = await db.fighters.remove({ id: 100 });
 
 ## Creating SQL queries
 
-When the basic API doesn't do what you need it to do, you can create SQL queries. You can do this by creating a folder that is the plural version of the table name, such as ```./database/sql/users```. You can then put SQL files in this folder that will be available in the API in both singular and plural form, depending on whether you want a single item returned, or an array of items returned.
+When the basic API doesn't do what you need it to do, you can create SQL queries. You can do this by creating a folder with the same name as the table, such as ```./database/sql/users```. You can then put SQL files in this folder that will be available in the API.
 
 When creating SQL queries, make sure you give an alias to any columns in the select statement that don't have a name. For example, do not do:
 
@@ -312,12 +312,12 @@ try {
   const tx = await db.getTransaction();
   await tx.begin();
 
-  const coachId = await tx.coach.insert({
+  const coachId = await tx.coaches.insert({
     name: 'Eugene Bareman',
     city: 'Auckland'
   });
-  const fighterId = await tx.fighter.get({ name: like('Israel%') }, 'id');
-  await tx.fighterCoach.insert({
+  const fighterId = await tx.fighters.get({ name: like('Israel%') }, 'id');
+  await tx.fighterCoaches.insert({
     fighterId,
     coachId
   });
@@ -335,7 +335,7 @@ finally {
 
 ## Views
 
-Views are treated like read-only tables. They have a ```get``` method available to them that works the same as with tables. If you want to create a view called ```activeUsers``` you can add a file in the ```views``` folder called ```./database/views/activeUsers.sql``` that might have SQL like this:
+Views are treated like read-only tables. They have a ```get``` and ```many``` method available to them that works the same as with tables. If you want to create a view called ```activeUsers``` you can add a file in the ```views``` folder called ```./database/views/activeUsers.sql``` that might have SQL like this:
 
 ```sql
 create view activeUsers as
@@ -347,7 +347,7 @@ You can now use it in the API like this:
 ```js
 import { db } from './database/db.js';
 
-const user = await db.activeUser.get({ id: 100 }, ['name', 'email']);
+const user = await db.activeUsers.get({ id: 100 }, ['name', 'email']);
 console.log(user.email);
 ```
 
@@ -366,9 +366,9 @@ export default {
 
     const projectId = 1;
     const [project, tags, issues] = await db.batch((bx) => [
-      bx.project.get({ id: projectId }),
-      bx.tags.get({ projectId }),
-      bx.issues.get({ projectId })
+      bx.projects.get({ id: projectId }),
+      bx.tags.many({ projectId }),
+      bx.issues.many({ projectId })
     ]);
 
     return Response.json({
@@ -422,7 +422,7 @@ import createClient from './database/db';
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const db = createClient();
-    const users = await db.users.get();
+    const users = await db.users.many();
 
     return Response.json(users);
   }
