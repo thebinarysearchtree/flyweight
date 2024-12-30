@@ -1,23 +1,50 @@
 class Modifier {
-  constructor(name, value, operator) {
-    this.name = name;
-    this.value = value;
-    this.operator = operator;
+  constructor(conditions) {
+    this.conditions = conditions;
   }
 }
 
-const create = (name, operator) => {
-  return (value) => value === undefined ? value : new Modifier(name, value, operator);
+const map = new Map([
+  ['not', '!='],
+  ['gt', '>'],
+  ['gte', '>='],
+  ['lt', '<'],
+  ['lte', '<='],
+  ['like', 'like'],
+  ['match', 'match'],
+  ['glob', 'glob']
+]);
+
+const create = (name) => {
+  const operator = map.get(name);
+  return (value) => value === undefined ? value : new Modifier([{ name, operator, value }]);
 }
 
-const not = create('not', '!=');
-const gt = create('gt', '>');
-const gte = create('gte', '>=');
-const lt = create('lt', '<');
-const lte = create('lte', '<=');
-const like = create('like', 'like');
-const match = create('match', 'match');
-const glob = create('glob', 'glob');
+const range = (operators) => {
+  const conditions = Object
+    .entries(operators)
+    .map(([key, value]) => {
+      const operator = map.get(key);
+      if (!operator) {
+        throw Error('Invalid operator in range statement');
+      }
+      return {
+        name: key,
+        operator,
+        value
+      };
+    });
+  return new Modifier('range', conditions);
+}
+
+const not = create('not');
+const gt = create('gt');
+const gte = create('gte');
+const lt = create('lt');
+const lte = create('lte');
+const like = create('like');
+const match = create('match');
+const glob = create('glob');
 
 export {
   Modifier,
@@ -27,6 +54,7 @@ export {
   lt,
   lte,
   like,
+  range,
   match,
   glob
 }

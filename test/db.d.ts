@@ -187,10 +187,10 @@ interface InsertWeightClass {
 }
 
 interface WhereWeightClass {
-  id?: number | Array<number>;
-  name?: string | Array<string> | RegExp;
-  weightLbs?: number | Array<number>;
-  gender?: string | Array<string> | RegExp;
+  id?: number | Array<number> | Modifier;
+  name?: string | Array<string> | Modifier;
+  weightLbs?: number | Array<number> | Modifier;
+  gender?: string | Array<string> | Modifier;
 }
 
 interface Location {
@@ -210,11 +210,11 @@ interface InsertLocation {
 }
 
 interface WhereLocation {
-  id?: number | Array<number>;
-  name?: string | Array<string> | RegExp;
-  address?: string | Array<string> | RegExp;
-  lat?: number | Array<number>;
-  long?: number | Array<number>;
+  id?: number | Array<number> | Modifier;
+  name?: string | Array<string> | Modifier;
+  address?: string | Array<string> | Modifier;
+  lat?: number | Array<number> | Modifier;
+  long?: number | Array<number> | Modifier;
 }
 
 interface LocationById {
@@ -270,10 +270,10 @@ interface InsertEvent {
 }
 
 interface WhereEvent {
-  id?: number | Array<number>;
-  name?: string | Array<string> | RegExp;
-  startTime?: Date | Array<Date> | RegExp;
-  locationId?: number | Array<number> | null;
+  id?: number | Array<number> | Modifier;
+  name?: string | Array<string> | Modifier;
+  startTime?: Date | Array<Date> | Modifier;
+  locationId?: number | Array<number> | Modifier | null;
 }
 
 interface EventLag {
@@ -318,11 +318,11 @@ interface InsertCard {
 }
 
 interface WhereCard {
-  id?: number | Array<number>;
-  eventId?: number | Array<number>;
-  cardName?: string | Array<string> | RegExp;
-  cardOrder?: number | Array<number>;
-  startTime?: Date | Array<Date> | RegExp | null;
+  id?: number | Array<number> | Modifier;
+  eventId?: number | Array<number> | Modifier;
+  cardName?: string | Array<string> | Modifier;
+  cardOrder?: number | Array<number> | Modifier;
+  startTime?: Date | Array<Date> | Modifier | null;
 }
 
 interface Coach {
@@ -340,10 +340,10 @@ interface InsertCoach {
 }
 
 interface WhereCoach {
-  id?: number | Array<number>;
-  name?: string | Array<string> | RegExp;
-  city?: string | Array<string> | RegExp;
-  profile?: any | Array<any> | RegExp | null;
+  id?: number | Array<number> | Modifier;
+  name?: string | Array<string> | Modifier;
+  city?: string | Array<string> | Modifier;
+  profile?: any | Array<any> | Modifier | null;
 }
 
 interface CoachQueries {
@@ -375,15 +375,15 @@ interface InsertFighter {
 }
 
 interface WhereFighter {
-  id?: number | Array<number>;
-  name?: string | Array<string> | RegExp;
-  nickname?: string | Array<string> | RegExp | null;
-  born?: string | Array<string> | RegExp | null;
-  heightCm?: number | Array<number> | null;
-  reachCm?: number | Array<number> | null;
-  hometown?: string | Array<string> | RegExp;
-  social?: any | Array<any> | RegExp | null;
-  isActive?: boolean | Array<boolean>;
+  id?: number | Array<number> | Modifier;
+  name?: string | Array<string> | Modifier;
+  nickname?: string | Array<string> | Modifier | null;
+  born?: string | Array<string> | Modifier | null;
+  heightCm?: number | Array<number> | Modifier | null;
+  reachCm?: number | Array<number> | Modifier | null;
+  hometown?: string | Array<string> | Modifier;
+  social?: any | Array<any> | Modifier | null;
+  isActive?: boolean | Array<boolean> | Modifier;
 }
 
 interface FighterByHeight {
@@ -478,9 +478,9 @@ interface InsertOtherName {
 }
 
 interface WhereOtherName {
-  id?: number | Array<number>;
-  fighterId?: number | Array<number>;
-  name?: string | Array<string> | RegExp;
+  id?: number | Array<number> | Modifier;
+  fighterId?: number | Array<number> | Modifier;
+  name?: string | Array<string> | Modifier;
 }
 
 interface FighterCoach {
@@ -500,11 +500,11 @@ interface InsertFighterCoach {
 }
 
 interface WhereFighterCoach {
-  id?: number | Array<number>;
-  coachId?: number | Array<number>;
-  fighterId?: number | Array<number>;
-  startDate?: string | Array<string> | RegExp;
-  endDate?: string | Array<string> | RegExp | null;
+  id?: number | Array<number> | Modifier;
+  coachId?: number | Array<number> | Modifier;
+  fighterId?: number | Array<number> | Modifier;
+  startDate?: string | Array<string> | Modifier;
+  endDate?: string | Array<string> | Modifier | null;
 }
 
 interface Ranking {
@@ -524,11 +524,11 @@ interface InsertRanking {
 }
 
 interface WhereRanking {
-  id?: number | Array<number>;
-  fighterId?: number | Array<number>;
-  weightClassId?: number | Array<number>;
-  rank?: number | Array<number>;
-  isInterim?: boolean | Array<boolean>;
+  id?: number | Array<number> | Modifier;
+  fighterId?: number | Array<number> | Modifier;
+  weightClassId?: number | Array<number> | Modifier;
+  rank?: number | Array<number> | Modifier;
+  isInterim?: boolean | Array<boolean> | Modifier;
 }
 
 interface Method {
@@ -544,9 +544,9 @@ interface InsertMethod {
 }
 
 interface WhereMethod {
-  id?: number | Array<number>;
-  name?: string | Array<string> | RegExp;
-  abbreviation?: string | Array<string> | RegExp;
+  id?: number | Array<number> | Modifier;
+  name?: string | Array<string> | Modifier;
+  abbreviation?: string | Array<string> | Modifier;
 }
 
 interface MethodByFighter {
@@ -606,22 +606,22 @@ interface InsertFight {
 }
 
 interface WhereFight {
-  id?: number | Array<number>;
-  cardId?: number | Array<number>;
-  fightOrder?: number | Array<number>;
-  blueId?: number | Array<number>;
-  redId?: number | Array<number>;
-  winnerId?: number | Array<number> | null;
-  methodId?: number | Array<number> | null;
-  methodDescription?: string | Array<string> | RegExp | null;
-  endRound?: number | Array<number> | null;
-  endSeconds?: number | Array<number> | null;
-  titleFight?: boolean | Array<boolean>;
-  isInterim?: boolean | Array<boolean>;
-  weightClassId?: number | Array<number> | null;
-  oddsBlue?: number | Array<number> | null;
-  oddsRed?: number | Array<number> | null;
-  catchweightLbs?: number | Array<number> | null;
+  id?: number | Array<number> | Modifier;
+  cardId?: number | Array<number> | Modifier;
+  fightOrder?: number | Array<number> | Modifier;
+  blueId?: number | Array<number> | Modifier;
+  redId?: number | Array<number> | Modifier;
+  winnerId?: number | Array<number> | Modifier | null;
+  methodId?: number | Array<number> | Modifier | null;
+  methodDescription?: string | Array<string> | Modifier | null;
+  endRound?: number | Array<number> | Modifier | null;
+  endSeconds?: number | Array<number> | Modifier | null;
+  titleFight?: boolean | Array<boolean> | Modifier;
+  isInterim?: boolean | Array<boolean> | Modifier;
+  weightClassId?: number | Array<number> | Modifier | null;
+  oddsBlue?: number | Array<number> | Modifier | null;
+  oddsRed?: number | Array<number> | Modifier | null;
+  catchweightLbs?: number | Array<number> | Modifier | null;
 }
 
 interface FightByFighter {
@@ -663,13 +663,13 @@ interface InsertCancelledFight {
 }
 
 interface WhereCancelledFight {
-  id?: number | Array<number>;
-  cardId?: number | Array<number>;
-  cardOrder?: number | Array<number>;
-  blueId?: number | Array<number>;
-  redId?: number | Array<number>;
-  cancelledAt?: Date | Array<Date> | RegExp;
-  cancellationReason?: string | Array<string> | RegExp | null;
+  id?: number | Array<number> | Modifier;
+  cardId?: number | Array<number> | Modifier;
+  cardOrder?: number | Array<number> | Modifier;
+  blueId?: number | Array<number> | Modifier;
+  redId?: number | Array<number> | Modifier;
+  cancelledAt?: Date | Array<Date> | Modifier;
+  cancellationReason?: string | Array<string> | Modifier | null;
 }
 
 interface TitleRemoval {
@@ -691,12 +691,12 @@ interface InsertTitleRemoval {
 }
 
 interface WhereTitleRemoval {
-  id?: number | Array<number>;
-  fighterId?: number | Array<number>;
-  weightClassId?: number | Array<number>;
-  isInterim?: boolean | Array<boolean>;
-  removedAt?: Date | Array<Date> | RegExp;
-  reason?: string | Array<string> | RegExp;
+  id?: number | Array<number> | Modifier;
+  fighterId?: number | Array<number> | Modifier;
+  weightClassId?: number | Array<number> | Modifier;
+  isInterim?: boolean | Array<boolean> | Modifier;
+  removedAt?: Date | Array<Date> | Modifier;
+  reason?: string | Array<string> | Modifier;
 }
 
 interface FighterProfile {
@@ -712,9 +712,9 @@ interface InsertFighterProfile {
 }
 
 interface WhereFighterProfile {
-  rowid?: number | Array<number>;
-  name?: string | Array<string> | RegExp;
-  hometown?: string | Array<string> | RegExp;
+  rowid?: number | Array<number> | Modifier;
+  name?: string | Array<string> | Modifier;
+  hometown?: string | Array<string> | Modifier;
   fighterProfiles?: string;
 }
 
@@ -735,11 +735,11 @@ interface InsertOpponent {
 }
 
 interface WhereOpponent {
-  fightId?: number | Array<number>;
-  startTime?: Date | Array<Date> | RegExp;
-  fighterId?: number | Array<number>;
-  opponentId?: number | Array<number>;
-  methodId?: number | Array<number> | null;
+  fightId?: number | Array<number> | Modifier;
+  startTime?: Date | Array<Date> | Modifier;
+  fighterId?: number | Array<number> | Modifier;
+  opponentId?: number | Array<number> | Modifier;
+  methodId?: number | Array<number> | Modifier | null;
 }
 
 interface TypedDb {

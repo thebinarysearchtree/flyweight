@@ -464,10 +464,7 @@ const createTypes = async (options) => {
       let property = `  ${name}`;
       property += '?: ';
       property += tsType;
-      property += ` | Array<${tsType}>`;
-      if (dbType === 'text') {
-        property += ' | RegExp';
-      }
+      property += ` | Array<${tsType}> | Modifier`;
       if (!primaryKey && !notNull) {
         property += ' | null';
       }

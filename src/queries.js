@@ -179,32 +179,34 @@ const toClause = (query, verify) => {
   if (entries.length === 0) {
     return null;
   }
-  return entries.map(([column, param]) => {
+  const conditions = [];
+  for (const [column, param] of entries) {
     verify(column);
     if (param instanceof Modifier) {
-      const value = param.value;
-      if (Array.isArray(value)) {
-        return `${column} not in (select json_each.value from json_each($where_${column}))`;
+      for (const condition of param.conditions) {
+        const { name, operator, value } = condition;
+        if (Array.isArray(value)) {
+          conditions.push(`${column} not in (select json_each.value from json_each($where_${name}_${column}))`);
+        }
+        else if (value === null) {
+          conditions.push(`${column} is not null`);
+        }
+        else {
+          conditions.push(`${column} ${operator} $where_${name}_${column}`);
+        }
       }
-      if (value instanceof RegExp) {
-        return `${column} not like $where_${column}`;
-      }
-      if (value === null) {
-        return `${column} is not null`;
-      }
-      return `${column} ${param.operator} $where_${column}`;
     }
-    if (Array.isArray(param)) {
-      return `${column} in (select json_each.value from json_each($where_${column}))`;
+    else if (Array.isArray(param)) {
+      conditions.push(`${column} in (select json_each.value from json_each($where_${column}))`);
     }
-    if (param instanceof RegExp) {
-      return `${column} like $where_${column}`;
+    else if (param === null) {
+      conditions.push(`${column} is null`);
     }
-    if (param === null) {
-      return `${column} is null`;
+    else {
+      conditions.push(`${column} = $where_${column}`);
     }
-    return `${column} = $where_${column}`;
-  }).join(' and ');
+  }
+  return conditions.join(' and ');
 }
 
 const adjustWhere = (query) => {
@@ -213,11 +215,14 @@ const adjustWhere = (query) => {
   }
   const result = {};
   for (const [key, param] of Object.entries(query)) {
-    const adjusted = `where_${key}`;
     if (param instanceof Modifier) {
-      result[adjusted] = param.value;
+      for (const condition of param.conditions) {
+        const adjusted = `where_${condition.name}_${key}`;
+        result[adjusted] = condition.value;
+      }
     }
     else if (param !== null) {
+      const adjusted = `where_${key}`;
       result[adjusted] = param;
     }
   }
