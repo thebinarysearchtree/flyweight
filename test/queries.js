@@ -1,7 +1,7 @@
 import { db } from './db.js';
 import { strict as assert } from 'assert';
 import { compare } from './utils.js';
-import { like } from '../index.js';
+import { like, range } from '../index.js';
 
 const run = async () => {
   const cards = await db.cards.many({ eventId: 100 });
@@ -46,6 +46,8 @@ const run = async () => {
   const count = await db.coaches.count({ name: 'Eugene' });
   assert.equal(count, 2);
   await db.coaches.remove();
+  const fighterCount = await db.fighters.count({ id: range({ gt: 10, lt: 15 }) });
+  assert.equal(fighterCount, 4);
 }
 
 const cleanUp = async () => {

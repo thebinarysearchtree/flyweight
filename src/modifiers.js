@@ -34,7 +34,7 @@ const range = (operators) => {
         value
       };
     });
-  return new Modifier('range', conditions);
+  return new Modifier(conditions);
 }
 
 const not = create('not');

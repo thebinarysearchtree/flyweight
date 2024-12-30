@@ -220,15 +220,16 @@ const fighters = await db.fighters.many({ isActive: true }, ['name', 'hometown']
 });
 ```
 
-While the default interpretation of the query parameters is ```=```, you can modify the meaning by importing ```not```, ```gt```, ```gte```, ```lt```, ```lte```, ```like```, ```match``` and ```glob```.
+While the default interpretation of the query parameters is ```=```, you can modify the meaning by importing ```not```, ```gt```, ```gte```, ```lt```, ```lte```, ```like```, ```range```, ```match``` and ```glob```.
 
 For example:
 
 ```js
-import { not } from 'flyweightjs';
+import { not, range } from 'flyweightjs';
 
 const excluded = [1, 2, 3];
 const users = await db.users.many({ id: not(excluded) });
+const count = await db.users.count({ id: range({ gt: 10, lt: 15 }) });
 ```
 
 ### Exists and Count

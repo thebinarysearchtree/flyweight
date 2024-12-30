@@ -89,6 +89,15 @@ declare function like(value: any): Modifier | undefined;
 declare function match(value: any): Modifier | undefined;
 declare function glob(value: any): Modifier | undefined;
 
+interface Range {
+  gt?: string | number;
+  gte?: string | number;
+  lt?: string | number;
+  lte?: string | number;
+}
+
+declare function range(range: Range): Modifier | undefined;
+
 type Unwrap<T extends any[]> = {
   [K in keyof T]: T[K] extends Promise<infer U> ? U : T[K];
 };
