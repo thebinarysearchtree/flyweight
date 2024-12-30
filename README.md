@@ -361,9 +361,7 @@ import createClient from './database/db';
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    const db = createClient({
-      db: env.DB
-    });
+    const db = createClient(env.DB);
 
     const projectId = 1;
     const [project, tags, issues] = await db.batch((bx) => [
