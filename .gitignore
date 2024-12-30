@@ -22,3 +22,5 @@ yarn-error.log*
 *.tar.gz
 
 *.cjs
+
+test/db.d.ts
