@@ -302,18 +302,6 @@ const toSelect = (columns, keywords, table, db, verify) => {
       verify(columns);
       return columns.join(', ');
     }
-    if (keywords && keywords.select) {
-      const select = keywords.select;
-      if (typeof select === 'string') {
-        verify(select);
-        return select;
-      }
-      if (Array.isArray(select) && select.length > 0) {
-        verify(select);
-        return select.join(', ');
-      }
-      return '*';
-    }
     if (keywords && keywords.exclude) {
       if (!db.tables[table]) {
         throw Error('Database tables must be set before using exclude');
@@ -325,9 +313,7 @@ const toSelect = (columns, keywords, table, db, verify) => {
     }
     return '*';
   }
-  else {
-    return '*';
-  }
+  return '*';
 }
 
 const toKeywords = (keywords, verify) => {
@@ -516,15 +502,14 @@ const count = async (db, table, query, keywords, tx) => {
   return post(results);
 }
 
-const get = async (db, table, query, columns, tx) => {
+const get = async (db, table, query, columns, keywords, tx) => {
   if (!db.initialized) {
     await db.initialize();
   }
   const columnSet = db.columnSets[table];
   const verify = makeVerify(table, columnSet);
-  const keywords = columns && typeof columns !== 'string' && !Array.isArray(columns) ? columns : null;
   const select = toSelect(columns, keywords, table, db, verify);
-  const returnValue = typeof columns === 'string' || (keywords && typeof keywords.select === 'string');
+  const returnValue = typeof columns === 'string' || (keywords && keywords.count);
   if (db.virtualSet.has(table)) {
     return await getVirtual(db, table, query, tx, keywords, select, returnValue, verify, true);
   }
@@ -567,15 +552,14 @@ const get = async (db, table, query, columns, tx) => {
   return post(results);
 }
 
-const all = async (db, table, query, columns, tx) => {
+const all = async (db, table, query, columns, keywords, tx) => {
   if (!db.initialized) {
     await db.initialize();
   }
   const columnSet = db.columnSets[table];
   const verify = makeVerify(table, columnSet);
-  const keywords = columns && typeof columns !== 'string' && !Array.isArray(columns) ? columns : null;
   const select = toSelect(columns, keywords, table, db, verify);
-  const returnValue = typeof columns === 'string' || (keywords && typeof keywords.select === 'string') || (keywords && keywords.count);
+  const returnValue = typeof columns === 'string' || (keywords && keywords.count);
   if (db.virtualSet.has(table)) {
     return await getVirtual(db, table, query, tx, keywords, select, returnValue, verify, false);
   }

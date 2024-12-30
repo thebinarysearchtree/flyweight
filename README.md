@@ -194,13 +194,14 @@ If null is passed in as the value, the SQL will use ```is null```.
 
 All of the arguments are passed in as parameters for security reasons.
 
-The second argument to ```get``` or ```many``` can be one of three possible values:
+The second argument to ```get``` or ```many``` selects which columns to return. It can be one of the following:
 
 1. a string representing a column to select. In this case, the result returned is a single value or array of single values, depending on whether ```get``` or ```many``` is used.
 2. an array of strings, representing the columns to select.
-3. An object with one or more of the following properties:
 
-```select``` or ```exclude```: ```select``` can be a string or array representing the columns to select. ```exclude``` can be an array of columns to exclude, with all of the other columns being selected.
+The third argument can be an object with the following properties:
+
+```exclude```: an array of columns to exclude, with all of the other columns being selected.
 
 ```orderBy```: a string representing the column to order the result by, or an array of columns to order the result by.
 
@@ -213,8 +214,7 @@ The second argument to ```get``` or ```many``` can be one of three possible valu
 For example:
 
 ```js
-const fighters = await db.fighters.many({ isActive: true }, {
-  select: ['name', 'hometown'],
+const fighters = await db.fighters.many({ isActive: true }, ['name', 'hometown'], {
   orderBy: 'reachCm',
   limit: 10
 });

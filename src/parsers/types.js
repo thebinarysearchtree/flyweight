@@ -4,6 +4,7 @@ import { makeOptions } from '../proxy.js';
 import { blank } from './utils.js';
 import { preprocess } from './preprocessor.js';
 import files from './files.js';
+import pluralize from 'pluralize';
 
 const capitalize = (word) => word[0].toUpperCase() + word.substring(1);
 
@@ -260,7 +261,8 @@ const getQueries = async (fileSystem, db, sqlDir, tableName, typeSet, i) => {
         });
         continue;
       }
-      const interfaceName = makeUnique(capitalize(tableName) + capitalize(queryName), typeSet, i);
+      const singular = pluralize.singular(tableName);
+      const interfaceName = makeUnique(capitalize(singular) + capitalize(queryName), typeSet, i);
       let interfaceString = `export interface ${interfaceName} {\n`;
       const sample = {};
       for (const column of columns) {
@@ -323,7 +325,8 @@ const getQueries = async (fileSystem, db, sqlDir, tableName, typeSet, i) => {
       throw Error(message);
     }
   }
-  const interfaceName = makeUnique(capitalize(tableName) + 'Queries', typeSet, i);
+  const singular = pluralize.singular(tableName);
+  const interfaceName = makeUnique(capitalize(singular) + 'Queries', typeSet, i);
   let interfaceString = `export interface ${interfaceName} {\n`;
   for (const query of parsedQueries) {
     const {
@@ -382,7 +385,8 @@ const createTypes = async (options) => {
   let types = `${index}\n${definitions}\n\n`;
   const returnTypes = [];
   for (const table of tables) {
-    const capitalized = capitalize(table.name);
+    const singular = pluralize.singular(table.name);
+    const capitalized = capitalize(singular);
     const interfaceName = makeUnique(capitalized, typeSet, i);
     const insertInterfaceName = makeUnique(`Insert${interfaceName}`, typeSet, i);
     const whereInterfaceName = makeUnique(`Where${interfaceName}`, typeSet, i);

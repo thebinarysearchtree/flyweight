@@ -95,8 +95,7 @@ type Unwrap<T extends any[]> = {
 
 
 
-interface Keywords<T> {
-  select: T;
+interface Keywords {
   orderBy?: Array<string> | string;
   desc?: boolean;
   limit?: number;
@@ -113,16 +112,7 @@ interface KeywordsWithExclude<T> {
   distinct?: boolean;
 }
 
-interface KeywordsWithoutSelect {
-  orderBy?: Array<string> | string;
-  desc?: boolean;
-  limit?: number;
-  offset?: number;
-  distinct?: boolean;
-}
-
-interface VirtualKeywordsSelect<T, K> {
-  select: K;
+interface VirtualKeywords<T> {
   rank?: true;
   bm25?: Record<keyof Omit<T, "rowid">, number>;
   limit?: number;
@@ -148,16 +138,17 @@ interface VirtualKeywordsSnippet<T> {
 interface VirtualQueries<T, W> {
   [key: string]: any;
   get(params?: W | null): Promise<T | undefined>;
-  get<K extends keyof T>(params: W | null, column: K): Promise<T[K] | undefined>;
-  get<K extends keyof T>(params: W | null, keywords: VirtualKeywordsSelect<T, K[]>): Promise<Pick<T, K> | undefined>;
-  get(params: W | null, keywords: VirtualKeywordsHighlight<T>): Promise<{ id: number, highlight: string } | undefined>;
-  get(params: W | null, keywords: VirtualKeywordsSnippet<T>): Promise<{ id: number, snippet: string } | undefined>;
+  get(params?: W | null, columns: null, keywords?: VirtualKeywords): Promise<T | undefined>;
+  get<K extends keyof T>(params: W | null, column: K, keywords?: VirtualKeywords<T>): Promise<T[K] | undefined>;
+  get<K extends keyof T>(params: W | null, column: K[], keywords?: VirtualKeywords<T>): Promise<Pick<T, K> | undefined>;
+  get(params: W | null, columns: null, keywords: VirtualKeywordsHighlight<T>): Promise<{ id: number, highlight: string } | undefined>;
+  get(params: W | null, columns: null, keywords: VirtualKeywordsSnippet<T>): Promise<{ id: number, snippet: string } | undefined>;
   many(params?: W): Promise<Array<T>>;
-  many<K extends keyof T>(params: W | null, columns: K[]): Promise<Array<Pick<T, K>>>;
-  many<K extends keyof T>(params: W | null, column: K): Promise<Array<T[K]>>;
-  many<K extends keyof T>(params: W | null, keywords: VirtualKeywordsSelect<T, K[]>): Promise<Array<Pick<T, K>>>;
-  many(params: W | null, keywords: VirtualKeywordsHighlight<T>): Promise<Array<{ id: number, highlight: string }>>;
-  many(params: W | null, keywords: VirtualKeywordsSnippet<T>): Promise<Array<{ id: number, snippet: string }>>;
+  many(params?: W, columns: null, keywords?: VirtualKeywords): Promise<Array<T>>;
+  many<K extends keyof T>(params: W | null, columns: K[], keywords?: VirtualKeywords): Promise<Array<Pick<T, K>>>;
+  many<K extends keyof T>(params: W | null, column: K, keywords?: VirtualKeywords): Promise<Array<T[K]>>;
+  many(params: W | null, columns: null, keywords: VirtualKeywordsHighlight<T>): Promise<Array<{ id: number, highlight: string }>>;
+  many(params: W | null, columns: null, keywords: VirtualKeywordsSnippet<T>): Promise<Array<{ id: number, snippet: string }>>;
 }
 
 interface Queries<T, I, W, R> {
@@ -166,46 +157,43 @@ interface Queries<T, I, W, R> {
   insertMany(params: Array<I>): Promise<void>;
   update(query: W | null, params: Partial<T>): Promise<number>;
   get(params?: W | null): Promise<T | undefined>;
-  get<K extends keyof T>(params: W | null, columns: K[]): Promise<Pick<T, K> | undefined>;
-  get<K extends keyof T>(params: W | null, column: K): Promise<T[K] | undefined>;
-  get(params: W | null, keywords: KeywordsWithoutSelect): Promise<T | undefined>;
-  get<K extends keyof T>(params: W | null, keywords: Keywords<K>): Promise<T[K] | undefined>;
-  get<K extends keyof T>(params: W | null, keywords: Keywords<K[]>): Promise<Pick<T, K> | undefined>;
-  get<K extends keyof T>(params: W | null, keywords: KeywordsWithExclude<K[]>): Promise<Omit<T, K> | undefined>;
+  get(params?: W | null, columns: null, keywords: Keywords): Promise<T | undefined>;
+  get<K extends keyof T>(params: W | null, columns: K[], keywords?: Keywords): Promise<Pick<T, K> | undefined>;
+  get<K extends keyof T>(params: W | null, column: K, keywords?: Keywords): Promise<T[K] | undefined>;
+  get<K extends keyof T>(params: W | null, columns: null, keywords: KeywordsWithExclude<K[]>): Promise<Omit<T, K> | undefined>;
   many(params?: W): Promise<Array<T>>;
-  many<K extends keyof T>(params: W | null, columns: K[]): Promise<Array<Pick<T, K>>>;
-  many<K extends keyof T>(params: W | null, column: K): Promise<Array<T[K]>>;
-  many(params: W | null, keywords: KeywordsWithoutSelect): Promise<Array<T>>;
-  many<K extends keyof T>(params: W | null, keywords: Keywords<K>): Promise<Array<T[K]>>;
-  many<K extends keyof T>(params: W | null, keywords: Keywords<K[]>): Promise<Array<Pick<T, K>>>;
-  many<K extends keyof T>(params: W | null, keywords: KeywordsWithExclude<K[]>): Promise<Array<Omit<T, K>>>;
+  many(params?: W, columns: null, keywords: Keywords): Promise<Array<T>>;
+  many<K extends keyof T>(params: W | null, columns: K[], keywords?: Keywords): Promise<Array<Pick<T, K>>>;
+  many<K extends keyof T>(params: W | null, column: K, keywords?: Keywords): Promise<Array<T[K]>>;
+  many<K extends keyof T>(params: W | null, columns: null, keywords: KeywordsWithExclude<K[]>): Promise<Array<Omit<T, K>>>;
   count(params: W | null, keywords?: { distinct: true }): Promise<number>;
   exists(params: W | null): Promise<boolean>;
   remove(params?: W): Promise<number>;
 }
 
-interface WeightClasses {
+
+interface WeightClass {
   id: number;
   name: string;
   weightLbs: number;
   gender: string;
 }
 
-interface InsertWeightClasses {
+interface InsertWeightClass {
   id?: number;
   name: string;
   weightLbs: number;
   gender: string;
 }
 
-interface WhereWeightClasses {
+interface WhereWeightClass {
   id?: number | Array<number>;
   name?: string | Array<string> | RegExp;
   weightLbs?: number | Array<number>;
   gender?: string | Array<string> | RegExp;
 }
 
-interface Locations {
+interface Location {
   id: number;
   name: string;
   address: string;
@@ -213,7 +201,7 @@ interface Locations {
   long: number;
 }
 
-interface InsertLocations {
+interface InsertLocation {
   id?: number;
   name: string;
   address: string;
@@ -221,7 +209,7 @@ interface InsertLocations {
   long: number;
 }
 
-interface WhereLocations {
+interface WhereLocation {
   id?: number | Array<number>;
   name?: string | Array<string> | RegExp;
   address?: string | Array<string> | RegExp;
@@ -229,7 +217,7 @@ interface WhereLocations {
   long?: number | Array<number>;
 }
 
-interface LocationsById {
+interface LocationById {
   id: number;
   name: string;
   address: string;
@@ -237,83 +225,83 @@ interface LocationsById {
   long: number;
 }
 
-interface LocationsByMethod {
+interface LocationByMethod {
   id: number;
   name: string;
   count: number;
 }
 
-interface LocationsDetailedEvents {
+interface LocationDetailedEvents {
   name: string;
   events: Array<{ id: number, name: string }>;
 }
 
-interface LocationsEvents {
+interface LocationEvents {
   name: string;
   events: Array<string>;
 }
 
-interface LocationsWinners {
+interface LocationWinners {
   location: string;
   fighter: string;
   wins: number;
 }
 
-interface LocationsQueries {
-  byId(params: { id: any; }): Promise<Array<LocationsById>>;
-  byMethod(params: { id: any; }): Promise<Array<LocationsByMethod>>;
-  detailedEvents(): Promise<Array<LocationsDetailedEvents>>;
-  events(): Promise<Array<LocationsEvents>>;
-  winners(): Promise<Array<LocationsWinners>>;
+interface LocationQueries {
+  byId(params: { id: any; }): Promise<Array<LocationById>>;
+  byMethod(params: { id: any; }): Promise<Array<LocationByMethod>>;
+  detailedEvents(): Promise<Array<LocationDetailedEvents>>;
+  events(): Promise<Array<LocationEvents>>;
+  winners(): Promise<Array<LocationWinners>>;
 }
 
-interface Events {
+interface Event {
   id: number;
   name: string;
   startTime: Date;
   locationId: number | null;
 }
 
-interface InsertEvents {
+interface InsertEvent {
   id?: number;
   name: string;
   startTime: Date;
   locationId?: number;
 }
 
-interface WhereEvents {
+interface WhereEvent {
   id?: number | Array<number>;
   name?: string | Array<string> | RegExp;
   startTime?: Date | Array<Date> | RegExp;
   locationId?: number | Array<number> | null;
 }
 
-interface EventsLag {
+interface EventLag {
   test1: number | null;
   test2: number | null;
   test3: number | null;
 }
 
-interface EventsSpaces {
+interface EventSpaces {
   id: number;
   name: string;
   test: Array<{ id: number, name: string }>;
 }
 
-interface EventsTest {
+interface EventTest {
   id: number;
   nest: { name: string, startTime: Date };
 }
 
-interface EventsQueries {
+interface EventQueries {
   from(): Promise<Array<number | null>>;
-  lag(): Promise<Array<EventsLag>>;
+  lag(): Promise<Array<EventLag>>;
   operator(): Promise<Array<number>>;
-  spaces(): Promise<Array<EventsSpaces>>;
-  test(): Promise<Array<EventsTest>>;
+  spaces(): Promise<Array<EventSpaces>>;
+  test(): Promise<Array<EventTest>>;
 }
 
-interface Cards {
+interface Card {
   id: number;
   eventId: number;
   cardName: string;
@@ -321,7 +309,7 @@ interface Cards {
   startTime: Date | null;
 }
 
-interface InsertCards {
+interface InsertCard {
   id?: number;
   eventId: number;
   cardName: string;
@@ -329,7 +317,7 @@ interface InsertCards {
   startTime?: Date;
 }
 
-interface WhereCards {
+interface WhereCard {
   id?: number | Array<number>;
   eventId?: number | Array<number>;
   cardName?: string | Array<string> | RegExp;
@@ -337,32 +325,32 @@ interface WhereCards {
   startTime?: Date | Array<Date> | RegExp | null;
 }
 
-interface Coaches {
+interface Coach {
   id: number;
   name: string;
   city: string;
   profile: any;
 }
 
-interface InsertCoaches {
+interface InsertCoach {
   id?: number;
   name: string;
   city: string;
   profile?: any;
 }
 
-interface WhereCoaches {
+interface WhereCoach {
   id?: number | Array<number>;
   name?: string | Array<string> | RegExp;
   city?: string | Array<string> | RegExp;
   profile?: any | Array<any> | RegExp | null;
 }
 
-interface CoachesQueries {
+interface CoachQueries {
   from(): Promise<Array<number>>;
 }
 
-interface Fighters {
+interface Fighter {
   id: number;
   name: string;
   nickname: string | null;
@@ -374,7 +362,7 @@ interface Fighters {
   isActive: boolean;
 }
 
-interface InsertFighters {
+interface InsertFighter {
   id?: number;
   name: string;
   nickname?: string;
@@ -386,7 +374,7 @@ interface InsertFighters {
   isActive: boolean;
 }
 
-interface WhereFighters {
+interface WhereFighter {
   id?: number | Array<number>;
   name?: string | Array<string> | RegExp;
   nickname?: string | Array<string> | RegExp | null;
@@ -398,13 +386,13 @@ interface WhereFighters {
   isActive?: boolean | Array<boolean>;
 }
 
-interface FightersByHeight {
+interface FighterByHeight {
   name: string;
   heightCm: number | null;
   heightRank: number;
 }
 
-interface FightersCommon {
+interface FighterCommon {
   red: { id: number, name: string };
   blue: { id: number, name: string };
   winnerId: number | null;
@@ -413,89 +401,89 @@ interface FightersCommon {
   event: { id: number, name: string, date: Date };
 }
 
-interface FightersFilter {
+interface FighterFilter {
   name: string;
   reaches: string | null;
 }
 
-interface FightersLastFights {
+interface FighterLastFights {
   name: string;
   dates: Array<Date>;
 }
 
-interface FightersLeft {
+interface FighterLeft {
   id: number;
   winnerId: number | null;
   winnerName: string | null;
 }
 
-interface FightersMethods {
+interface FighterMethods {
   method: string;
   count: number;
 }
 
-interface FightersOpponents {
+interface FighterOpponents {
   opponentId: number;
   name: string;
 }
 
-interface FightersOtherNames {
+interface FighterOtherNames {
   name: string;
   otherNames: Array<string>;
 }
 
-interface FightersRight {
+interface FighterRight {
   id: number;
   winnerId: number;
   winnerName: string;
 }
 
-interface FightersWeightClasses {
+interface FighterWeightClasses {
   name: string;
   weightClasses: Array<{ id: number, name: string, test: boolean, nest: { id: number, age: boolean } }>;
 }
 
-interface FightersWithReach {
+interface FighterWithReach {
   name: string;
   heightCm: number | null;
   reachCm: number | null;
   reaches: Array<number>;
 }
 
-interface FightersQueries {
-  byHeight(): Promise<Array<FightersByHeight>>;
-  common(params: { fighter1: any; fighter2: any; }): Promise<Array<FightersCommon>>;
-  filter(): Promise<Array<FightersFilter>>;
+interface FighterQueries {
+  byHeight(): Promise<Array<FighterByHeight>>;
+  common(params: { fighter1: any; fighter2: any; }): Promise<Array<FighterCommon>>;
+  filter(): Promise<Array<FighterFilter>>;
   instagram(): Promise<Array<number | string | Buffer>>;
-  lastFights(params: { id: any; }): Promise<Array<FightersLastFights>>;
-  left(): Promise<Array<FightersLeft>>;
-  methods(params: { id: any; }): Promise<Array<FightersMethods>>;
-  opponents(): Promise<Array<FightersOpponents>>;
-  otherNames(): Promise<Array<FightersOtherNames>>;
-  right(): Promise<Array<FightersRight>>;
-  weightClasses(params: { fighterId: any; }): Promise<Array<FightersWeightClasses>>;
-  withReach(): Promise<Array<FightersWithReach>>;
+  lastFights(params: { id: any; }): Promise<Array<FighterLastFights>>;
+  left(): Promise<Array<FighterLeft>>;
+  methods(params: { id: any; }): Promise<Array<FighterMethods>>;
+  opponents(): Promise<Array<FighterOpponents>>;
+  otherNames(): Promise<Array<FighterOtherNames>>;
+  right(): Promise<Array<FighterRight>>;
+  weightClasses(params: { fighterId: any; }): Promise<Array<FighterWeightClasses>>;
+  withReach(): Promise<Array<FighterWithReach>>;
 }
 
-interface OtherNames {
+interface OtherName {
   id: number;
   fighterId: number;
   name: string;
 }
 
-interface InsertOtherNames {
+interface InsertOtherName {
   id?: number;
   fighterId: number;
   name: string;
 }
 
-interface WhereOtherNames {
+interface WhereOtherName {
   id?: number | Array<number>;
   fighterId?: number | Array<number>;
   name?: string | Array<string> | RegExp;
 }
 
-interface FighterCoaches {
+interface FighterCoach {
   id: number;
   coachId: number;
   fighterId: number;
@@ -503,7 +491,7 @@ interface FighterCoaches {
   endDate: string | null;
 }
 
-interface InsertFighterCoaches {
+interface InsertFighterCoach {
   id?: number;
   coachId: number;
   fighterId: number;
@@ -511,7 +499,7 @@ interface InsertFighterCoaches {
   endDate?: string;
 }
 
-interface WhereFighterCoaches {
+interface WhereFighterCoach {
   id?: number | Array<number>;
   coachId?: number | Array<number>;
   fighterId?: number | Array<number>;
@@ -519,7 +507,7 @@ interface WhereFighterCoaches {
   endDate?: string | Array<string> | RegExp | null;
 }
 
-interface Rankings {
+interface Ranking {
   id: number;
   fighterId: number;
   weightClassId: number;
@@ -527,7 +515,7 @@ interface Rankings {
   isInterim: boolean;
 }
 
-interface InsertRankings {
+interface InsertRanking {
   id?: number;
   fighterId: number;
   weightClassId: number;
@@ -535,7 +523,7 @@ interface InsertRankings {
   isInterim: boolean;
 }
 
-interface WhereRankings {
+interface WhereRanking {
   id?: number | Array<number>;
   fighterId?: number | Array<number>;
   weightClassId?: number | Array<number>;
@@ -543,43 +531,43 @@ interface WhereRankings {
   isInterim?: boolean | Array<boolean>;
 }
 
-interface Methods {
+interface Method {
   id: number;
   name: string;
   abbreviation: string;
 }
 
-interface InsertMethods {
+interface InsertMethod {
   id?: number;
   name: string;
   abbreviation: string;
 }
 
-interface WhereMethods {
+interface WhereMethod {
   id?: number | Array<number>;
   name?: string | Array<string> | RegExp;
   abbreviation?: string | Array<string> | RegExp;
 }
 
-interface MethodsByFighter {
+interface MethodByFighter {
   method: string;
   count: number;
 }
 
-interface MethodsCoach {
+interface MethodCoach {
   fit: number | string | Buffer;
   test: any;
   tests: any;
   profile: any;
 }
 
-interface MethodsQueries {
-  byFighter(params: { fighterId: any; }): Promise<Array<MethodsByFighter>>;
-  coach(): Promise<Array<MethodsCoach>>;
+interface MethodQueries {
+  byFighter(params: { fighterId: any; }): Promise<Array<MethodByFighter>>;
+  coach(): Promise<Array<MethodCoach>>;
   topSubmission(): Promise<Array<string | null>>;
 }
 
-interface Fights {
+interface Fight {
   id: number;
   cardId: number;
   fightOrder: number;
@@ -598,7 +586,7 @@ interface Fights {
   catchweightLbs: number | null;
 }
 
-interface InsertFights {
+interface InsertFight {
   id?: number;
   cardId: number;
   fightOrder: number;
@@ -617,7 +605,7 @@ interface InsertFights {
   catchweightLbs?: number;
 }
 
-interface WhereFights {
+interface WhereFight {
   id?: number | Array<number>;
   cardId?: number | Array<number>;
   fightOrder?: number | Array<number>;
@@ -636,7 +624,7 @@ interface WhereFights {
   catchweightLbs?: number | Array<number> | null;
 }
 
-interface FightsByFighter {
+interface FightByFighter {
   opponent: string;
   win: boolean | null;
   winnerId: number | null;
@@ -650,11 +638,11 @@ interface FightsByFighter {
   name: string;
 }
 
-interface FightsQueries {
-  byFighter(params: { id: any; }): Promise<Array<FightsByFighter>>;
+interface FightQueries {
+  byFighter(params: { id: any; }): Promise<Array<FightByFighter>>;
 }
 
-interface CancelledFights {
+interface CancelledFight {
   id: number;
   cardId: number;
   cardOrder: number;
@@ -664,7 +652,7 @@ interface CancelledFights {
   cancellationReason: string | null;
 }
 
-interface InsertCancelledFights {
+interface InsertCancelledFight {
   id?: number;
   cardId: number;
   cardOrder: number;
@@ -674,7 +662,7 @@ interface InsertCancelledFights {
   cancellationReason?: string;
 }
 
-interface WhereCancelledFights {
+interface WhereCancelledFight {
   id?: number | Array<number>;
   cardId?: number | Array<number>;
   cardOrder?: number | Array<number>;
@@ -684,7 +672,7 @@ interface WhereCancelledFights {
   cancellationReason?: string | Array<string> | RegExp | null;
 }
 
-interface TitleRemovals {
+interface TitleRemoval {
   id: number;
   fighterId: number;
   weightClassId: number;
@@ -693,7 +681,7 @@ interface TitleRemovals {
   reason: string;
 }
 
-interface InsertTitleRemovals {
+interface InsertTitleRemoval {
   id?: number;
   fighterId: number;
   weightClassId: number;
@@ -702,7 +690,7 @@ interface InsertTitleRemovals {
   reason: string;
 }
 
-interface WhereTitleRemovals {
+interface WhereTitleRemoval {
   id?: number | Array<number>;
   fighterId?: number | Array<number>;
   weightClassId?: number | Array<number>;
@@ -711,26 +699,26 @@ interface WhereTitleRemovals {
   reason?: string | Array<string> | RegExp;
 }
 
-interface FighterProfiles {
+interface FighterProfile {
   rowid: number;
   name: string;
   hometown: string;
 }
 
-interface InsertFighterProfiles {
+interface InsertFighterProfile {
   rowid?: number;
   name: string;
   hometown: string;
 }
 
-interface WhereFighterProfiles {
+interface WhereFighterProfile {
   rowid?: number | Array<number>;
   name?: string | Array<string> | RegExp;
   hometown?: string | Array<string> | RegExp;
   fighterProfiles?: string;
 }
 
-interface Opponents {
+interface Opponent {
   fightId: number;
   startTime: Date;
   fighterId: number;
@@ -738,7 +726,7 @@ interface Opponents {
   methodId: number | null;
 }
 
-interface InsertOpponents {
+interface InsertOpponent {
   fightId: number;
   startTime: Date;
   fighterId: number;
@@ -746,7 +734,7 @@ interface InsertOpponents {
   methodId?: number;
 }
 
-interface WhereOpponents {
+interface WhereOpponent {
   fightId?: number | Array<number>;
   startTime?: Date | Array<Date> | RegExp;
   fighterId?: number | Array<number>;
@@ -756,21 +744,21 @@ interface WhereOpponents {
 
 interface TypedDb {
   [key: string]: any,
-  weightClasses: Queries<WeightClasses, InsertWeightClasses, WhereWeightClasses, number>,
-  locations: Queries<Locations, InsertLocations, WhereLocations, number> & LocationsQueries,
-  events: Queries<Events, InsertEvents, WhereEvents, number> & EventsQueries,
-  cards: Queries<Cards, InsertCards, WhereCards, number>,
-  coaches: Queries<Coaches, InsertCoaches, WhereCoaches, number> & CoachesQueries,
-  fighters: Queries<Fighters, InsertFighters, WhereFighters, number> & FightersQueries,
-  otherNames: Queries<OtherNames, InsertOtherNames, WhereOtherNames, number>,
-  fighterCoaches: Queries<FighterCoaches, InsertFighterCoaches, WhereFighterCoaches, number>,
-  rankings: Queries<Rankings, InsertRankings, WhereRankings, number>,
-  methods: Queries<Methods, InsertMethods, WhereMethods, number> & MethodsQueries,
-  fights: Queries<Fights, InsertFights, WhereFights, number> & FightsQueries,
-  cancelledFights: Queries<CancelledFights, InsertCancelledFights, WhereCancelledFights, number>,
-  titleRemovals: Queries<TitleRemovals, InsertTitleRemovals, WhereTitleRemovals, number>,
-  fighterProfiles: VirtualQueries<FighterProfiles, WhereFighterProfiles>,
-  opponents: Pick<Queries<Opponents, InsertOpponents, WhereOpponents>, "get", "many">,
+  weightClasses: Queries<WeightClass, InsertWeightClass, WhereWeightClass, number>,
+  locations: Queries<Location, InsertLocation, WhereLocation, number> & LocationQueries,
+  events: Queries<Event, InsertEvent, WhereEvent, number> & EventQueries,
+  cards: Queries<Card, InsertCard, WhereCard, number>,
+  coaches: Queries<Coach, InsertCoach, WhereCoach, number> & CoachQueries,
+  fighters: Queries<Fighter, InsertFighter, WhereFighter, number> & FighterQueries,
+  otherNames: Queries<OtherName, InsertOtherName, WhereOtherName, number>,
+  fighterCoaches: Queries<FighterCoach, InsertFighterCoach, WhereFighterCoach, number>,
+  rankings: Queries<Ranking, InsertRanking, WhereRanking, number>,
+  methods: Queries<Method, InsertMethod, WhereMethod, number> & MethodQueries,
+  fights: Queries<Fight, InsertFight, WhereFight, number> & FightQueries,
+  cancelledFights: Queries<CancelledFight, InsertCancelledFight, WhereCancelledFight, number>,
+  titleRemovals: Queries<TitleRemoval, InsertTitleRemoval, WhereTitleRemoval, number>,
+  fighterProfiles: VirtualQueries<FighterProfile, WhereFighterProfile>,
+  opponents: Pick<Queries<Opponent, InsertOpponent, WhereOpponent>, "get", "many">,
   begin(): Promise<void>,
   commit(): Promise<void>,
   rollback(): Promise<void>,

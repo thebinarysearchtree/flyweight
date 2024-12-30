@@ -17,8 +17,8 @@ const basic = {
   update: (database, table, tx) => async (params, query) => await update(database, table, params, query, tx),
   exists: (database, table, tx) => async (query) => await exists(database, table, query, tx),
   count: (database, table, tx) => async (query, keywords) => await count(database, table, query, keywords, tx),
-  get: (database, table, tx) => async (query, columns) => await get(database, table, query, columns, tx),
-  many: (database, table, tx) => async (query, columns) => await all(database, table, query, columns, tx),
+  get: (database, table, tx) => async (query, columns, keywords) => await get(database, table, query, columns, keywords, tx),
+  many: (database, table, tx) => async (query, columns, keywords) => await all(database, table, query, columns, keywords, tx),
   remove: (database, table, tx) => async (query) => await remove(database, table, query, tx)
 }
 
@@ -209,7 +209,7 @@ const makeQueryHandler = (table, db, tx) => {
     get: function(target, query) {
       if (!target[query]) {
         let cachedFunction;
-        target[query] = async (params, queryOptions) => {
+        target[query] = async (params, queryOptions, keywords) => {
           if (cachedFunction) {
             return await cachedFunction(params, queryOptions);
           }
@@ -225,7 +225,7 @@ const makeQueryHandler = (table, db, tx) => {
             const makeQuery = basic[query];
             if (makeQuery) {
               cachedFunction = makeQuery(db, table, tx);
-              return await cachedFunction(params, queryOptions);
+              return await cachedFunction(params, queryOptions, keywords);
             }
             else {
               throw e;
