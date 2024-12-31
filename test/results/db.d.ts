@@ -44,7 +44,7 @@ interface Paths {
 }
 
 declare class Database {
-  constructor(options: DatabaseOptions);
+  constructor(options: DatabaseConfig);
   runMigration(sql: string): Promise<void>;
   makeTypes(fileSystem: FileSystem, paths: Paths): Promise<void>;
   getClient(): TypedDb; 
@@ -69,7 +69,6 @@ declare class TursoDatabase extends Database {
   commit(): Promise<void>;
   rollback(): Promise<void>;
   batch(handler: (batcher: any) => any[]): Promise<any[]>;
-  sync(): Promise<void>;
 }
 
 declare class D1Database extends Database {
@@ -101,10 +100,6 @@ interface Range {
 }
 
 declare function range(range: Range): Modifier | undefined;
-
-type Unwrap<T extends any[]> = {
-  [K in keyof T]: T[K] extends Promise<infer U> ? U : T[K];
-};
 
 
 
@@ -771,7 +766,7 @@ interface TypedDb {
   cancelledFights: Queries<CancelledFight, InsertCancelledFight, WhereCancelledFight, number>,
   titleRemovals: Queries<TitleRemoval, InsertTitleRemoval, WhereTitleRemoval, number>,
   fighterProfiles: VirtualQueries<FighterProfile, WhereFighterProfile>,
-  opponents: Pick<Queries<Opponent, InsertOpponent, WhereOpponent>, "get", "many">,
+  opponents: Pick<Queries<Opponent, InsertOpponent, WhereOpponent>, 'get', 'many'>,
   begin(): Promise<void>,
   commit(): Promise<void>,
   rollback(): Promise<void>,
@@ -781,6 +776,7 @@ interface TypedDb {
 
 declare const database: SQLiteDatabase;
 declare const db: TypedDb;
+
 export {
   database,
   db
