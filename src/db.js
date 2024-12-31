@@ -82,7 +82,7 @@ class Database {
     ]);
   }
 
-  async makeTypes(fileSystem, paths) {
+  async makeTypes(fileSystem, paths, dbType) {
     if (!this.initialized) {
       await this.initialize();
     }
@@ -90,7 +90,8 @@ class Database {
       db: this,
       sqlDir: paths.sql,
       destinationPath: paths.types,
-      fileSystem
+      fileSystem,
+      dbType
     });
   }
 

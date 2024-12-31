@@ -369,7 +369,8 @@ const createTypes = async (options) => {
     db,
     sqlDir,
     destinationPath,
-    fileSystem
+    fileSystem,
+    dbType
   } = options;
   let index = files.index;
   index = index.replace(/export \{[^\}]+\}/, '');
@@ -403,7 +404,7 @@ const createTypes = async (options) => {
       tsType = 'undefined';
     }
     if (db.viewSet.has(table.name)) {
-      returnType = `  ${table.name}: Pick<Queries<${interfaceName}, ${insertInterfaceName}, ${whereInterfaceName}>, "get", "many">`;
+      returnType = `  ${table.name}: Pick<Queries<${interfaceName}, ${insertInterfaceName}, ${whereInterfaceName}>, 'get', 'many'>`;
     }
     else if (db.virtualSet.has(table.name)) {
       returnType = `  ${table.name}: VirtualQueries<${interfaceName}, ${whereInterfaceName}>`;
@@ -484,32 +485,12 @@ const createTypes = async (options) => {
       types += '\n';
     }
   }
-  types += `export interface TypedDb {\n`;
-  types += '  [key: string]: any,\n';
-  for (const returnType of returnTypes) {
-    types += returnType + ',\n';
-  }
-  if (!db.d1) {
-    types += '  begin(): Promise<void>,\n';
-    types += '  commit(): Promise<void>,\n';
-    types += '  rollback(): Promise<void>,\n';
-    types += `  getTransaction(): Promise<TypedDb>,\n`;
-    types += `  release(transaction: TypedDb): void`;
-  }
-  else {
-    types += '  batch:<T extends any[]> (batcher: (bx: TypedDb) => T) => Promise<Unwrap<T>>'
-  }
-  types += '\n}\n\n';
   types = types.replaceAll(/^export /gm, '');
-  if (!db.d1) {
-    types += `declare const database: SQLiteDatabase;\n`;
-    types += `declare const db: TypedDb;\n`;
-    types += 'export {\n  database,\n  db\n}\n';
-  }
-  else {
-    types += 'declare function makeClient(options: D1Config): TypedDb;\n\n'
-    types += 'export default makeClient;\n';
-  }
+  const exportSection = files[dbType];
+  const customTypes = returnTypes.join(',\n');
+  const replaced = exportSection.replace(/(\[key: string\]: any,\s)/, `$1${customTypes},\n`);
+  types += replaced;
+
   await fileSystem.writeFile(destinationPath, types, 'utf8');
 }
 

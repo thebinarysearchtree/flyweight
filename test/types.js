@@ -5,13 +5,13 @@ import { join } from 'path';
 import fileSystem from './files.js';
 
 const run = async () => {
-  await database.makeTypes(fileSystem, paths);
+  await database.makeTypes(fileSystem, paths, 'sqlite');
   compareTypes();
   const path = join(database.sqlPath, 'fights', 'error.sql');
   await writeFile(path, 'select id rom something');
   let error = false;
   try {
-    await database.makeTypes(fileSystem, paths);
+    await database.makeTypes(fileSystem, paths, 'sqlite');
   }
   catch (e) {
     error = e.message.includes('SQLITE_ERROR: near "something": syntax error');

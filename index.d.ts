@@ -69,7 +69,6 @@ declare class TursoDatabase extends Database {
   commit(): Promise<void>;
   rollback(): Promise<void>;
   batch(handler: (batcher: any) => any[]): Promise<any[]>;
-  sync(): Promise<void>;
 }
 
 declare class D1Database extends Database {
