@@ -50,9 +50,6 @@ declare class Database {
   getClient(): TypedDb; 
   getTables(): Promise<string>;
   createMigration(fileSystem: FileSystem, paths: Paths, name: string, reset?: boolean): Promise<string>;
-  begin(): Promise<void>;
-  commit(): Promise<void>;
-  rollback(): Promise<void>;
   run(args: { query: any, params?: any }): Promise<number>;
   all<T>(args: { query: any, params?: any, options?: QueryOptions }): Promise<Array<T>>;
   exec(query: string): Promise<void>;
@@ -60,12 +57,19 @@ declare class Database {
 
 declare class SQLiteDatabase extends Database {
   constructor(options: SQLiteConfig);
+  begin(): Promise<void>;
+  commit(): Promise<void>;
+  rollback(): Promise<void>;
   close(): Promise<void>;
 }
 
 declare class TursoDatabase extends Database {
   constructor(options: TursoConfig);
+  begin(): Promise<void>;
+  commit(): Promise<void>;
+  rollback(): Promise<void>;
   batch(handler: (batcher: any) => any[]): Promise<any[]>;
+  sync(): Promise<void>;
 }
 
 declare class D1Database extends Database {
