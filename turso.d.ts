@@ -1,3 +1,7 @@
+type Unwrap<T extends any[]> = {
+  [K in keyof T]: T[K] extends Promise<infer U> ? U : T[K];
+};
+
 interface TypedDb {
   [key: string]: any,
   begin(): Promise<void>,

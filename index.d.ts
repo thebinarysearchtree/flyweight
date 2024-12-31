@@ -44,7 +44,7 @@ interface Paths {
 }
 
 declare class Database {
-  constructor(options: DatabaseOptions);
+  constructor(options: DatabaseConfig);
   runMigration(sql: string): Promise<void>;
   makeTypes(fileSystem: FileSystem, paths: Paths): Promise<void>;
   getClient<T>(): T; 
@@ -100,10 +100,6 @@ interface Range {
 }
 
 declare function range(range: Range): Modifier | undefined;
-
-type Unwrap<T extends any[]> = {
-  [K in keyof T]: T[K] extends Promise<infer U> ? U : T[K];
-};
 
 export {
   Database,
