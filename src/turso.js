@@ -63,6 +63,10 @@ class TursoDatabase extends Database {
     await tx.db.rollback();
   }
 
+  async sync() {
+    await this.raw.sync();
+  }
+
   async basicRun(sql) {
     return await this.raw.execute(sql);
   }

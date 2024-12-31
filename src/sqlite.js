@@ -108,6 +108,18 @@ class SQLiteDatabase extends Database {
     });
   }
 
+  async begin(tx) {
+    await this.basicRun('begin', tx);
+  }
+
+  async commit(tx) {
+    await this.basicRun('commit', tx);
+  }
+
+  async rollback(tx) {
+    await this.basicRun('rollback', tx);
+  }
+
   async basicRun(sql, tx) {
     if (!tx && !this.initialized) {
       await this.initialize();
