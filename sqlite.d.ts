@@ -7,7 +7,7 @@ interface TypedDb {
   release(transaction: TypedDb): void
 }
 
-declare const database: SQLiteDatabase;
+declare const database: any;
 declare const db: TypedDb;
 
 export {
