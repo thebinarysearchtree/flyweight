@@ -404,7 +404,7 @@ const createTypes = async (options) => {
       tsType = 'undefined';
     }
     if (db.viewSet.has(table.name)) {
-      returnType = `  ${table.name}: Pick<Queries<${interfaceName}, ${insertInterfaceName}, ${whereInterfaceName}, undefined>, 'get', 'many'>`;
+      returnType = `  ${table.name}: Pick<Queries<${interfaceName}, ${insertInterfaceName}, ${whereInterfaceName}, undefined>, 'get' | 'many'>`;
     }
     else if (db.virtualSet.has(table.name)) {
       returnType = `  ${table.name}: VirtualQueries<${interfaceName}, ${whereInterfaceName}>`;

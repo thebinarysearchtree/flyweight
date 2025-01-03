@@ -766,7 +766,7 @@ interface TypedDb {
   cancelledFights: Queries<CancelledFight, InsertCancelledFight, WhereCancelledFight, number>,
   titleRemovals: Queries<TitleRemoval, InsertTitleRemoval, WhereTitleRemoval, number>,
   fighterProfiles: VirtualQueries<FighterProfile, WhereFighterProfile>,
-  opponents: Pick<Queries<Opponent, InsertOpponent, WhereOpponent, undefined>, 'get', 'many'>,
+  opponents: Pick<Queries<Opponent, InsertOpponent, WhereOpponent, undefined>, 'get' | 'many'>,
   begin(): Promise<void>,
   commit(): Promise<void>,
   rollback(): Promise<void>,
