@@ -307,16 +307,16 @@ const toSelect = (columns, keywords, table, db, verify) => {
       verify(columns);
       return columns.join(', ');
     }
-    if (keywords && keywords.exclude) {
-      if (!db.tables[table]) {
-        throw Error('Database tables must be set before using exclude');
-      }
-      return db.tables[table]
-        .map(c => c.name)
-        .filter(c => !keywords.exclude.includes(c))
-        .join(', ');
-    }
     return '*';
+  }
+  if (keywords && keywords.exclude) {
+    if (!db.tables[table]) {
+      throw Error('Database tables must be set before using exclude');
+    }
+    return db.tables[table]
+      .map(c => c.name)
+      .filter(c => !keywords.exclude.includes(c))
+      .join(', ');
   }
   return '*';
 }
