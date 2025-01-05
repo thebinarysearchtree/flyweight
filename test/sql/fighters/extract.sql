@@ -1,0 +1,1 @@
+select json_extract(social, $path) as instagram from fighters where id = 2

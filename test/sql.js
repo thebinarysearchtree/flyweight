@@ -12,6 +12,7 @@ const run = async () => {
   const winners = await db.locations.winners();
   const orderBy = await db.locations.events();
   const detailedEvents = await db.locations.detailedEvents();
+  const extract = await db.fighters.extract({ path: '$.instagram' });
   await db.coaches.from();
 
   compare(locations, 'locationsByMethod');
@@ -21,6 +22,7 @@ const run = async () => {
   compare(winners, 'locationWinners');
   compare(orderBy, 'aggregateOrderBy');
   compare(detailedEvents, 'detailedEvents');
+  compare(extract, 'fightersExtract');
 
   assert.equal(submission, 'Rear-naked choke');
 }

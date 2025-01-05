@@ -461,6 +461,7 @@ interface FighterWithReach {
 interface FighterQueries {
   byHeight(): Promise<Array<FighterByHeight>>;
   common(params: { fighter1: any; fighter2: any; }): Promise<Array<FighterCommon>>;
+  extract(params: { path: any; }): Promise<Array<number | string | Buffer | null>>;
   filter(): Promise<Array<FighterFilter>>;
   instagram(): Promise<Array<number | string | Buffer>>;
   lastFights(params: { id: any; }): Promise<Array<FighterLastFights>>;
