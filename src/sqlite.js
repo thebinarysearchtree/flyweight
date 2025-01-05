@@ -1,6 +1,12 @@
 import Database from './db.js';
 import { makeClient } from './proxy.js';
 
+const wait = async () => {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => resolve(), 100);
+  });
+}
+
 class SQLiteDatabase extends Database {
   constructor(props) {
     super(props);

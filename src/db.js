@@ -26,12 +26,6 @@ const typeMap = {
   any: 'Number | String | Buffer | null'
 }
 
-const wait = async () => {
-  return new Promise((resolve, reject) => {
-    setTimeout(() => resolve(), 100);
-  });
-}
-
 class Database {
   constructor(props) {
     this.read = null;
