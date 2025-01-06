@@ -305,7 +305,6 @@ Transactions involve taking a connection from a pool of connections by calling `
 
 ```js
 import { db } from './db.js';
-import { like } from 'flyweightjs';
 
 try {
   const tx = await db.getTransaction();
@@ -315,7 +314,7 @@ try {
     name: 'Eugene Bareman',
     city: 'Auckland'
   });
-  const fighterId = await tx.fighters.get({ name: like('Israel%') }, 'id');
+  const fighterId = await tx.fighters.get({ name: n => n.like('Israel%') }, 'id');
   await tx.fighterCoaches.insert({
     fighterId,
     coachId
