@@ -464,8 +464,13 @@ const createTypes = async (options) => {
       const dbType = customType ? customType.dbType : type;
       let property = `  ${name}`;
       property += '?: ';
-      property += tsType;
-      property += ` | Array<${tsType}> | WhereFunction`;
+      if (tsType === 'any') {
+        property += 'WhereFunction';
+      }
+      else {
+        property += tsType;
+        property += ` | Array<${tsType}> | WhereFunction`;
+      }
       if (!primaryKey && !notNull) {
         property += ' | null';
       }

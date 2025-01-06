@@ -4,7 +4,7 @@ import { compare } from './utils.js';
 
 const run = async () => {
   const cards = await db.cards.many({ eventId: 100 });
-  const fighterId = await db.fighters.get({ name: n => n.like('Israel%') }, 'id');
+  const fighterId = await db.fighters.get({ name: s => s.like('Israel%') }, 'id');
 
   compare(cards, 'cardsGet');
   assert.equal(fighterId, 17);
@@ -45,7 +45,7 @@ const run = async () => {
   const count = await db.coaches.count({ name: 'Eugene' });
   assert.equal(count, 2);
   await db.coaches.remove();
-  const fighterCount = await db.fighters.count({ id: i => i.range({ gt: 10, lt: 15 }) });
+  const fighterCount = await db.fighters.count({ id: n => n.range({ gt: 10, lt: 15 }) });
   assert.equal(fighterCount, 4);
 }
 

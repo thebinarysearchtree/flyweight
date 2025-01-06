@@ -359,7 +359,7 @@ interface WhereCoach {
   id?: number | Array<number> | WhereFunction;
   name?: string | Array<string> | WhereFunction;
   city?: string | Array<string> | WhereFunction;
-  profile?: any | Array<any> | WhereFunction | null;
+  profile?: WhereFunction | null;
 }
 
 interface CoachQueries {
@@ -398,7 +398,7 @@ interface WhereFighter {
   heightCm?: number | Array<number> | WhereFunction | null;
   reachCm?: number | Array<number> | WhereFunction | null;
   hometown?: string | Array<string> | WhereFunction;
-  social?: any | Array<any> | WhereFunction | null;
+  social?: WhereFunction | null;
   isActive?: boolean | Array<boolean> | WhereFunction;
 }
 
