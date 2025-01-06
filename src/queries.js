@@ -1,4 +1,71 @@
-import { Modifier } from './modifiers.js';
+const methods = new Map([
+  ['not', '!='],
+  ['gt', '>'],
+  ['gte', '>='],
+  ['lt', '<'],
+  ['lte', '<='],
+  ['like', 'like'],
+  ['match', 'match'],
+  ['glob', 'glob'],
+  ['range', null],
+  ['eq', '='],
+  ['as', null]
+]);
+
+const handler = {
+  get: function(target, property) {
+    target.push(property);
+    if (methods.has(property)) {
+      return (value) => {
+        target.push(value);
+        return target;
+      }
+    }
+    return proxy;
+  }
+}
+
+const getConditions = (column, query) => {
+  const proxy = new Proxy([], handler);
+  const chain = query(proxy);
+  const value = chain.pop();
+  const method = chain.pop();
+  const path = chain.length === 0 ? null : `$.${chain.join('.')}`;
+  const selector = path ? `json_extract(${column}, $${column}_${chain.join('_')}_${method})` : column;
+  const conditions = [];
+  const params = {};
+  if (method === 'not') {
+    if (Array.isArray(value)) {
+      const placeholder = `where_not_${column}`;
+      conditions.push(`${selector} not in (select json_each.value from json_each($${placeholder}))`);
+      params[placeholder] = value;
+    }
+    else if (value === null) {
+      conditions.push(`${selector} is not null`);
+    }
+  }
+  else if (method === 'range') {
+    for (const [method, param] of Object.entries(value)) {
+      if (!['gt', 'gte', 'lt', 'lte'].includes(method)) {
+        throw Error('Invalid range statement');
+      }
+      const placeholder = `where_${method}_${column}`;
+      const operator = methods.get(method);
+      conditions.push(`${selector} ${operator} $${placeholder}`);
+      params[placeholder] = param;
+    }
+  }
+  else {
+    const placeholder = `where_${method}_${column}`;
+    const operator = methods.get(method);
+    conditions.push(`${selector} ${operator} $${placeholder}`);
+    params[placeholder] = value;
+  }
+  return {
+    conditions,
+    params
+  };
+}
 
 const getPlaceholders = (columnNames, columnTypes) => {
   return columnNames.map(columnName => {
@@ -173,28 +240,26 @@ const insertMany = async (db, table, items, tx) => {
 
 const toClause = (query, verify) => {
   if (!query) {
-    return null;
+    return {
+      conditions: null,
+      params: {}
+    }
   }
   const entries = Object.entries(query);
   if (entries.length === 0) {
-    return null;
+    return {
+      conditions: null,
+      params: {}
+    }
   }
   const conditions = [];
+  let params = {};
   for (const [column, param] of entries) {
     verify(column);
-    if (param instanceof Modifier) {
-      for (const condition of param.conditions) {
-        const { name, operator, value } = condition;
-        if (Array.isArray(value)) {
-          conditions.push(`${column} not in (select json_each.value from json_each($where_${name}_${column}))`);
-        }
-        else if (value === null) {
-          conditions.push(`${column} is not null`);
-        }
-        else {
-          conditions.push(`${column} ${operator} $where_${name}_${column}`);
-        }
-      }
+    if (typeof param === 'function') {
+      const result = getConditions(column, param);
+      conditions.push(...result.conditions);
+      params = { ...params, ...result.params };
     }
     else if (Array.isArray(param)) {
       conditions.push(`${column} in (select json_each.value from json_each($where_${column}))`);
@@ -206,24 +271,29 @@ const toClause = (query, verify) => {
       conditions.push(`${column} = $where_${column}`);
     }
   }
-  return conditions.join(' and ');
+  return {
+    conditions: conditions.join(' and '),
+    params
+  };
 }
 
-const adjustWhere = (query) => {
+const adjustWhere = (query, additional) => {
   if (!query) {
     return query;
   }
   const result = {};
   for (const [key, param] of Object.entries(query)) {
-    if (param instanceof Modifier) {
-      for (const condition of param.conditions) {
-        const adjusted = `where_${condition.name}_${key}`;
-        result[adjusted] = condition.value;
-      }
+    if (typeof param === 'function') {
+      continue;
     }
     else if (param !== null) {
       const adjusted = `where_${key}`;
       result[adjusted] = param;
+    }
+  }
+  for (const [key, param] of Object.entries(additional)) {
+    if (param !== null) {
+      result[key] = param;
     }
   }
   return result;
@@ -264,8 +334,9 @@ const update = async (db, table, query, params, tx) => {
   let sql;
   if (query) {
     query = removeUndefined(query);
-    const where = toClause(query, verify);
-    query = adjustWhere(query);
+    const result = toClause(query, verify);
+    const where = result.conditions;
+    query = adjustWhere(query, result.params);
     sql = `update ${table} set ${set} where ${where}`;
   }
   else {
@@ -448,8 +519,9 @@ const exists = async (db, table, query, tx) => {
   const verify = makeVerify(table, columnSet);
   let sql = `select exists(select 1 from ${table}`;
   query = removeUndefined(query);
-  const where = toClause(query, verify);
-  query = adjustWhere(query);
+  const result = toClause(query, verify);
+  const where = result.conditions;
+  query = adjustWhere(query, result.params);
   if (where) {
     sql += ` where ${where}`;
   }
@@ -484,8 +556,9 @@ const count = async (db, table, query, keywords, tx) => {
   }
   sql += `count(*) as count from ${table}`;
   query = removeUndefined(query);
-  const where = toClause(query, verify);
-  query = adjustWhere(query);
+  const result = toClause(query, verify);
+  const where = result.conditions;
+  query = adjustWhere(query, result.params);
   if (where) {
     sql += ` where ${where}`;
   }
@@ -524,8 +597,9 @@ const get = async (db, table, query, columns, keywords, tx) => {
   }
   sql += `${select} from ${table}`;
   query = removeUndefined(query);
-  const where = toClause(query, verify);
-  query = adjustWhere(query);
+  const result = toClause(query, verify);
+  const where = result.conditions;
+  query = adjustWhere(query, result.params);
   if (where) {
     sql += ` where ${where}`;
   }
@@ -574,8 +648,9 @@ const all = async (db, table, query, columns, keywords, tx) => {
   }
   sql += `${select} from ${table}`;
   query = removeUndefined(query);
-  const where = toClause(query, verify);
-  query = adjustWhere(query);
+  const result = toClause(query, verify);
+  const where = result.conditions;
+  query = adjustWhere(query, result.params);
   if (where) {
     sql += ` where ${where}`;
   }
@@ -630,8 +705,9 @@ const remove = async (db, table, query, tx) => {
   const verify = makeVerify(table, columnSet);
   let sql = `delete from ${table}`;
   query = removeUndefined(query);
-  const where = toClause(query, verify);
-  query = adjustWhere(query);
+  const result = toClause(query, verify);
+  const where = result.conditions;
+  query = adjustWhere(query, result.params);
   if (where) {
     sql += ` where ${where}`;
   }

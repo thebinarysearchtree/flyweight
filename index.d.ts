@@ -76,43 +76,9 @@ declare class D1Database extends Database {
   batch(handler: (batcher: any) => any[]): Promise<any[]>;
 }
 
-declare class Modifier {
-  constructor(name: string, value: any, operator: string);
-  name: string;
-  value: any;
-  operator: string
-}
-
-declare function not(value: any): Modifier | undefined;
-declare function gt(value: any): Modifier | undefined;
-declare function gte(value: any): Modifier | undefined;
-declare function lt(value: any): Modifier | undefined;
-declare function lte(value: any): Modifier | undefined;
-declare function like(value: any): Modifier | undefined;
-declare function match(value: any): Modifier | undefined;
-declare function glob(value: any): Modifier | undefined;
-
-interface Range {
-  gt?: string | number;
-  gte?: string | number;
-  lt?: string | number;
-  lte?: string | number;
-}
-
-declare function range(range: Range): Modifier | undefined;
-
 export {
   Database,
   SQLiteDatabase,
   TursoDatabase,
-  D1Database,
-  not,
-  gt,
-  gte,
-  lt,
-  lte,
-  like,
-  range,
-  match,
-  glob
+  D1Database
 }
