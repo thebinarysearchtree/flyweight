@@ -73,3 +73,36 @@ export interface Queries<T, I, W, R> {
   exists(params: W | null): Promise<boolean>;
   remove(params?: W): Promise<number>;
 }
+
+interface Range {
+	gt?: number | string | Date;
+	gte?: number | string | Date;
+	lt?: number | string | Date;
+	lte?: number | string | Date;
+}
+
+interface WhereMethods {
+	not: (value: number | string | Array<string | number | Date> | Date | null) => [];
+	gt: (value: number | string | Date) => [];
+	lt: (value: number | string | Date) => [];
+	lte: (value: number | string | Date) => [];
+	like: (pattern: string) => [];
+	match: (pattern: string) => [];
+	glob: (pattern: string) => [];
+	range: (limits: Range) => [];
+	eq: (value: number | string | Date) => [];
+}
+
+interface SelectMethods {
+	as: (alias: string) => [];
+}
+
+type WhereBuilder = WhereMethods & {
+	[key in Exclude<string, keyof WhereMethods>]: WhereBuilder;
+};
+
+type SelectBuilder = WhereMethods & {
+	[key in Exclude<string, keyof WhereMethods>]: SelectBuilder;
+};
+
+type SelectFunction = (builder: SelectBuilder) => [];

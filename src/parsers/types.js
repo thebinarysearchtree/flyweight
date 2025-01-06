@@ -465,7 +465,7 @@ const createTypes = async (options) => {
       let property = `  ${name}`;
       property += '?: ';
       property += tsType;
-      property += ` | Array<${tsType}> | Function`;
+      property += ` | Array<${tsType}> | SelectFunction`;
       if (!primaryKey && !notNull) {
         property += ' | null';
       }
