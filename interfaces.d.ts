@@ -102,7 +102,7 @@ type WhereBuilder = WhereMethods & {
 };
 
 type SelectBuilder = WhereMethods & {
-	[key in Exclude<string, keyof WhereMethods>]: SelectBuilder;
+	[key in Exclude<string, keyof SelectMethods>]: SelectBuilder;
 };
 
-type SelectFunction = (builder: SelectBuilder) => [];
+type WhereFunction = (builder: WhereBuilder) => [];

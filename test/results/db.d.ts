@@ -182,10 +182,10 @@ type WhereBuilder = WhereMethods & {
 };
 
 type SelectBuilder = WhereMethods & {
-	[key in Exclude<string, keyof WhereMethods>]: SelectBuilder;
+	[key in Exclude<string, keyof SelectMethods>]: SelectBuilder;
 };
 
-type SelectFunction = (builder: SelectBuilder) => [];
+type WhereFunction = (builder: WhereBuilder) => [];
 
 
 interface WeightClass {
@@ -203,10 +203,10 @@ interface InsertWeightClass {
 }
 
 interface WhereWeightClass {
-  id?: number | Array<number> | SelectFunction;
-  name?: string | Array<string> | SelectFunction;
-  weightLbs?: number | Array<number> | SelectFunction;
-  gender?: string | Array<string> | SelectFunction;
+  id?: number | Array<number> | WhereFunction;
+  name?: string | Array<string> | WhereFunction;
+  weightLbs?: number | Array<number> | WhereFunction;
+  gender?: string | Array<string> | WhereFunction;
 }
 
 interface Location {
@@ -226,11 +226,11 @@ interface InsertLocation {
 }
 
 interface WhereLocation {
-  id?: number | Array<number> | SelectFunction;
-  name?: string | Array<string> | SelectFunction;
-  address?: string | Array<string> | SelectFunction;
-  lat?: number | Array<number> | SelectFunction;
-  long?: number | Array<number> | SelectFunction;
+  id?: number | Array<number> | WhereFunction;
+  name?: string | Array<string> | WhereFunction;
+  address?: string | Array<string> | WhereFunction;
+  lat?: number | Array<number> | WhereFunction;
+  long?: number | Array<number> | WhereFunction;
 }
 
 interface LocationById {
@@ -286,10 +286,10 @@ interface InsertEvent {
 }
 
 interface WhereEvent {
-  id?: number | Array<number> | SelectFunction;
-  name?: string | Array<string> | SelectFunction;
-  startTime?: Date | Array<Date> | SelectFunction;
-  locationId?: number | Array<number> | SelectFunction | null;
+  id?: number | Array<number> | WhereFunction;
+  name?: string | Array<string> | WhereFunction;
+  startTime?: Date | Array<Date> | WhereFunction;
+  locationId?: number | Array<number> | WhereFunction | null;
 }
 
 interface EventLag {
@@ -334,11 +334,11 @@ interface InsertCard {
 }
 
 interface WhereCard {
-  id?: number | Array<number> | SelectFunction;
-  eventId?: number | Array<number> | SelectFunction;
-  cardName?: string | Array<string> | SelectFunction;
-  cardOrder?: number | Array<number> | SelectFunction;
-  startTime?: Date | Array<Date> | SelectFunction | null;
+  id?: number | Array<number> | WhereFunction;
+  eventId?: number | Array<number> | WhereFunction;
+  cardName?: string | Array<string> | WhereFunction;
+  cardOrder?: number | Array<number> | WhereFunction;
+  startTime?: Date | Array<Date> | WhereFunction | null;
 }
 
 interface Coach {
@@ -356,10 +356,10 @@ interface InsertCoach {
 }
 
 interface WhereCoach {
-  id?: number | Array<number> | SelectFunction;
-  name?: string | Array<string> | SelectFunction;
-  city?: string | Array<string> | SelectFunction;
-  profile?: any | Array<any> | SelectFunction | null;
+  id?: number | Array<number> | WhereFunction;
+  name?: string | Array<string> | WhereFunction;
+  city?: string | Array<string> | WhereFunction;
+  profile?: any | Array<any> | WhereFunction | null;
 }
 
 interface CoachQueries {
@@ -391,15 +391,15 @@ interface InsertFighter {
 }
 
 interface WhereFighter {
-  id?: number | Array<number> | SelectFunction;
-  name?: string | Array<string> | SelectFunction;
-  nickname?: string | Array<string> | SelectFunction | null;
-  born?: string | Array<string> | SelectFunction | null;
-  heightCm?: number | Array<number> | SelectFunction | null;
-  reachCm?: number | Array<number> | SelectFunction | null;
-  hometown?: string | Array<string> | SelectFunction;
-  social?: any | Array<any> | SelectFunction | null;
-  isActive?: boolean | Array<boolean> | SelectFunction;
+  id?: number | Array<number> | WhereFunction;
+  name?: string | Array<string> | WhereFunction;
+  nickname?: string | Array<string> | WhereFunction | null;
+  born?: string | Array<string> | WhereFunction | null;
+  heightCm?: number | Array<number> | WhereFunction | null;
+  reachCm?: number | Array<number> | WhereFunction | null;
+  hometown?: string | Array<string> | WhereFunction;
+  social?: any | Array<any> | WhereFunction | null;
+  isActive?: boolean | Array<boolean> | WhereFunction;
 }
 
 interface FighterByHeight {
@@ -495,9 +495,9 @@ interface InsertOtherName {
 }
 
 interface WhereOtherName {
-  id?: number | Array<number> | SelectFunction;
-  fighterId?: number | Array<number> | SelectFunction;
-  name?: string | Array<string> | SelectFunction;
+  id?: number | Array<number> | WhereFunction;
+  fighterId?: number | Array<number> | WhereFunction;
+  name?: string | Array<string> | WhereFunction;
 }
 
 interface FighterCoach {
@@ -517,11 +517,11 @@ interface InsertFighterCoach {
 }
 
 interface WhereFighterCoach {
-  id?: number | Array<number> | SelectFunction;
-  coachId?: number | Array<number> | SelectFunction;
-  fighterId?: number | Array<number> | SelectFunction;
-  startDate?: string | Array<string> | SelectFunction;
-  endDate?: string | Array<string> | SelectFunction | null;
+  id?: number | Array<number> | WhereFunction;
+  coachId?: number | Array<number> | WhereFunction;
+  fighterId?: number | Array<number> | WhereFunction;
+  startDate?: string | Array<string> | WhereFunction;
+  endDate?: string | Array<string> | WhereFunction | null;
 }
 
 interface Ranking {
@@ -541,11 +541,11 @@ interface InsertRanking {
 }
 
 interface WhereRanking {
-  id?: number | Array<number> | SelectFunction;
-  fighterId?: number | Array<number> | SelectFunction;
-  weightClassId?: number | Array<number> | SelectFunction;
-  rank?: number | Array<number> | SelectFunction;
-  isInterim?: boolean | Array<boolean> | SelectFunction;
+  id?: number | Array<number> | WhereFunction;
+  fighterId?: number | Array<number> | WhereFunction;
+  weightClassId?: number | Array<number> | WhereFunction;
+  rank?: number | Array<number> | WhereFunction;
+  isInterim?: boolean | Array<boolean> | WhereFunction;
 }
 
 interface Method {
@@ -561,9 +561,9 @@ interface InsertMethod {
 }
 
 interface WhereMethod {
-  id?: number | Array<number> | SelectFunction;
-  name?: string | Array<string> | SelectFunction;
-  abbreviation?: string | Array<string> | SelectFunction;
+  id?: number | Array<number> | WhereFunction;
+  name?: string | Array<string> | WhereFunction;
+  abbreviation?: string | Array<string> | WhereFunction;
 }
 
 interface MethodByFighter {
@@ -623,22 +623,22 @@ interface InsertFight {
 }
 
 interface WhereFight {
-  id?: number | Array<number> | SelectFunction;
-  cardId?: number | Array<number> | SelectFunction;
-  fightOrder?: number | Array<number> | SelectFunction;
-  blueId?: number | Array<number> | SelectFunction;
-  redId?: number | Array<number> | SelectFunction;
-  winnerId?: number | Array<number> | SelectFunction | null;
-  methodId?: number | Array<number> | SelectFunction | null;
-  methodDescription?: string | Array<string> | SelectFunction | null;
-  endRound?: number | Array<number> | SelectFunction | null;
-  endSeconds?: number | Array<number> | SelectFunction | null;
-  titleFight?: boolean | Array<boolean> | SelectFunction;
-  isInterim?: boolean | Array<boolean> | SelectFunction;
-  weightClassId?: number | Array<number> | SelectFunction | null;
-  oddsBlue?: number | Array<number> | SelectFunction | null;
-  oddsRed?: number | Array<number> | SelectFunction | null;
-  catchweightLbs?: number | Array<number> | SelectFunction | null;
+  id?: number | Array<number> | WhereFunction;
+  cardId?: number | Array<number> | WhereFunction;
+  fightOrder?: number | Array<number> | WhereFunction;
+  blueId?: number | Array<number> | WhereFunction;
+  redId?: number | Array<number> | WhereFunction;
+  winnerId?: number | Array<number> | WhereFunction | null;
+  methodId?: number | Array<number> | WhereFunction | null;
+  methodDescription?: string | Array<string> | WhereFunction | null;
+  endRound?: number | Array<number> | WhereFunction | null;
+  endSeconds?: number | Array<number> | WhereFunction | null;
+  titleFight?: boolean | Array<boolean> | WhereFunction;
+  isInterim?: boolean | Array<boolean> | WhereFunction;
+  weightClassId?: number | Array<number> | WhereFunction | null;
+  oddsBlue?: number | Array<number> | WhereFunction | null;
+  oddsRed?: number | Array<number> | WhereFunction | null;
+  catchweightLbs?: number | Array<number> | WhereFunction | null;
 }
 
 interface FightByFighter {
@@ -680,13 +680,13 @@ interface InsertCancelledFight {
 }
 
 interface WhereCancelledFight {
-  id?: number | Array<number> | SelectFunction;
-  cardId?: number | Array<number> | SelectFunction;
-  cardOrder?: number | Array<number> | SelectFunction;
-  blueId?: number | Array<number> | SelectFunction;
-  redId?: number | Array<number> | SelectFunction;
-  cancelledAt?: Date | Array<Date> | SelectFunction;
-  cancellationReason?: string | Array<string> | SelectFunction | null;
+  id?: number | Array<number> | WhereFunction;
+  cardId?: number | Array<number> | WhereFunction;
+  cardOrder?: number | Array<number> | WhereFunction;
+  blueId?: number | Array<number> | WhereFunction;
+  redId?: number | Array<number> | WhereFunction;
+  cancelledAt?: Date | Array<Date> | WhereFunction;
+  cancellationReason?: string | Array<string> | WhereFunction | null;
 }
 
 interface TitleRemoval {
@@ -708,12 +708,12 @@ interface InsertTitleRemoval {
 }
 
 interface WhereTitleRemoval {
-  id?: number | Array<number> | SelectFunction;
-  fighterId?: number | Array<number> | SelectFunction;
-  weightClassId?: number | Array<number> | SelectFunction;
-  isInterim?: boolean | Array<boolean> | SelectFunction;
-  removedAt?: Date | Array<Date> | SelectFunction;
-  reason?: string | Array<string> | SelectFunction;
+  id?: number | Array<number> | WhereFunction;
+  fighterId?: number | Array<number> | WhereFunction;
+  weightClassId?: number | Array<number> | WhereFunction;
+  isInterim?: boolean | Array<boolean> | WhereFunction;
+  removedAt?: Date | Array<Date> | WhereFunction;
+  reason?: string | Array<string> | WhereFunction;
 }
 
 interface FighterProfile {
@@ -729,9 +729,9 @@ interface InsertFighterProfile {
 }
 
 interface WhereFighterProfile {
-  rowid?: number | Array<number> | SelectFunction;
-  name?: string | Array<string> | SelectFunction;
-  hometown?: string | Array<string> | SelectFunction;
+  rowid?: number | Array<number> | WhereFunction;
+  name?: string | Array<string> | WhereFunction;
+  hometown?: string | Array<string> | WhereFunction;
   fighterProfiles?: string;
 }
 
@@ -752,11 +752,11 @@ interface InsertOpponent {
 }
 
 interface WhereOpponent {
-  fightId?: number | Array<number> | SelectFunction;
-  startTime?: Date | Array<Date> | SelectFunction;
-  fighterId?: number | Array<number> | SelectFunction;
-  opponentId?: number | Array<number> | SelectFunction;
-  methodId?: number | Array<number> | SelectFunction | null;
+  fightId?: number | Array<number> | WhereFunction;
+  startTime?: Date | Array<Date> | WhereFunction;
+  fighterId?: number | Array<number> | WhereFunction;
+  opponentId?: number | Array<number> | WhereFunction;
+  methodId?: number | Array<number> | WhereFunction | null;
 }
 
 interface TypedDb {
