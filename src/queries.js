@@ -12,28 +12,31 @@ const methods = new Map([
   ['as', null]
 ]);
 
-const handler = {
-  get: function(target, property) {
-    target.push(property);
-    if (methods.has(property)) {
-      return (value) => {
-        target.push(value);
-        return target;
-      }
-    }
-    return proxy;
-  }
-}
-
 const getConditions = (column, query) => {
+  const handler = {
+    get: function(target, property) {
+      target.push(property);
+      if (methods.has(property)) {
+        return (value) => {
+          target.push(value);
+          return target;
+        }
+      }
+      return proxy;
+    }
+  }
   const proxy = new Proxy([], handler);
   const chain = query(proxy);
   const value = chain.pop();
   const method = chain.pop();
   const path = chain.length === 0 ? null : `$.${chain.join('.')}`;
-  const selector = path ? `json_extract(${column}, $${column}_${chain.join('_')}_${method})` : column;
+  const placeholder = `${column}_${chain.join('_')}_${method}`;
+  const selector = path ? `json_extract(${column}, $${placeholder})` : column;
   const conditions = [];
   const params = {};
+  if (path) {
+    params[placeholder] = path;
+  }
   if (method === 'not') {
     if (Array.isArray(value)) {
       const placeholder = `where_not_${column}`;
