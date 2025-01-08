@@ -289,7 +289,7 @@ class Database {
 
   needsParsing(table, keys) {
     for (const key of keys) {
-      if (key === 'count') {
+      if (key === 'count' || key === 'json_result') {
         continue;
       }
       const type = this.columns[table][key];

@@ -8,8 +8,7 @@ const methods = new Map([
   ['match', 'match'],
   ['glob', 'glob'],
   ['range', null],
-  ['eq', '='],
-  ['as', null]
+  ['eq', '=']
 ]);
 
 const getConditions = (column, query) => {
@@ -29,8 +28,11 @@ const getConditions = (column, query) => {
   const chain = query(proxy);
   const value = chain.pop();
   const method = chain.pop();
+  if (!methods.has(method)) {
+    throw Error(`Invalid operator: ${method}`);
+  }
   const path = chain.length === 0 ? null : `$.${chain.join('.')}`;
-  const placeholder = `${column}_${chain.join('_')}_${method}`;
+  const placeholder = `${column}_${method}`;
   const selector = path ? `json_extract(${column}, $${placeholder})` : column;
   const conditions = [];
   const params = {};
@@ -371,28 +373,92 @@ const makeVerify = (table, columnSet) => {
   }
 }
 
+const traverse = (selector) => {
+  const chain = [];
+  const handler = {
+    get: function(target, property) {
+      chain.push(property);
+      return proxy;
+    }
+  }
+  const proxy = new Proxy([], handler);
+  selector(proxy);
+  const column = chain.shift();
+  const path = `$.${chain.join('.')}`;
+  return {
+    column,
+    path
+  };
+}
+
 const toSelect = (columns, keywords, table, db, verify) => {
+  const params = {};
+  let i = 1;
   if (columns) {
     if (typeof columns === 'string') {
       verify(columns);
-      return columns;
+      return {
+        columns,
+        params
+      };
     }
-    if (Array.isArray(columns) && columns.length > 0) {
-      verify(columns);
-      return columns.join(', ');
+    else if (Array.isArray(columns) && columns.length > 0) {
+      const statements = [];
+      for (const column of columns) {
+        if (typeof column === 'string') {
+          verify(column);
+          statements.push(column);
+        }
+        else {
+          const { select, as } = column;
+          if (!/^[a-z][a-z0-9]*$/i.test(as)) {
+            throw Error(`Invalid alias: ${as}`);
+          }
+          const { column, path } = traverse(select);
+          verify(column);
+          const placeholder = `select_${column}_${i}`;
+          i++;
+          params[placeholder] = path;
+          statements.push(`json_extract(${column}, $${placeholder}) as ${as}`);
+        }
+      }
+      return {
+        columns: statements.join(', '),
+        params
+      }
     }
-    return '*';
+    else if (typeof columns === 'function') {
+      const { column, path } = traverse(columns);
+      verify(column);
+      const placeholder = `select_${column}_${i}`;
+      params[placeholder] = path;
+      return {
+        columns: `json_extract(${column}, $${placeholder}) as json_result`,
+        params
+      };
+    }
+    return {
+      columns: '*',
+      params
+    };
   }
   if (keywords && keywords.exclude) {
     if (!db.tables[table]) {
       throw Error('Database tables must be set before using exclude');
     }
-    return db.tables[table]
+    const columns = db.tables[table]
       .map(c => c.name)
       .filter(c => !keywords.exclude.includes(c))
       .join(', ');
+    return {
+      columns,
+      params
+    }
   }
-  return '*';
+  return {
+    columns: '*',
+    params
+  }
 }
 
 const toKeywords = (keywords, verify) => {
@@ -423,11 +489,12 @@ const toKeywords = (keywords, verify) => {
   return sql;
 }
 
-const getVirtual = async (db, table, query, tx, keywords, select, returnValue, verify, once) => {
+const getVirtual = async (db, table, query, tx, keywords, selectResult, returnValue, verify, once) => {
   if (!db.initialized) {
     await db.initialize();
   }
-  let params;
+  let params = {};
+  let select = selectResult.columns;
   if (keywords && keywords.highlight) {
     const highlight = keywords.highlight;
     verify(highlight.column);
@@ -453,12 +520,20 @@ const getVirtual = async (db, table, query, tx, keywords, select, returnValue, v
     select = `rowid as id, snippet(${table}, $index, $startTag, $endTag, $trailing, $tokens) as snippet`;
   }
   let sql = `select ${select} from ${table}`;
+  params = { ...params, ...selectResult.params };
   if (query) {
     params = { ...params, ...query };
     const statements = [];
-    for (const column of Object.keys(query)) {
+    for (const [column, param] of Object.entries(query)) {
       verify(column);
-      statements.push(`${column} match $${column}`);
+      if (typeof param === 'function') {
+        const result = getConditions(column, param);
+        statements.push(...result.conditions);
+        params = { ...params, ...result.params };
+      }
+      else {
+        statements.push(`${column} match $${column}`);
+      }
     }
     sql += ` where ${statements.join(' and ')}`;
   }
@@ -589,16 +664,16 @@ const get = async (db, table, query, columns, keywords, tx) => {
   }
   const columnSet = db.columnSets[table];
   const verify = makeVerify(table, columnSet);
-  const select = toSelect(columns, keywords, table, db, verify);
-  const returnValue = typeof columns === 'string' || (keywords && keywords.count);
+  const selectResult = toSelect(columns, keywords, table, db, verify);
+  const returnValue = ['string', 'function'].includes(typeof columns) || (keywords && keywords.count);
   if (db.virtualSet.has(table)) {
-    return await getVirtual(db, table, query, tx, keywords, select, returnValue, verify, true);
+    return await getVirtual(db, table, query, tx, keywords, selectResult, returnValue, verify, true);
   }
   let sql = 'select ';
   if (keywords && keywords.distinct) {
     sql += 'distinct ';
   }
-  sql += `${select} from ${table}`;
+  sql += `${selectResult.columns} from ${table}`;
   query = removeUndefined(query);
   const result = toClause(query, verify);
   const where = result.conditions;
@@ -609,7 +684,7 @@ const get = async (db, table, query, columns, keywords, tx) => {
   sql += toKeywords(keywords, verify);
   const options = {
     query: sql,
-    params: { ...query },
+    params: { ...query, ...selectResult.params },
     tx
   };
   const post = (results) => {
@@ -618,6 +693,10 @@ const get = async (db, table, query, columns, keywords, tx) => {
       const adjusted = {};
       const entries = Object.entries(result);
       for (const [key, value] of entries) {
+        if (key === 'json_result') {
+          adjusted['json_result'] = value;
+          continue;
+        }
         adjusted[key] = db.convertToJs(table, key, value);
       }
       if (returnValue) {
@@ -640,16 +719,16 @@ const all = async (db, table, query, columns, keywords, tx) => {
   }
   const columnSet = db.columnSets[table];
   const verify = makeVerify(table, columnSet);
-  const select = toSelect(columns, keywords, table, db, verify);
-  const returnValue = typeof columns === 'string' || (keywords && keywords.count);
+  const selectResult = toSelect(columns, keywords, table, db, verify);
+  const returnValue = ['string', 'function'].includes(typeof columns) || (keywords && keywords.count);
   if (db.virtualSet.has(table)) {
-    return await getVirtual(db, table, query, tx, keywords, select, returnValue, verify, false);
+    return await getVirtual(db, table, query, tx, keywords, selectResult, returnValue, verify, false);
   }
   let sql = 'select ';
   if (keywords && keywords.distinct) {
     sql += 'distinct ';
   }
-  sql += `${select} from ${table}`;
+  sql += `${selectResult.columns} from ${table}`;
   query = removeUndefined(query);
   const result = toClause(query, verify);
   const where = result.conditions;
@@ -660,7 +739,7 @@ const all = async (db, table, query, columns, keywords, tx) => {
   sql += toKeywords(keywords, verify);
   const options = {
     query: sql,
-    params: { ...query },
+    params: { ...query, ...selectResult.params },
     tx
   };
   const post = (rows) => {
@@ -676,6 +755,10 @@ const all = async (db, table, query, columns, keywords, tx) => {
       for (const row of rows) {
         const created = {};
         for (const [key, value] of Object.entries(row)) {
+          if (key === 'json_result') {
+            created['json_result'] = value;
+            continue;
+          }
           created[key] = db.convertToJs(table, key, value);
         }
         adjusted.push(created);
