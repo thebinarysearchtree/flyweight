@@ -24,4 +24,5 @@ yarn-error.log*
 *.cjs
 
 test/db.d.ts
+test/results/db.d.ts
 src/parsers/files.js
