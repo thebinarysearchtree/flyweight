@@ -384,6 +384,7 @@ const createTypes = async (options) => {
   }
   const tables = Object.entries(db.tables).map(([key, value]) => ({ name: key, columns: value }));
   let types = `${index}\n${definitions}\n\n`;
+  types += `type TableNames = ${tables.map(t => `'${t.name}'`).join(' | ')};\n\n`;
   const returnTypes = [];
   for (const table of tables) {
     const singular = pluralize.singular(table.name);
@@ -465,11 +466,11 @@ const createTypes = async (options) => {
       let property = `  ${name}`;
       property += '?: ';
       if (tsType === 'any') {
-        property += 'WhereFunction';
+        property += 'JsonWhereFunction';
       }
       else {
         property += tsType;
-        property += ` | Array<${tsType}> | WhereFunction`;
+        property += ` | Array<${tsType}> | WhereFunction<${tsType}>`;
       }
       if (!primaryKey && !notNull) {
         property += ' | null';
