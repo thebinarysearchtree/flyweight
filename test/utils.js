@@ -34,7 +34,14 @@ const compare = (actual, result) => {
 const compareTypes = () => {
   const path = join('results', 'db.d.ts');
   const actual = readFileSync(new URL('db.d.ts', import.meta.url), 'utf8');
-  const expected = readFileSync(new URL(path, import.meta.url), 'utf8');
+  let expected;
+  try {
+    expected = readFileSync(new URL(path, import.meta.url), 'utf8');
+  }
+  catch {
+    expected = actual;
+    writeFileSync(new URL(path, import.meta.url), actual, 'utf8');
+  }
   try {
     assert.equal(actual, expected);
   }
