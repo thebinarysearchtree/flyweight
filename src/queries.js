@@ -274,7 +274,7 @@ const insertMany = async (db, table, items, tx) => {
   return await db.run(options);
 }
 
-const toClause = (verify, query, params) => {
+const toWhere = (verify, query, params) => {
   if (!query) {
     return null;
   }
@@ -332,7 +332,7 @@ const update = async (db, table, query, params, tx) => {
   const set = statements.join(', ');
   let sql = `update ${table} set ${set}`;
   if (query) {
-    const where = toClause(verify, query, params);
+    const where = toWhere(verify, query, params);
     if (where) {
       sql += ` where ${where}`;
     }
@@ -381,7 +381,7 @@ const traverse = (selector) => {
   };
 }
 
-const toSelect = (columns, keywords, table, db, verify, params) => {
+const toSelect = (columns, keywords, table, db, verify, params, customFields) => {
   if (columns) {
     if (typeof columns === 'string') {
       verify(columns);
@@ -403,6 +403,7 @@ const toSelect = (columns, keywords, table, db, verify, params) => {
           verify(result.column);
           const placeholder = getPlaceholder();
           params[placeholder] = result.path;
+          customFields[as] = 'any';
           statements.push(`json_extract(${result.column}, $${placeholder}) as ${as}`);
         }
       }
@@ -413,6 +414,7 @@ const toSelect = (columns, keywords, table, db, verify, params) => {
       verify(column);
       const placeholder = getPlaceholder();
       params[placeholder] = path;
+      customFields['json_result'] = 'any';
       return `json_extract(${column}, $${placeholder}) as json_result`;
     }
     return '*';
@@ -570,7 +572,7 @@ const exists = async (db, table, query, tx) => {
   const columnSet = db.columnSets[table];
   const verify = makeVerify(table, columnSet);
   let sql = `select exists(select 1 from ${table}`;
-  const result = toClause(verify, query);
+  const result = toWhere(verify, query);
   const where = result.conditions;
   query = adjustWhere(query, result.params);
   if (where) {
@@ -614,7 +616,7 @@ const count = async (db, table, query, keywords, tx) => {
     sql += 'distinct ';
   }
   sql += `count(*) as count from ${table}`;
-  const where = toClause(verify, query);
+  const where = toWhere(verify, query);
   if (where) {
     sql += ` where ${where}`;
   }
@@ -651,7 +653,8 @@ const get = async (db, table, query, columns, keywords, tx) => {
   }
   const columnSet = db.columnSets[table];
   const verify = makeVerify(table, columnSet);
-  const select = toSelect(columns, keywords, table, db, verify, query);
+  const customFields = {};
+  const select = toSelect(columns, keywords, table, db, verify, query, customFields);
   const returnValue = ['string', 'function'].includes(typeof columns) || (keywords && keywords.count);
   if (db.virtualSet.has(table)) {
     return await getVirtual(db, table, query, tx, keywords, selectResult, returnValue, verify, true);
@@ -661,7 +664,7 @@ const get = async (db, table, query, columns, keywords, tx) => {
     sql += 'distinct ';
   }
   sql += `${select} from ${table}`;
-  const where = toClause(verify, query);
+  const where = toWhere(verify, query);
   if (where) {
     sql += ` where ${where}`;
   }
@@ -677,11 +680,7 @@ const get = async (db, table, query, columns, keywords, tx) => {
       const adjusted = {};
       const entries = Object.entries(result);
       for (const [key, value] of entries) {
-        if (key === 'json_result') {
-          adjusted['json_result'] = value;
-          continue;
-        }
-        adjusted[key] = db.convertToJs(table, key, value);
+        adjusted[key] = db.convertToJs(table, key, value, customFields);
       }
       if (returnValue) {
         return adjusted[entries[0][0]];
@@ -712,7 +711,8 @@ const all = async (db, table, query, columns, keywords, tx) => {
   }
   const columnSet = db.columnSets[table];
   const verify = makeVerify(table, columnSet);
-  const select = toSelect(columns, keywords, table, db, verify, query);
+  const customFields = {};
+  const select = toSelect(columns, keywords, table, db, verify, query, customFields);
   const returnValue = ['string', 'function'].includes(typeof columns) || (keywords && keywords.count);
   if (db.virtualSet.has(table)) {
     return await getVirtual(db, table, query, tx, keywords, select, returnValue, verify, false);
@@ -722,7 +722,7 @@ const all = async (db, table, query, columns, keywords, tx) => {
     sql += 'distinct ';
   }
   sql += `${select} from ${table}`;
-  const where = toClause(verify, query);
+  const where = toWhere(verify, query);
   if (where) {
     sql += ` where ${where}`;
   }
@@ -780,7 +780,7 @@ const remove = async (db, table, query, tx) => {
   const columnSet = db.columnSets[table];
   const verify = makeVerify(table, columnSet);
   let sql = `delete from ${table}`;
-  const where = toClause(verify, query);
+  const where = toWhere(verify, query);
   if (where) {
     sql += ` where ${where}`;
   }

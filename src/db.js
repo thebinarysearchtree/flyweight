@@ -305,11 +305,17 @@ class Database {
     return primaryKey.name;
   }
 
-  convertToJs(table, column, value) {
+  convertToJs(table, column, value, customFields) {
     if (value === null) {
       return value;
     }
-    const type = this.columns[table][column];
+    let type;
+    if (customFields && customFields[column]) {
+      type = customFields[column];
+    }
+    else {
+      type = this.columns[table][column];
+    }
     if (dbTypes[type]) {
       return value;
     }
