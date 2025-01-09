@@ -46,8 +46,8 @@ export interface ComplexQueryValue<W, K> extends ComplexQuery<W> {
   select: (K | Selector<K>);
 }
 
-export interface ComplexQuerySelector<W, K, P> extends ComplexQuery<W> {
-  select: (selector: TableProperty<K>) => P;
+export interface ComplexQuerySelector<W, K> extends ComplexQuery<W> {
+  select: (selector: TableProperty<K>) => JsonValue;
 }
 
 export interface VirtualQueries<T, W> {
@@ -74,21 +74,21 @@ export interface Queries<T, I, W, R> {
   insertMany(params: Array<I>): Promise<void>;
   update(query: W | null, params: Partial<T>): Promise<number>;
   get(query: ComplexQuery<T>): Promise<T | undefined>;
-  get<K extends keyof T, A extends string>(query: ComplexQueryObject<W, A, K, T>): Promise<(Pick<T, K> & Record<A, any>) | undefined>;
-  get<K extends keyof T, A extends string>(query: ComplexQueryValue<W, K>): Promise<(T[K] & Record<{ [key: string]: any }, A>[A]) | undefined>;
-  get<K extends keyof T, P>(query: ComplexQuerySelector<W, K, P>): Promise<P | undefined>;
+  get<K extends keyof T, A extends string>(query: ComplexQueryObject<W, A, K, T>): Promise<(Pick<T, K> & Record<A, JsonValue>) | undefined>;
+  get<K extends keyof T>(query: ComplexQueryValue<W, K>): Promise<T[K] | undefined>;
+  get<K extends keyof T>(query: ComplexQuerySelector<W, K>): Promise<JsonValue | undefined>;
   get(params?: W | null): Promise<T | undefined>;
-  get<K extends keyof T, A extends string>(params: W | null, columns: (Alias<K, A> | K)[] | (keyof T)[]): Promise<(Pick<T, K> & Record<A, any>) | undefined>;
-  get<K extends keyof T, A extends string>(params: W | null, column: (K | Selector<K>)): Promise<(T[K] & Record<{ [key: string]: any }, A>[A]) | undefined>;
-  get<K extends keyof T, P>(params: W | null, column: (selector: TableProperty<K>) => P): Promise<P | undefined>;
+  get<K extends keyof T, A extends string>(params: W | null, columns: (Alias<K, A> | K)[] | (keyof T)[]): Promise<(Pick<T, K> & Record<A, JsonValue>) | undefined>;
+  get<K extends keyof T>(params: W | null, column: K): Promise<T[K] | undefined>;
+  get<K extends keyof T>(params: W | null, column: (selector: TableObject<K>) => JsonValue): Promise<JsonValue | undefined>;
   many(query: ComplexQuery<T>): Promise<Array<T>>;
-  many<K extends keyof T, A extends string>(query: ComplexQueryObject<W, A, K, T>): Promise<Array<(Pick<T, K> & Pick<{ [key: string]: any }, A>)>>;
+  many<K extends keyof T, A extends string>(query: ComplexQueryObject<W, A, K, T>): Promise<Array<(Pick<T, K> & Pick<{ [key: string]: JsonValue }, A>)>>;
   many<K extends keyof T>(query: ComplexQueryValue<W, K>): Promise<Array<T[K]>>;
   many<K extends keyof T, P>(query: ComplexQuerySelector<W, K, P>): Promise<Array<P>>;
   many(params?: W): Promise<Array<T>>;
-  many<K extends keyof T, A extends string>(params: W | null, columns: (Alias<K, A> | K)[] | (keyof T)[]): Promise<Array<(Pick<T, K> & Pick<{ [key: string]: any }, A>)>>;
+  many<K extends keyof T, A extends string>(params: W | null, columns: (Alias<K, A> | K)[] | (keyof T)[]): Promise<Array<(Pick<T, K> & Pick<{ [key: string]: JsonValue }, A>)>>;
   many<K extends keyof T>(params: W | null, column: K): Promise<Array<T[K]>>;
-  many<K extends keyof T, P>(params: W | null, column: (selector: TableProperty<K>) => P): Promise<Array<P>>;
+  many<K extends keyof T>(params: W | null, column: (selector: TableObject<K>) => JsonValue): Promise<Array<JsonValue>>;
   count(query: CountQuery<W>): Promise<number>;
   count(params: W | null): Promise<number>;
   exists(params: W | null): Promise<boolean>;
@@ -121,11 +121,21 @@ type WhereBuilder<T> = WhereMethods<T> & {
 type JsonWhereFunction = (builder: WhereBuilder<string | number | boolean>) => [];
 type WhereFunction<T> = (builder: WhereMethods<T>) => [];
 
-type TableProperty<T> = {
-  [key in T]: any;
+type JsonValue = string | number | boolean | null;
+
+type JsonArray = Array<Json>;
+
+type JsonObject = {
+  [key: string]: Json;
 }
 
-type Selector<T> = (selector: TableProperty<T>) => TableProperty<T>;
+type Json = JsonValue | JsonObject | JsonArray;
+
+type TableObject<T> = {
+  [key in T]: Json;
+}
+
+type Selector<T> = (selector: TableObject<T>) => JsonValue;
 
 type Alias<T, R> = {
   select: Selector<T>,

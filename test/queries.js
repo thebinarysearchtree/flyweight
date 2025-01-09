@@ -49,7 +49,7 @@ const run = async () => {
   assert.equal(fighterCount, 4);
   const whereSelector = await db.fighters.get({ social: s => s.instagram.eq('angga_thehitman') });
   assert.equal(whereSelector.id, 2);
-  const t = await db.fighters.many({ id: n => n.lt(10) }, c => c.social.like);
+  const t = await db.fighters.many({ id: n => n.lt(10) }, c => c.social.instagram);
   const r = await db.fighters.many({
     where: {
       id: n => n.lt(10)
