@@ -6,15 +6,6 @@ export interface Keywords {
   distinct?: boolean;
 }
 
-export interface KeywordsWithExclude<T> {
-  exclude: T;
-  orderBy?: Array<string> | string;
-  desc?: boolean;
-  limit?: number;
-  offset?: number;
-  distinct?: boolean;
-}
-
 export interface VirtualKeywords<T> {
   rank?: true;
   bm25?: Record<keyof Omit<T, "rowid">, number>;
@@ -36,6 +27,27 @@ export interface VirtualKeywordsSnippet<T> {
   snippet: { column: keyof T, tags: [string, string], trailing: string, tokens: number };
   limit?: number;
   offset?: number;
+}
+
+export interface CountQuery<W> {
+  where?: W;
+  distinct?: boolean;
+}
+
+export interface ComplexQuery<W> extends Keywords {
+  where?: W;
+}
+
+export interface ComplexQueryObject<W, A, K, T> extends ComplexQuery<W> {
+  select: (Alias<K, A> | K)[] | (keyof T)[];
+}
+
+export interface ComplexQueryValue<W, K> extends ComplexQuery<W> {
+  select: (K | Selector<K>);
+}
+
+export interface ComplexQuerySelector<W, K, P> extends ComplexQuery<W> {
+  select: (selector: TableProperty<K>) => P;
 }
 
 export interface VirtualQueries<T, W> {
@@ -61,19 +73,24 @@ export interface Queries<T, I, W, R> {
   insert(params: I): Promise<R>;
   insertMany(params: Array<I>): Promise<void>;
   update(query: W | null, params: Partial<T>): Promise<number>;
+  get(query: ComplexQuery<T>): Promise<T | undefined>;
+  get<K extends keyof T, A extends string>(query: ComplexQueryObject<W, A, K, T>): Promise<(Pick<T, K> & Record<A, any>) | undefined>;
+  get<K extends keyof T, A extends string>(query: ComplexQueryValue<W, K>): Promise<(T[K] & Record<{ [key: string]: any }, A>[A]) | undefined>;
+  get<K extends keyof T, P>(query: ComplexQuerySelector<W, K, P>): Promise<P | undefined>;
   get(params?: W | null): Promise<T | undefined>;
-  get(params: W | null, columns: null, keywords: Keywords): Promise<T | undefined>;
-  get<K extends keyof T, A extends string>(params: W | null, columns: (Alias<K, A> | K)[] | (keyof T)[], keywords?: Keywords): Promise<(Pick<T, K> & Record<A, any>) | undefined>;
-  get<K extends keyof T, A extends string>(params: W | null, column: (K | Selector<K>), keywords?: Keywords): Promise<(T[K] & Record<{ [key: string]: any }, A>[A]) | undefined>;
-  get<K extends keyof T>(params: W | null, column: Selector<K>, keywords?: Keywords): Promise<any | undefined>;
-  get<K extends keyof T>(params: W | null, columns: null, keywords: KeywordsWithExclude<K[]>): Promise<Omit<T, K> | undefined>;
+  get<K extends keyof T, A extends string>(params: W | null, columns: (Alias<K, A> | K)[] | (keyof T)[]): Promise<(Pick<T, K> & Record<A, any>) | undefined>;
+  get<K extends keyof T, A extends string>(params: W | null, column: (K | Selector<K>)): Promise<(T[K] & Record<{ [key: string]: any }, A>[A]) | undefined>;
+  get<K extends keyof T, P>(params: W | null, column: (selector: TableProperty<K>) => P): Promise<P | undefined>;
+  many(query: ComplexQuery<T>): Promise<Array<T>>;
+  many<K extends keyof T, A extends string>(query: ComplexQueryObject<W, A, K, T>): Promise<Array<(Pick<T, K> & Pick<{ [key: string]: any }, A>)>>;
+  many<K extends keyof T>(query: ComplexQueryValue<W, K>): Promise<Array<T[K]>>;
+  many<K extends keyof T, P>(query: ComplexQuerySelector<W, K, P>): Promise<Array<P>>;
   many(params?: W): Promise<Array<T>>;
-  many(params: W, columns: null, keywords: Keywords): Promise<Array<T>>;
-  many<K extends keyof T, A extends string>(params: W | null, columns: (Alias<K, A> | K)[] | (keyof T)[], keywords?: Keywords): Promise<Array<(Pick<T, K> & Pick<{ [key: string]: any }, A>)>>;
-  many<K extends keyof T>(params: W | null, column: K, keywords?: Keywords): Promise<Array<T[K]>>;
-  many<K extends keyof T>(params: W | null, column: Selector<K>, keywords?: Keywords): Promise<Array<any>>;
-  many<K extends keyof T>(params: W | null, columns: null, keywords: KeywordsWithExclude<K[]>): Promise<Array<Omit<T, K>>>;
-  count(params: W | null, keywords?: { distinct: true }): Promise<number>;
+  many<K extends keyof T, A extends string>(params: W | null, columns: (Alias<K, A> | K)[] | (keyof T)[]): Promise<Array<(Pick<T, K> & Pick<{ [key: string]: any }, A>)>>;
+  many<K extends keyof T>(params: W | null, column: K): Promise<Array<T[K]>>;
+  many<K extends keyof T, P>(params: W | null, column: (selector: TableProperty<K>) => P): Promise<Array<P>>;
+  count(query: CountQuery<W>): Promise<number>;
+  count(params: W | null): Promise<number>;
   exists(params: W | null): Promise<boolean>;
   remove(params?: W): Promise<number>;
 }
@@ -104,12 +121,8 @@ type WhereBuilder<T> = WhereMethods<T> & {
 type JsonWhereFunction = (builder: WhereBuilder<string | number | boolean>) => [];
 type WhereFunction<T> = (builder: WhereMethods<T>) => [];
 
-type JsonProperty = {
-  [key: string]: JsonProperty;
-}
-
 type TableProperty<T> = {
-  [key in T]: JsonProperty<T>;
+  [key in T]: any;
 }
 
 type Selector<T> = (selector: TableProperty<T>) => TableProperty<T>;

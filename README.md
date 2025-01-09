@@ -197,11 +197,26 @@ All of the arguments are passed in as parameters for security reasons.
 The second argument to ```get``` or ```many``` selects which columns to return. It can be one of the following:
 
 1. a string representing a column to select. In this case, the result returned is a single value or array of single values, depending on whether ```get``` or ```many``` is used.
-2. an array of strings, representing the columns to select.
 
-The third argument can be an object with the following properties:
+```js
+const born = await db.fighters.get({ id: 3 }, 'born');
+```
 
-```exclude```: an array of columns to exclude, with all of the other columns being selected.
+2. a lambda function that traverses a JSON object.
+
+```js
+const instagram = await db.fighters.get({ id: 3 }, c => c.social.instagram);
+```
+
+In this case, ```social``` is a JSON object with an ```instagram``` property.
+
+3. an array of strings or selector objects, representing the columns to select.
+
+```js
+const fighter = await db.fighters.get({ id: 3 }, ['id', 'born', { select: c => c.social.instagram, as: 'instagram' }]);
+```
+
+Alternatively, you can use a different syntax to access additional keywords.
 
 ```orderBy```: a string representing the column to order the result by, or an array of columns to order the result by.
 
@@ -214,7 +229,11 @@ The third argument can be an object with the following properties:
 For example:
 
 ```js
-const fighters = await db.fighters.many({ isActive: true }, ['name', 'hometown'], {
+const fighters = await db.fighters.many({
+  where: { 
+    isActive: true 
+  }, 
+  select: ['name', 'hometown'],
   orderBy: 'reachCm',
   limit: 10
 });

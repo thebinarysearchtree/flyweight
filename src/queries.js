@@ -23,6 +23,16 @@ const cleanse = (params) => {
   return adjusted;
 }
 
+const reservedWords = [
+  'where', 
+  'select', 
+  'orderBy', 
+  'desc', 
+  'limit', 
+  'offset', 
+  'distinct'
+];
+
 const methods = new Map([
   ['not', '!='],
   ['gt', '>'],
@@ -389,11 +399,11 @@ const toSelect = (columns, keywords, table, db, verify, params) => {
           if (!/^[a-z][a-z0-9]*$/i.test(as)) {
             throw Error(`Invalid alias: ${as}`);
           }
-          const { column, path } = traverse(select);
-          verify(column);
+          const result = traverse(select);
+          verify(result.column);
           const placeholder = getPlaceholder();
-          params[placeholder] = path;
-          statements.push(`json_extract(${column}, $${placeholder}) as ${as}`);
+          params[placeholder] = result.path;
+          statements.push(`json_extract(${result.column}, $${placeholder}) as ${as}`);
         }
       }
       return statements.join(', ');
@@ -589,6 +599,14 @@ const count = async (db, table, query, keywords, tx) => {
   if (!db.initialized) {
     await db.initialize();
   }
+  if (!query) {
+    query = {};
+  }
+  if (reservedWords.some(k => query.hasOwnProperty(k))) {
+    const { where, ...rest } = query;
+    query = where;
+    keywords = rest;
+  }
   const columnSet = db.columnSets[table];
   const verify = makeVerify(table, columnSet);
   let sql = 'select ';
@@ -624,6 +642,12 @@ const get = async (db, table, query, columns, keywords, tx) => {
   }
   if (!query) {
     query = {};
+  }
+  if (reservedWords.some(k => query.hasOwnProperty(k))) {
+    const { where, select, ...rest } = query;
+    query = where;
+    columns = select;
+    keywords = rest;
   }
   const columnSet = db.columnSets[table];
   const verify = makeVerify(table, columnSet);
@@ -679,6 +703,12 @@ const all = async (db, table, query, columns, keywords, tx) => {
   }
   if (!query) {
     query = {};
+  }
+  if (reservedWords.some(k => query.hasOwnProperty(k))) {
+    const { where, select, ...rest } = query;
+    query = where;
+    columns = select;
+    keywords = rest;
   }
   const columnSet = db.columnSets[table];
   const verify = makeVerify(table, columnSet);
