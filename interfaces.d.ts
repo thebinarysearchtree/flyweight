@@ -42,7 +42,7 @@ export interface VirtualQueryValue<W, K, T> extends VirtualQuery<W, T> {
 }
 
 export interface VirtualQuerySelector<W, K, T> extends VirtualQuery<W, T> {
-  select: (selector: TableProperty<K>) => JsonValue;
+  select: (selector: TableObject<K>) => JsonValue;
 }
 
 export interface CountQuery<W> {
