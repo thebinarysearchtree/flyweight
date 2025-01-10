@@ -25,8 +25,10 @@ const run = async () => {
   assert.equal(removed, undefined);
   const limited = await db.fighters.many(null, null, { limit: 10 });
   assert.equal(limited.length, 10);
-  const profiles = await db.fighterProfiles.many({ fighterProfiles: 'Sao' }, null, 
-  { 
+  const profiles = await db.fighterProfiles.many({
+    where: { 
+      fighterProfiles: 'Sao'
+    },
     highlight: { 
       column: 'hometown', 
       tags: ['<b>', '</b>'] 
