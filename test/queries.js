@@ -23,7 +23,7 @@ const run = async () => {
   await db.coaches.remove({ id: 1 });
   const removed = await db.coaches.get({ id: 1 });
   assert.equal(removed, undefined);
-  const limited = await db.fighters.many(null, null, { limit: 10 });
+  const limited = await db.fighters.query({ limit: 10 });
   assert.equal(limited.length, 10);
   const profiles = await db.fighterProfiles.query({
     where: { 

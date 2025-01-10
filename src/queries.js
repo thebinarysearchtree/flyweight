@@ -644,7 +644,7 @@ const get = async (db, table, query, columns, keywords, tx) => {
   }
   if (reservedWords.some(k => query.hasOwnProperty(k))) {
     const { where, select, ...rest } = query;
-    query = where;
+    query = where || {};
     columns = select;
     keywords = rest;
   }
@@ -702,7 +702,7 @@ const all = async (db, table, query, columns, keywords, tx) => {
   }
   if (reservedWords.some(k => query.hasOwnProperty(k))) {
     const { where, select, ...rest } = query;
-    query = where;
+    query = where || {};
     columns = select;
     keywords = rest;
   }
