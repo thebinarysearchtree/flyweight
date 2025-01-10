@@ -33,16 +33,16 @@ export interface VirtualQuery<W, T> extends VirtualKeywords<T> {
   where?: W;
 }
 
-export interface VirtualQueryObject<W, A, K, T> extends VirtualQuery<W, T> {
-  select: (Alias<K, A> | K)[] | (keyof T)[];
+export interface VirtualQueryObject<W, A, K, T, N> extends VirtualQuery<W, T> {
+  select: (Alias<T, A, N> | K)[] | (keyof T)[];
 }
 
 export interface VirtualQueryValue<W, K, T> extends VirtualQuery<W, T> {
   select: K;
 }
 
-export interface VirtualQuerySelector<W, K, T> extends VirtualQuery<W, T> {
-  select: (selector: TableObject<K>) => JsonValue;
+export interface VirtualQuerySelector<W, T, N> extends VirtualQuery<W, T> {
+  select: (selector: TableObject<T>) => N;
 }
 
 export interface CountQuery<W> {
@@ -73,19 +73,19 @@ export interface ComplexQuerySelector<W, T> extends Keywords<T> {
 export interface VirtualQueries<T, W> {
   [key: string]: any;
   get(params?: W | null): Promise<T | undefined>;
-  get<K extends keyof T, A extends string>(params: W | null, columns: (Alias<K, A> | K)[] | (keyof T)[]): Promise<(Pick<T, K> & Record<A, JsonValue>) | undefined>;
+  get<K extends keyof T, A extends string, N>(params: W | null, columns: (Alias<T, A, N> | K)[] | (keyof T)[]): Promise<(Pick<T, K> & Record<A, (N extends JsonObject ? JsonValue : N)>) | undefined>;
   get<K extends keyof T>(params: W | null, column: K): Promise<T[K] | undefined>;
-  get<K extends keyof T>(params: W | null, column: (selector: TableObject<K>) => JsonValue): Promise<JsonValue | undefined>;
+  get<N>(params: W | null, column: (selector: TableObject<T>) => N): Promise<(N extends JsonObject ? JsonValue : N) | undefined>;
   get(query: HighlightQuery<W, T>): Promise<{ id: number, highlight: string } | undefined>;
   get(query: SnippetQuery<W, T>): Promise<{ id: number, snippet: string } | undefined>;
   many(params?: W | null): Promise<Array<T>>;
-  many<K extends keyof T, A extends string>(params: W | null, columns: (Alias<K, A> | K)[] | (keyof T)[]): Promise<Array<(Pick<T, K> & Record<A, JsonValue>)>>;
+  many<K extends keyof T, A extends string, N>(params: W | null, columns: (Alias<T, A, N> | K)[] | (keyof T)[]): Promise<Array<(Pick<T, K> & Record<A, (N extends JsonObject ? JsonValue : N)>)>>;
   many<K extends keyof T>(params: W | null, column: K): Promise<Array<T[K]>>;
-  many<K extends keyof T>(params: W | null, column: (selector: TableObject<K>) => JsonValue): Promise<Array<JsonValue>>;
-  query<K extends keyof T, A extends string>(query: VirtualQueryObject<W, A, K, T>): Promise<Array<(Pick<T, K> & Record<A, JsonValue>)>>;
+  many<N>(params: W | null, column: (selector: TableObject<T>) => N): Promise<Array<(N extends JsonObject ? JsonValue : N)>>;
+  query<K extends keyof T, A extends string, N>(query: VirtualQueryObject<W, A, K, T, N>): Promise<Array<(Pick<T, K> & Record<A, (N extends JsonObject ? JsonValue : N)>)>>;
   query<K extends keyof T>(query: VirtualQueryValue<W, K, T>): Promise<Array<T[K]>>;
   query(query: VirtualQuery<W, T>): Promise<Array<T>>; 
-  query<K extends keyof T>(query: VirtualQuerySelector<W, K, T>): Promise<Array<JsonValue>>;
+  query<N>(query: VirtualQuerySelector<W, T, N>): Promise<Array<(N extends JsonObject ? JsonValue : N)>>;
   query(query: HighlightQuery<W, T>): Promise<Array<{ id: number, highlight: string }>>;
   query(query: SnippetQuery<W, T>): Promise<Array<{ id: number, snippet: string }>>;
 }
