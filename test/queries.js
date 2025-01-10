@@ -56,23 +56,18 @@ const run = async () => {
     where: {
       id: n => n.lt(10)
     },
-    select: ['id', 'born']
+    select: ['id', 'born', { select: s => s.social.instagram, as: 'instagram' }],
+    orderBy: 'instagram'
   });
   const p = await db.fighters.get({ id: 2 }, ['id', 'born', { select: c => c.social.instagram, as: 'instagram' }]);
   console.log(p);
   const x = await db.fighters.get({ id: 3, born: 'asfasf' });
-  const xr = await db.fighters.query({
-    where: {
-      born: 'asfas'
-    },
-    select: s => s.social.instagram
-  });
   const z = await db.fighterProfiles.query({
     where: {
       fighterProfiles: 'Sao'
     },
-    select: ['hometown']
-  })
+    select: 'hometown'
+  });
 }
 
 const cleanUp = async () => {

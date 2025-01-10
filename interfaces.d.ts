@@ -1,5 +1,5 @@
-export interface Keywords {
-  orderBy?: Array<string> | string;
+export interface Keywords<T> {
+  orderBy?: Array<keyof T> | keyof T;
   desc?: boolean;
   limit?: number;
   offset?: number;
@@ -50,22 +50,22 @@ export interface CountQuery<W> {
   distinct?: boolean;
 }
 
-export interface ComplexQuery<W> extends Keywords {
+export interface ComplexQuery<W, T> extends Keywords<T> {
   where?: W;
   select: undefined;
 }
 
-export interface ComplexQueryObject<W, A, K, T> extends Keywords {
+export interface ComplexQueryObject<W, A, K, T> extends Keywords<T & Record<A, null>> {
   where?: W;
   select: (Alias<K, A> | K)[] | (keyof T)[];
 }
 
-export interface ComplexQueryValue<W, K> extends Keywords {
+export interface ComplexQueryValue<W, K, T> extends Keywords<T> {
   where?: W;
   select: K;
 }
 
-export interface ComplexQuerySelector<W, K> extends Keywords {
+export interface ComplexQuerySelector<W, K, T> extends Keywords<T> {
   where?: W;
   select: (selector: TableObject<K>) => JsonValue;
 }
@@ -73,18 +73,18 @@ export interface ComplexQuerySelector<W, K> extends Keywords {
 export interface VirtualQueries<T, W> {
   [key: string]: any;
   get(params?: W | null): Promise<T | undefined>;
-  get<K extends keyof T, A extends string>(params: W | null, columns: (Alias<K, A> | K)[] | (keyof T)[], keywords?: Keywords): Promise<(Pick<T, K> & Record<A, JsonValue>) | undefined>;
+  get<K extends keyof T, A extends string>(params: W | null, columns: (Alias<K, A> | K)[] | (keyof T)[]): Promise<(Pick<T, K> & Record<A, JsonValue>) | undefined>;
   get<K extends keyof T>(params: W | null, column: K): Promise<T[K] | undefined>;
   get<K extends keyof T>(params: W | null, column: (selector: TableObject<K>) => JsonValue): Promise<JsonValue | undefined>;
   get(query: HighlightQuery<W, T>): Promise<{ id: number, highlight: string } | undefined>;
   get(query: SnippetQuery<W, T>): Promise<{ id: number, snippet: string } | undefined>;
   many(params?: W | null): Promise<Array<T>>;
-  many<K extends keyof T, A extends string>(params: W | null, columns: (Alias<K, A> | K)[] | (keyof T)[], keywords?: Keywords): Promise<Array<(Pick<T, K> & Record<A, JsonValue>)>>;
+  many<K extends keyof T, A extends string>(params: W | null, columns: (Alias<K, A> | K)[] | (keyof T)[]): Promise<Array<(Pick<T, K> & Record<A, JsonValue>)>>;
   many<K extends keyof T>(params: W | null, column: K): Promise<Array<T[K]>>;
   many<K extends keyof T>(params: W | null, column: (selector: TableObject<K>) => JsonValue): Promise<Array<JsonValue>>;
+  query<K extends keyof T, A extends string>(query: VirtualQueryObject<W, A, K, T>): Promise<Array<(Pick<T, K> & Record<A, JsonValue>)>>;
   query<K extends keyof T>(query: VirtualQueryValue<W, K, T>): Promise<Array<T[K]>>;
   query(query: VirtualQuery<W, T>): Promise<Array<T>>; 
-  query<K extends keyof T, A extends string>(query: VirtualQueryObject<W, A, K, T>): Promise<Array<(Pick<T, K> & Record<A, JsonValue>)>>;
   query<K extends keyof T>(query: VirtualQuerySelector<W, K, T>): Promise<Array<JsonValue>>;
   query(query: HighlightQuery<W, T>): Promise<Array<{ id: number, highlight: string }>>;
   query(query: SnippetQuery<W, T>): Promise<Array<{ id: number, snippet: string }>>;
@@ -103,10 +103,10 @@ export interface Queries<T, I, W, R> {
   many<K extends keyof T, A extends string>(params: W | null, columns: (Alias<K, A> | K)[] | (keyof T)[]): Promise<Array<(Pick<T, K> & Pick<{ [key: string]: JsonValue }, A>)>>;
   many<K extends keyof T>(params: W | null, column: K): Promise<Array<T[K]>>;
   many<K extends keyof T>(params: W | null, column: (selector: TableObject<K>) => JsonValue): Promise<Array<JsonValue>>;
-  query<K extends keyof T>(query: ComplexQueryValue<W, K>): Promise<Array<T[K]>>;
-  query(query: ComplexQuery<W>): Promise<Array<T>>;
   query<K extends keyof T, A extends string>(query: ComplexQueryObject<W, A, K, T>): Promise<Array<(Pick<T, K> & Pick<{ [key: string]: JsonValue }, A>)>>;
-  query<K extends keyof T>(query: ComplexQuerySelector<W, K>): Promise<Array<JsonValue>>;
+  query<K extends keyof T>(query: ComplexQueryValue<W, K, T>): Promise<Array<T[K]>>;
+  query(query: ComplexQuery<W, T>): Promise<Array<T>>;
+  query<K extends keyof T>(query: ComplexQuerySelector<W, K, T>): Promise<Array<JsonValue>>;
   count(query: CountQuery<W>): Promise<number>;
   count(params: W | null): Promise<number>;
   exists(params: W | null): Promise<boolean>;

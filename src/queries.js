@@ -346,8 +346,11 @@ const update = async (db, table, query, params, tx) => {
 }
 
 const makeVerify = (table, columnSet) => {
-  return (column) => {
+  return (column, customFields) => {
     if (typeof column === 'string') {
+      if (customFields && customFields.hasOwnProperty(column)) {
+        return;
+      }
       if (!columnSet.has(column)) {
         throw Error(`Column ${column} does not exist on table ${table}`);
       }
@@ -355,6 +358,9 @@ const makeVerify = (table, columnSet) => {
     else {
       const columns = column;
       for (const column of columns) {
+        if (customFields && customFields.hasOwnProperty(column)) {
+          return;
+        }
         if (!columnSet.has(column)) {
           throw Error(`Column ${column} does not exist on table ${table}`);
         }
@@ -422,12 +428,12 @@ const toSelect = (columns, keywords, table, db, verify, params, customFields) =>
   return '*';
 }
 
-const toKeywords = (verify, keywords, params) => {
+const toKeywords = (verify, keywords, params, customFields) => {
   let sql = '';
   if (keywords) {
     if (keywords.orderBy) {
       let orderBy = keywords.orderBy;
-      verify(orderBy);
+      verify(orderBy, customFields);
       if (Array.isArray(orderBy)) {
         orderBy = orderBy.join(', ');
       }
@@ -659,7 +665,7 @@ const get = async (db, table, query, columns, keywords, tx) => {
   if (where) {
     sql += ` where ${where}`;
   }
-  sql += toKeywords(verify, keywords, query);
+  sql += toKeywords(verify, keywords, query, customFields);
   const options = {
     query: sql,
     params: cleanse(query),
@@ -717,7 +723,7 @@ const all = async (db, table, query, columns, keywords, tx) => {
   if (where) {
     sql += ` where ${where}`;
   }
-  sql += toKeywords(verify, keywords, query);
+  sql += toKeywords(verify, keywords, query, customFields);
   const options = {
     query: sql,
     params: cleanse(query),
@@ -736,8 +742,8 @@ const all = async (db, table, query, columns, keywords, tx) => {
       for (const row of rows) {
         const created = {};
         for (const [key, value] of Object.entries(row)) {
-          if (key === 'json_result') {
-            created['json_result'] = value;
+          if (customFields.hasOwnProperty(key)) {
+            created[key] = value;
             continue;
           }
           created[key] = db.convertToJs(table, key, value);
