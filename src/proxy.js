@@ -19,6 +19,7 @@ const basic = {
   count: (database, table, tx) => async (query, keywords) => await count(database, table, query, keywords, tx),
   get: (database, table, tx) => async (query, columns, keywords) => await get(database, table, query, columns, keywords, tx),
   many: (database, table, tx) => async (query, columns, keywords) => await all(database, table, query, columns, keywords, tx),
+  query: (database, table, tx) => async (query, columns, keywords) => await all(database, table, query, columns, keywords, tx),
   remove: (database, table, tx) => async (query) => await remove(database, table, query, tx)
 }
 

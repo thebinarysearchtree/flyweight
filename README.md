@@ -144,7 +144,7 @@ create table users (
 
 ## The API
 
-Every table has ```get```, ```many```, ```update```, ```insert```, ```insertMany```, and ```remove``` methods available to it, along with any of the custom methods that are created when you add a new SQL file to the corresponding table's folder. Views only have the ```get``` and ```many``` methods available to them.
+Every table has ```get```, ```many```, ```query```, ```update```, ```insert```, ```insertMany```, and ```remove``` methods available to it, along with any of the custom methods that are created when you add a new SQL file to the corresponding table's folder. Views only have the ```get```, ```many```, and ```query``` methods available to them.
 
 ### Insert
 
@@ -216,7 +216,7 @@ In this case, ```social``` is a JSON object with an ```instagram``` property.
 const fighter = await db.fighters.get({ id: 3 }, ['id', 'born', { select: c => c.social.instagram, as: 'instagram' }]);
 ```
 
-Alternatively, you can use a different syntax to access additional keywords.
+Alternatively, you can use the ```query``` syntax to access additional keywords. ```query``` returns an array in the same way as ```many```. The additional keywords are:
 
 ```orderBy```: a string representing the column to order the result by, or an array of columns to order the result by.
 
@@ -229,7 +229,7 @@ Alternatively, you can use a different syntax to access additional keywords.
 For example:
 
 ```js
-const fighters = await db.fighters.many({
+const fighters = await db.fighters.query({
   where: { 
     isActive: true 
   }, 

@@ -25,7 +25,7 @@ const run = async () => {
   assert.equal(removed, undefined);
   const limited = await db.fighters.many(null, null, { limit: 10 });
   assert.equal(limited.length, 10);
-  const profiles = await db.fighterProfiles.many({
+  const profiles = await db.fighterProfiles.query({
     where: { 
       fighterProfiles: 'Sao'
     },
@@ -52,7 +52,7 @@ const run = async () => {
   const whereSelector = await db.fighters.get({ social: s => s.instagram.eq('angga_thehitman') });
   assert.equal(whereSelector.id, 2);
   const t = await db.fighters.many({ id: n => n.lt(10) }, c => c.social.instagram);
-  const r = await db.fighters.many({
+  const r = await db.fighters.query({
     where: {
       id: n => n.lt(10)
     },
@@ -60,6 +60,13 @@ const run = async () => {
   });
   const p = await db.fighters.get({ id: 2 }, ['id', 'born', { select: c => c.social.instagram, as: 'instagram' }]);
   console.log(p);
+  const x = await db.fighters.get({ id: 3, born: 'asfasf' });
+  const xr = await db.fighters.query({
+    where: {
+      born: 'asfasf'
+    },
+    select: ['born']
+  })
 }
 
 const cleanUp = async () => {
