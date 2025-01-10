@@ -387,7 +387,7 @@ const traverse = (selector) => {
   };
 }
 
-const toSelect = (columns, keywords, table, db, verify, params, customFields) => {
+const toSelect = (columns, verify, params, customFields) => {
   if (columns) {
     if (typeof columns === 'string') {
       verify(columns);
@@ -651,7 +651,7 @@ const get = async (db, table, query, columns, keywords, tx) => {
   const columnSet = db.columnSets[table];
   const verify = makeVerify(table, columnSet);
   const customFields = {};
-  const select = toSelect(columns, keywords, table, db, verify, query, customFields);
+  const select = toSelect(columns, verify, query, customFields);
   const returnValue = ['string', 'function'].includes(typeof columns) || (keywords && keywords.count);
   if (db.virtualSet.has(table)) {
     return await getVirtual(db, table, query, tx, keywords, selectResult, returnValue, verify, true);
@@ -709,7 +709,7 @@ const all = async (db, table, query, columns, keywords, tx) => {
   const columnSet = db.columnSets[table];
   const verify = makeVerify(table, columnSet);
   const customFields = {};
-  const select = toSelect(columns, keywords, table, db, verify, query, customFields);
+  const select = toSelect(columns, verify, query, customFields);
   const returnValue = ['string', 'function'].includes(typeof columns) || (keywords && keywords.count);
   if (db.virtualSet.has(table)) {
     return await getVirtual(db, table, query, tx, keywords, select, returnValue, verify, false);
