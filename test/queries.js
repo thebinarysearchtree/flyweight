@@ -63,9 +63,15 @@ const run = async () => {
   const x = await db.fighters.get({ id: 3, born: 'asfasf' });
   const xr = await db.fighters.query({
     where: {
-      born: 'asfasf'
+      born: 'asfas'
     },
-    select: ['born']
+    select: s => s.social.instagram
+  });
+  const z = await db.fighterProfiles.query({
+    where: {
+      fighterProfiles: 'Sao'
+    },
+    select: ['hometown']
   })
 }
 
