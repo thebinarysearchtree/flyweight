@@ -65,7 +65,7 @@ class Database {
         valueTest: (v) => Object.getPrototypeOf(v) === Object.prototype || Array.isArray(v),
         dbToJs: (v) => JSON.parse(v),
         jsToDb: (v) => JSON.stringify(v),
-        tsType: 'any',
+        tsType: 'Json',
         dbType: 'text'
       },
       {

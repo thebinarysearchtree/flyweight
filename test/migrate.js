@@ -1,4 +1,4 @@
 import { database, paths } from './db.js';
-import fileSystem from './files.js';
+import { prompt } from 'flyweight-client';
 
-await database.createMigration(fileSystem, paths, process.argv[2]);
+await prompt(database, paths, false, 'sqlite');

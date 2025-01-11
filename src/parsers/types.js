@@ -464,7 +464,7 @@ const createTypes = async (options) => {
       const dbType = customType ? customType.dbType : type;
       let property = `  ${name}`;
       property += '?: ';
-      if (tsType === 'any') {
+      if (tsType === 'Json') {
         property += 'JsonWhereFunction';
       }
       else {
