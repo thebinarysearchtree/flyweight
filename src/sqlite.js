@@ -34,15 +34,15 @@ class SQLiteDatabase extends Database {
     this.isBusy = false;
   }
 
-  async getWriter() {
+  async getWriter(lock = false) {
     if (!this.isBusy) {
-      this.isBusy = true;
+      this.isBusy = lock;
       return;
     }
     while (this.isBusy) {
       await wait();
     }
-    this.isBusy = true;
+    this.isBusy = lock;
     return;
   }
 
@@ -112,7 +112,7 @@ class SQLiteDatabase extends Database {
     if (!this.initialized) {
       await this.initialize();
     }
-    await this.getWriter();
+    await this.getWriter(true);
     const tx = { db: this.writer };
     return makeClient(this, tx);
   }
@@ -148,11 +148,10 @@ class SQLiteDatabase extends Database {
       await this.initialize();
     }
     const db = tx ? this.write : this.read;
+    const statement = db.prepare(sql);
     if (!tx) {
       await this.getWriter();
-      this.isBusy = false;
     }
-    const statement = db.prepare(sql);
     statement.run();
   }
 
@@ -190,7 +189,6 @@ class SQLiteDatabase extends Database {
     }
     if (!tx) {
       await this.getWriter();
-      this.isBusy = false;
     }
     const result = isEmpty(params) ? query.run() : query.run(params);
     return result.changes;
@@ -224,7 +222,6 @@ class SQLiteDatabase extends Database {
     const process = this.process;
     if (needsWriter) {
       await this.getWriter();
-      this.isBusy = false;
     }
     const rows = isEmpty(params) ? query.all() : query.all(params);
     return process(rows, options);
