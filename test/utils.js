@@ -26,7 +26,6 @@ const compare = (actual, result) => {
     }
     else {
       throw Error('Results do not match');
-      throw e;
     }
   }
 }

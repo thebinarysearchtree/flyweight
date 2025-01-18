@@ -7,21 +7,37 @@ const wait = async () => {
   });
 }
 
+const isEmpty = (params) => {
+  if (params === undefined) {
+    return true;
+  }
+  return Object.keys(params).length === 0;
+}
+
 class SQLiteDatabase extends Database {
   constructor(props) {
-    super(props);
+    const supports = {
+      jsonb: true,
+      migrations: true
+    };
+    super({ ...props, supports });
     this.dbPath = props.db;
     this.extensionsPath = props.extensions;
     this.adaptor = props.adaptor;
-    this.pool = [];
-    this.poolSize = 100;
     this.sqlPath = props.sql;
     this.viewsPath = props.views;
     this.tablesPath = props.tables;
     this.extensionsPath = props.extensions;
-    this.transactionCount = 0;
-    this.databases = [];
-    this.prepared = [];
+    this.isBusy = false;
+  }
+
+  async getWriter() {
+    if (!this.isBusy) {
+      this.isBusy = true;
+      return;
+    }
+    await wait();
+    return this.getWriter();
   }
 
   async initialize() {
@@ -29,7 +45,7 @@ class SQLiteDatabase extends Database {
       return;
     }
     this.read = await this.createDatabase();
-    this.write = await this.createDatabase({ serialize: true });
+    this.write = await this.createDatabase();
     await this.setTables();
     await this.setVirtual();
     await this.setViews();
@@ -62,12 +78,8 @@ class SQLiteDatabase extends Database {
     }
   }
 
-  async createDatabase(options) {
-    const serialize = options ? options.serialize : false;
-    const db = new this.adaptor.sqlite3.Database(this.dbPath);
-    if (serialize) {
-      db.serialize();
-    }
+  async createDatabase() {
+    const db = new this.adaptor.sqlite3(this.dbPath);
     await this.enableForeignKeys(db);
     if (this.extensionsPath) {
       if (typeof this.extensionsPath === 'string') {
@@ -79,39 +91,32 @@ class SQLiteDatabase extends Database {
         }
       }
     }
-    this.databases.push(db);
     return db;
+  }
+
+  async enableForeignKeys(db) {
+    db.pragma('foreign_keys = on');
+  }
+
+  async deferForeignKeys() {
+    await this.pragma('defer_foreign_keys = true');
   }
 
   async getTransaction() {
     if (!this.initialized) {
       await this.initialize();
     }
-    const db = this.pool.pop();
-    if (!db) {
-      if (this.databases.length < this.poolSize) {
-        const db = await this.createDatabase({ serialize: true });
-        const tx = { name: `tx${this.databases.length}`, db };
-        const client = makeClient(this, tx);
-        return client;
-      }
-      await wait();
-      return this.getTransaction();
-    }
-    return db;
+    await this.getWriter();
+    const tx = { db: this.writer };
+    return makeClient(this, tx);
   }
 
   async loadExtension(path, db) {
-    return new Promise((resolve, reject) => {
-      db.loadExtension(path, (err) => {
-        if (err) {
-          reject(err);
-        }
-        else {
-          resolve();
-        }
-      });
-    });
+    db.loadExtension(path);
+  }
+
+  async pragma(sql) {
+    this.read.pragma(sql);
   }
 
   async begin(tx) {
@@ -126,62 +131,36 @@ class SQLiteDatabase extends Database {
     await this.basicRun('rollback', tx);
   }
 
+  async getError(sql) {
+    return this.read.prepare(sql);
+  }
+
   async basicRun(sql, tx) {
     if (!tx && !this.initialized) {
       await this.initialize();
     }
-    const db = tx ? tx.db : this.write;
-    return new Promise((resolve, reject) => {
-      db.run(sql, undefined, function (err) {
-        if (err) {
-          reject(err);
-        }
-        else {
-          resolve();
-        }
-      });
-    });
+    if (!tx) {
+      await this.getWriter();
+    }
+    const db = tx ? this.write : this.read;
+    const statement = db.prepare(sql);
+    statement.run();
+    if (!tx) {
+      this.isBusy = false;
+    }
   }
 
   async basicAll(sql, tx) {
     if (!tx && !this.initialized) {
       await this.initialize();
     }
-    const db = tx ? tx : this.write;
-    return new Promise((resolve, reject) => {
-      db.all(sql, undefined, function (err, rows) {
-        if (err) {
-          reject(err);
-        }
-        else {
-          resolve(rows);
-        }
-      });
-    });
+    const db = tx ? this.write : this.read;
+    const statement = db.prepare(sql);
+    return statement.all();
   }
 
-  async prepare(sql, db) {
-    return new Promise((resolve, reject) => {
-      const statement = db.prepare(sql, (err) => {
-        if (err) {
-          reject(err);
-        }
-        else {
-          this.prepared.push(statement);
-          resolve(statement);
-        }
-      });
-    });
-  }
-
-  async finalize(statement) {
-    return new Promise((resolve) => {
-      statement.finalize(() => resolve());
-    });
-  }
-
-  release(tx) {
-    this.pool.push(tx);
+  release() {
+    this.isBusy = false;
   }
 
   async run(props) {
@@ -195,34 +174,26 @@ class SQLiteDatabase extends Database {
     if (params !== undefined && !adjusted) {
       params = this.adjust(params);
     }
-    const db = tx ? tx.db : this.write;
+    if (!tx) {
+      await this.getWriter();
+    }
+    const db = this.write;
     if (typeof query === 'string') {
-      const statementKey = tx ? tx.name : 'write';
-      let statements = this.statements.get(statementKey);
-      const cached = statements ? statements.get(query) : undefined;
+      const cached = this.statements.get(query);
       if (cached) {
         query = cached;
       }
       else {
-        if (!statements) {
-          statements = new Map();
-          this.statements.set(statementKey, statements);
-        }
-        const statement = await this.prepare(query, db);
-        statements.set(query, statement);
+        const statement = await db.prepare(query);
+        this.statements.set(query, statement);
         query = statement;
       }
     }
-    return new Promise((resolve, reject) => {
-      query.run(params, function (err) {
-        if (err) {
-          reject(err);
-        }
-        else {
-          resolve();
-        }
-      });
-    });
+    const result = isEmpty(params) ? query.run() : query.run(params);
+    if (!tx) {
+      this.isBusy = false;
+    }
+    return result.changes;
   }
 
   async all(props) {
@@ -230,81 +201,50 @@ class SQLiteDatabase extends Database {
       await this.initialize();
     }
     let { query, params, options, tx, write, adjusted } = props;
+    const needsWriter = !tx && write;
+    if (needsWriter) {
+      await this.getWriter();
+    }
     if (params === null) {
       params = undefined;
     }
     if (params !== undefined && !adjusted) {
       params = this.adjust(params);
     }
-    const client = tx ? tx.db : (write ? this.write : this.read);
+    const client = (tx || write) ? this.write : this.read;
     if (typeof query === 'string') {
       const key = query;
-      const statementKey = tx ? tx.name : (write ? 'write' : 'read');
-      let statements = this.statements.get(statementKey);
-      const cached = statements ? statements.get(key) : undefined;
+      const cached = this.statements.get(key);
       if (cached) {
         query = cached;
       }
       else {
-        if (!statements) {
-          statements = new Map();
-          this.statements.set(statementKey, statements);
-        }
-        const statement = await this.prepare(query, client);
-        statements.set(key, statement);
+        const statement = await client.prepare(query);
+        this.statements.set(key, statement);
         query = statement;
       }
     }
     const process = this.process;
-    return new Promise((resolve, reject) => {
-      query.all(params, function (err, rows) {
-        if (err) {
-          reject(err);
-        }
-        else {
-          const result = process(rows, options);
-          resolve(result);
-        }
-      });
-    });
+    const rows = isEmpty(params) ? query.all() : query.all(params);
+    if (needsWriter) {
+      this.isBusy = false;
+    }
+    return process(rows, options);
   }
 
   async exec(sql) {
     if (!this.initialized) {
       await this.initialize();
     }
-    return new Promise((resolve, reject) => {
-      this.write.exec(sql, function (err) {
-        if (err) {
-          reject(err);
-        }
-        else {
-          resolve();
-        }
-      });
-    });
+    this.write.exec(sql);
   }
 
   async close() {
     if (this.closed) {
       return;
     }
-    const makePromise = (db) => {
-      return new Promise((resolve, reject) => {
-        db.close(function (err) {
-          if (err) {
-            reject(err);
-          }
-          else {
-            resolve();
-          }
-        });
-      });
-    }
-    const finalizePromises = this.prepared.map(statement => this.finalize(statement));
-    await Promise.all(finalizePromises);
-    const promises = this.databases.map(db => makePromise(db));
-    await Promise.all(promises);
+    this.read.close();
+    this.write.close();
     this.closed = true;
   }
 }

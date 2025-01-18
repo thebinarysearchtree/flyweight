@@ -14,7 +14,7 @@ const run = async () => {
     await database.makeTypes(fileSystem, paths, 'sqlite');
   }
   catch (e) {
-    error = e.message.includes('SQLITE_ERROR: near "something": syntax error');
+    error = e.message.includes('near "something": syntax error');
   }
   finally {
     await rm(path);

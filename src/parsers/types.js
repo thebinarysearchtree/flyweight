@@ -315,8 +315,7 @@ const getQueries = async (fileSystem, db, sqlDir, tableName, typeSet, i) => {
       }
       let message = `Could not parse ${fileName} in "${tableName}" folder.\n`;
       try {
-        const statement = await db.prepare(sql, db.read);
-        await db.finalize(statement);
+        await db.getError(sql);
       }
       catch (e) {
         message += e.message;

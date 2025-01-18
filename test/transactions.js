@@ -3,7 +3,7 @@ import { strict as assert } from 'assert';
 
 const run = async () => {
   let javierId;
-  const tx = await db.getTransaction();
+  let tx = await db.getTransaction();
   try {
     await tx.begin();
     javierId = await tx.coaches.insert({
@@ -15,9 +15,13 @@ const run = async () => {
   catch {
     await tx.rollback();
   }
-  let javier = await tx.coaches.get({ id: javierId });
+  finally {
+    db.release(tx);
+  }
+  let javier = await db.coaches.get({ id: javierId });
   assert.equal(javier, undefined);
 
+  tx = await db.getTransaction();
   try {
     await tx.begin();
     javierId = await tx.coaches.insert({
@@ -29,11 +33,14 @@ const run = async () => {
   catch {
     await tx.rollback();
   }
-  javier = await tx.coaches.get({ id: javierId });
+  finally {
+    db.release(tx);
+  }
+  javier = await db.coaches.get({ id: javierId });
   assert.notEqual(javier, undefined);
-  await tx.coaches.remove({ id: javierId });
+  await db.coaches.remove({ id: javierId });
 
-  await tx.coaches.insertMany([
+  await db.coaches.insertMany([
     {
       name: 'Eugene Bareman',
       city: 'Auckland'
@@ -43,13 +50,12 @@ const run = async () => {
       city: 'Denver'
     },
   ]);
-  let coaches = await tx.coaches.many();
+  let coaches = await db.coaches.many();
   assert.equal(coaches.length, 2);
-  await tx.coaches.remove({ name: 'Eugene Bareman' });
-  coaches = await tx.coaches.many();
+  await db.coaches.remove({ name: 'Eugene Bareman' });
+  coaches = await db.coaches.many();
   assert.equal(coaches.length, 1);
-  await tx.coaches.remove();
-  db.release(tx);
+  await db.coaches.remove();
 
   const methodCount = await db.fights.count({ methodId: null });
   assert.equal(methodCount, 45);
@@ -59,7 +65,6 @@ const run = async () => {
       setTimeout(() => resolve(), 100);
     });
   }
-
   const t1 = async () => {
     const tx = await db.getTransaction();
     await tx.begin();
@@ -78,7 +83,7 @@ const run = async () => {
       name: 'Test User 2',
       city: 'Whatever 2'
     });
-    await tx.rollback();
+    await tx.commit();
     db.release(tx);
   }
   const promises = [t1(), t2()];

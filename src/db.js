@@ -35,6 +35,7 @@ class Database {
     this.mappers = {};
     this.customTypes = {};
     this.columns = {};
+    this.hasJson = {};
     this.statements = new Map();
     this.viewSet = new Set();
     this.virtualSet = new Set();
@@ -42,6 +43,7 @@ class Database {
     this.queryVariations = new Map();
     this.closed = false;
     this.initialized = false;
+    this.supports = props.supports;
     this.registerTypes([
       {
         name: 'boolean',
@@ -66,12 +68,7 @@ class Database {
         dbToJs: (v) => JSON.parse(v),
         jsToDb: (v) => JSON.stringify(v),
         tsType: 'Json',
-        dbType: 'text'
-      },
-      {
-        name: 'jsonb',
-        tsType: 'Buffer',
-        dbType: 'blob'
+        dbType: this.supports.jsonb ? 'blob' : 'text'
       }
     ]);
   }
@@ -122,15 +119,7 @@ class Database {
   }
 
   async initialize() {
-    if (this.initialized) {
-      return;
-    }
-    this.read = await this.createDatabase();
-    this.write = await this.createDatabase({ serialize: true });
-    await this.setTables();
-    await this.setVirtual();
-    await this.setViews();
-    this.initialized = true;
+    return;
   }
 
   async runMigration() {
@@ -141,21 +130,17 @@ class Database {
     return;
   }
 
-  async enableForeignKeys(db) {
-    await this.basicAll('pragma foreign_keys = on', db);
-  }
-
-  async deferForeignKeys() {
-    await this.basicAll('pragma defer_foreign_keys = true');
-  }
-
   addTables(tables) {
     for (const table of tables) {
       this.tables[table.name] = table.columns;
       this.columnSets[table.name] = table.columnSet;
       this.columns[table.name] = {};
+      this.hasJson[table.name] = false;
       for (const column of table.columns) {
         this.columns[table.name][column.name] = column.type;
+        if (column.type === 'json') {
+          this.hasJson[table.name] = true;
+        }
       }
     }
   }
@@ -341,7 +326,7 @@ class Database {
         value = null;
       }
       if (value === null || typeof value === 'string' || typeof value === 'number' || value instanceof Buffer) {
-        adjusted[`$${key}`] = value;
+        adjusted[key] = value;
       }
       else {
         for (const customType of Object.values(this.customTypes)) {
@@ -350,7 +335,7 @@ class Database {
             break;
           }
         }
-        adjusted[`$${key}`] = value;
+        adjusted[key] = value;
       }
     }
     return adjusted;

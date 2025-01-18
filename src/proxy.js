@@ -317,7 +317,7 @@ const makeClient = (db, tx) => {
         return db[table];
       }
       if (table === 'release') {
-        return (tx) => db.pool.push(tx);
+        return (tx) => db.release(tx)
       }
       if (!target[table]) {
         target[table] = new Proxy({}, makeQueryHandler(table, db, tx));

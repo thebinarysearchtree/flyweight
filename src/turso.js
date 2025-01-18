@@ -4,7 +4,11 @@ import { isWrite } from './parsers/queries.js';
 
 class TursoDatabase extends Database {
   constructor(props) {
-    super(props);
+    const supports = {
+      jsonb: false,
+      migrations: true
+    };
+    super({ ...props, supports });
     this.raw = props.db;
     this.files = props.files;
   }
@@ -65,6 +69,10 @@ class TursoDatabase extends Database {
 
   async sync() {
     await this.raw.sync();
+  }
+
+  async getError(sql) {
+    return this.raw.prepare(sql);
   }
 
   async basicRun(sql) {

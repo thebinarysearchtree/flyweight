@@ -23,7 +23,11 @@ const replacePlaceholders = (sql, placeholderMap) => {
 
 class D1Database extends Database {
   constructor(props) {
-    super(props);
+    const supports = {
+      jsonb: false,
+      migrations: false
+    };
+    super({ ...props, supports });
     this.files = props.files;
     this.raw = props.db;
   }
@@ -74,6 +78,10 @@ class D1Database extends Database {
     catch (e) {
       throw e;
     }
+  }
+
+  async getError(sql) {
+    return this.raw.prepare(sql);
   }
 
   async basicRun(sql) {
