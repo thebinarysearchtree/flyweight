@@ -15,9 +15,6 @@ const run = async () => {
   catch {
     await tx.rollback();
   }
-  finally {
-    db.release(tx);
-  }
   let javier = await db.coaches.get({ id: javierId });
   assert.equal(javier, undefined);
 
@@ -32,9 +29,6 @@ const run = async () => {
   }
   catch {
     await tx.rollback();
-  }
-  finally {
-    db.release(tx);
   }
   javier = await db.coaches.get({ id: javierId });
   assert.notEqual(javier, undefined);
@@ -74,7 +68,6 @@ const run = async () => {
     });
     await wait();
     await tx.commit();
-    db.release(tx);
   }
   const t2 = async () => {
     const tx = await db.getTransaction();
@@ -84,7 +77,6 @@ const run = async () => {
       city: 'Whatever 2'
     });
     await tx.commit();
-    db.release(tx);
   }
   const promises = [t1(), t2()];
   await Promise.all(promises);

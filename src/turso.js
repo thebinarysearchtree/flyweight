@@ -6,7 +6,10 @@ class TursoDatabase extends Database {
   constructor(props) {
     const supports = {
       jsonb: false,
-      migrations: true
+      migrations: true,
+      files: false,
+      closing: false,
+      types: 'turso'
     };
     super({ ...props, supports });
     this.raw = props.db;

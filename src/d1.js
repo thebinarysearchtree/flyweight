@@ -25,7 +25,10 @@ class D1Database extends Database {
   constructor(props) {
     const supports = {
       jsonb: false,
-      migrations: false
+      migrations: false,
+      files: false,
+      closing: false,
+      types: 'd1'
     };
     super({ ...props, supports });
     this.files = props.files;

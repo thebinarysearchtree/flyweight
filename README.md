@@ -320,7 +320,7 @@ the entire object will be null.
 
 ## Transactions and concurrency
 
-Transactions involve taking a connection from a pool of connections by calling ```getTransaction```. Once you have finished using the transaction, you should call ```release``` to return the connection to the pool. If there are a large number of simultaneous transactions, the connection pool will be empty and ```getTransaction``` will start to wait until a connection is returned to the pool.
+Transactions involve locking writes with ```getTransaction```. If multiple transactions try to run at the same time, they will wait until the current transaction is complete.
 
 ```js
 import { db } from './db.js';
@@ -344,9 +344,6 @@ try {
 catch (e) {
   console.log(e);
   await tx.rollback();
-}
-finally {
-  db.release(tx);
 }
 ```
 
@@ -419,7 +416,7 @@ You should run ```npm run watch``` to keep the ```src/database/files.js``` updat
 
 ## Turso
 
-Turso uses the same npm commands as D1. Turso also supports the same transaction API that the standard SQLite database uses. The only difference is that the ```getTransaction``` function for Turso needs a type of either ```read``` or ```write``` and ```release``` does not need to be called. It also supports the ```batch``` that D1 uses.
+Turso uses the same npm commands as D1. Turso also supports the same transaction API that the standard SQLite database uses. The only difference is that the ```getTransaction``` function for Turso needs a type of either ```read``` or ```write```. It also supports the ```batch``` that D1 uses.
 
 In the root directory of the project, you can install flyweight with
 

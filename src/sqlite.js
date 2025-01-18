@@ -18,7 +18,10 @@ class SQLiteDatabase extends Database {
   constructor(props) {
     const supports = {
       jsonb: true,
-      migrations: true
+      migrations: true,
+      files: true,
+      closing: true,
+      types: 'sqlite'
     };
     super({ ...props, supports });
     this.dbPath = props.db;
@@ -36,8 +39,11 @@ class SQLiteDatabase extends Database {
       this.isBusy = true;
       return;
     }
-    await wait();
-    return this.getWriter();
+    while (this.isBusy) {
+      await wait();
+    }
+    this.isBusy = true;
+    return;
   }
 
   async initialize() {
@@ -125,10 +131,12 @@ class SQLiteDatabase extends Database {
 
   async commit(tx) {
     await this.basicRun('commit', tx);
+    this.isBusy = false;
   }
 
   async rollback(tx) {
     await this.basicRun('rollback', tx);
+    this.isBusy = false;
   }
 
   async getError(sql) {
@@ -139,15 +147,13 @@ class SQLiteDatabase extends Database {
     if (!tx && !this.initialized) {
       await this.initialize();
     }
+    const db = tx ? this.write : this.read;
     if (!tx) {
       await this.getWriter();
-    }
-    const db = tx ? this.write : this.read;
-    const statement = db.prepare(sql);
-    statement.run();
-    if (!tx) {
       this.isBusy = false;
     }
+    const statement = db.prepare(sql);
+    statement.run();
   }
 
   async basicAll(sql, tx) {
@@ -157,10 +163,6 @@ class SQLiteDatabase extends Database {
     const db = tx ? this.write : this.read;
     const statement = db.prepare(sql);
     return statement.all();
-  }
-
-  release() {
-    this.isBusy = false;
   }
 
   async run(props) {
@@ -174,9 +176,6 @@ class SQLiteDatabase extends Database {
     if (params !== undefined && !adjusted) {
       params = this.adjust(params);
     }
-    if (!tx) {
-      await this.getWriter();
-    }
     const db = this.write;
     if (typeof query === 'string') {
       const cached = this.statements.get(query);
@@ -189,10 +188,11 @@ class SQLiteDatabase extends Database {
         query = statement;
       }
     }
-    const result = isEmpty(params) ? query.run() : query.run(params);
     if (!tx) {
+      await this.getWriter();
       this.isBusy = false;
     }
+    const result = isEmpty(params) ? query.run() : query.run(params);
     return result.changes;
   }
 
@@ -202,9 +202,6 @@ class SQLiteDatabase extends Database {
     }
     let { query, params, options, tx, write, adjusted } = props;
     const needsWriter = !tx && write;
-    if (needsWriter) {
-      await this.getWriter();
-    }
     if (params === null) {
       params = undefined;
     }
@@ -225,10 +222,11 @@ class SQLiteDatabase extends Database {
       }
     }
     const process = this.process;
-    const rows = isEmpty(params) ? query.all() : query.all(params);
     if (needsWriter) {
+      await this.getWriter();
       this.isBusy = false;
     }
+    const rows = isEmpty(params) ? query.all() : query.all(params);
     return process(rows, options);
   }
 

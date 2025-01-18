@@ -3,8 +3,7 @@ interface TypedDb {
   begin(): Promise<void>,
   commit(): Promise<void>,
   rollback(): Promise<void>,
-  getTransaction(): Promise<TypedDb>,
-  release(transaction: TypedDb): void
+  getTransaction(): Promise<TypedDb>
 }
 
 declare const database: any;

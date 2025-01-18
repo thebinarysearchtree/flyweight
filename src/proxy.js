@@ -316,9 +316,6 @@ const makeClient = (db, tx) => {
         db[table] = db[table].bind(db);
         return db[table];
       }
-      if (table === 'release') {
-        return (tx) => db.release(tx)
-      }
       if (!target[table]) {
         target[table] = new Proxy({}, makeQueryHandler(table, db, tx));
       }

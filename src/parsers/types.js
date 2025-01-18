@@ -368,9 +368,9 @@ const createTypes = async (options) => {
     db,
     sqlDir,
     destinationPath,
-    fileSystem,
-    dbType
+    fileSystem
   } = options;
+  const features = db.supports;
   let index = files.index;
   index = index.replace(/export \{[^\}]+\}/, '');
   index = index.replace('getClient<T>(): T; ', 'getClient(): TypedDb; ');
@@ -490,7 +490,7 @@ const createTypes = async (options) => {
     }
   }
   types = types.replaceAll(/^export /gm, '');
-  const exportSection = files[dbType];
+  const exportSection = files[features.types];
   const customTypes = returnTypes.join(',\n');
   const replaced = exportSection.replace(/(\[key: string\]: any,\s)/, `$1${customTypes},\n`);
   types += replaced;
