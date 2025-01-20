@@ -75,7 +75,7 @@ class TursoDatabase extends Database {
   }
 
   async getError(sql) {
-    return this.raw.prepare(sql);
+    return this.raw.execute(sql);
   }
 
   async basicRun(sql) {
@@ -88,7 +88,7 @@ class TursoDatabase extends Database {
   }
 
   async batch(handler) {
-    const client = makeClient(this, { isBatch: true, dbType: 'turso' });
+    const client = makeClient(this, { isBatch: true });
     const handlers = handler(client).flat();
     const results = await Promise.all(handlers);
     const statements = results.map(r => r.statement);

@@ -51,23 +51,29 @@ const run = async () => {
   assert.equal(fighterCount, 4);
   const whereSelector = await db.fighters.get({ social: s => s.instagram.eq('angga_thehitman') });
   assert.equal(whereSelector.id, 2);
-  const t = await db.fighters.many({ id: n => n.lt(10) }, c => c.social.instagram);
-  const r = await db.fighters.query({
+  const accounts = await db.fighters.many({ id: n => n.lt(10) }, c => c.social.instagram);
+  assert.equal(accounts.at(6), 'makamboabedi');
+  const orderBy = await db.fighters.query({
     where: {
       id: n => n.lt(10)
     },
     select: ['id', 'born', { select: s => s.social.instagram, as: 'instagram' }],
     orderBy: 'instagram'
   });
-  const p = await db.fighters.get({ id: 2 }, ['id', 'born', { select: c => c.social.instagram, as: 'instagram' }]);
-  console.log(p);
-  const x = await db.fighters.get({ id: 3, born: 'asfasf' });
-  const z = await db.fighterProfiles.query({
-    where: {
-      fighterProfiles: 'Sao'
-    },
-    select: 'hometown'
-  });
+  assert.equal(orderBy.at(2).instagram, 'angga_thehitman');
+  const selector = await db.fighters.get({ id: 2 }, ['id', 'born', { select: c => c.social.instagram, as: 'instagram' }]);
+  assert.equal(selector.instagram, 'angga_thehitman');
+  const rows = [];
+  for (let i = 0; i < 5; i++) {
+    rows.push({
+      name: 'test',
+      city: 'test'
+    });
+  }
+  await db.coaches.insertMany(rows);
+  const insertCount = await db.coaches.count();
+  assert.equal(insertCount, 5);
+  await db.coaches.remove();
 }
 
 const cleanUp = async () => {

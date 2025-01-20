@@ -135,6 +135,7 @@ const processBatch = async (db, options, post) => {
   const result = await db.all(options);
   return {
     statement: result.statement,
+    params: result.params,
     post: (meta) => {
       const response = result.post(meta);
       return post(response);

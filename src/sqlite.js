@@ -164,6 +164,27 @@ class SQLiteDatabase extends Database {
     return statement.all();
   }
 
+  async batch(handler) {
+    const client = makeClient(this, { isBatch: true });
+    const promises = handler(client).flat();
+    const handlers = await Promise.all(promises);
+    await this.getWriter();
+    const result = this.write.transaction(() => {
+      const responses = [];
+      for (const handler of handlers) {
+        const { statement, params, post } = handler;
+        const run = post ? 'all' : 'run';
+        let response = isEmpty(params) ? statement[run]() : statement[run](params);
+        if (post) {
+          response = post(response);
+        }
+        responses.push(response);
+      }
+      return responses;
+    });
+    return result();
+  }
+
   async run(props) {
     if (!this.initialized) {
       await this.initialize();
@@ -186,6 +207,12 @@ class SQLiteDatabase extends Database {
         this.statements.set(query, statement);
         query = statement;
       }
+    }
+    if (tx && tx.isBatch) {
+      return {
+        statement: query,
+        params
+      };
     }
     if (!tx) {
       await this.getWriter();
@@ -220,6 +247,13 @@ class SQLiteDatabase extends Database {
       }
     }
     const process = this.process;
+    if (tx && tx.isBatch) {
+      return {
+        statement: query,
+        params,
+        post: (rows) => this.process(rows, options)
+      };
+    }
     if (needsWriter) {
       await this.getWriter();
     }

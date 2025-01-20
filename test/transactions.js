@@ -81,6 +81,22 @@ const run = async () => {
   const promises = [t1(), t2()];
   await Promise.all(promises);
   await db.coaches.remove();
+  await db.batch((tx) => {
+    const coach = tx.coaches.insert({
+      name: 'Test',
+      city: 'Test'
+    });
+    const fighter = tx.fighters.insert({
+      name: 'Test',
+      hometown: 'Test',
+      isActive: false
+    });
+    return [coach, fighter];
+  });
+  const count = await db.coaches.count();
+  assert.equal(count, 1);
+  await db.coaches.remove();
+  await db.fighters.remove({ name: 'Test', hometown: 'Test', isActive: false });
 }
 
 const cleanUp = async () => {

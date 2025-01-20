@@ -318,9 +318,9 @@ Nulls are automatically removed from all ```groupArray``` results. When all of t
 
 the entire object will be null.
 
-## Transactions and concurrency
+## Transactions
 
-Transactions involve locking writes with ```getTransaction```. If multiple transactions try to run at the same time, they will wait until the current transaction is complete.
+Transactions involve locking writes to the database with ```getTransaction```. If multiple transactions try to run at the same time, they will wait until the current transaction is complete.
 
 ```js
 import { db } from './db.js';
@@ -347,27 +347,9 @@ catch (e) {
 }
 ```
 
-## Views
+## Batches
 
-Views are treated like read-only tables. They have a ```get``` and ```many``` method available to them that works the same as with tables. If you want to create a view called ```activeUsers``` you can add a file in the ```views``` folder called ```./database/views/activeUsers.sql``` that might have SQL like this:
-
-```sql
-create view activeUsers as
-select * from users where isActive = true;
-```
-
-You can now use it in the API like this:
-
-```js
-import { db } from './database/db.js';
-
-const user = await db.activeUsers.get({ id: 100 }, ['name', 'email']);
-console.log(user.email);
-```
-
-## Cloudflare D1
-
-Flyweight provides first-class support for D1. The only difference between the D1 API and the SQLite API is that D1 doesn't support transactions. Instead, there is a ```batch``` method available that can be used like this:
+You can also run multiple statements inside a single transaction without any logic using ```batch```. This is supported by all databases. Here is an example using D1.
 
 ```ts
 import createClient from './database/db';
@@ -391,6 +373,28 @@ export default {
   }
 };
 ```
+
+## Views
+
+Views are treated like read-only tables. They have a ```get``` and ```many``` method available to them that works the same as with tables. If you want to create a view called ```activeUsers``` you can add a file in the ```views``` folder called ```./database/views/activeUsers.sql``` that might have SQL like this:
+
+```sql
+create view activeUsers as
+select * from users where isActive = true;
+```
+
+You can now use it in the API like this:
+
+```js
+import { db } from './database/db.js';
+
+const user = await db.activeUsers.get({ id: 100 }, ['name', 'email']);
+console.log(user.email);
+```
+
+## Cloudflare D1
+
+Flyweight provides first-class support for D1. The only difference between the D1 API and the SQLite API is that D1 doesn't support transactions other than ```batch```.
 
 To get started, run this command in the root of your Cloudflare Workers project.
 
@@ -416,7 +420,7 @@ You should run ```npm run watch``` to keep the ```src/database/files.js``` updat
 
 ## Turso
 
-Turso uses the same npm commands as D1. Turso also supports the same transaction API that the standard SQLite database uses. The only difference is that the ```getTransaction``` function for Turso needs a type of either ```read``` or ```write```. It also supports the ```batch``` that D1 uses.
+Turso uses ```npm run watch``` to keep the same file D1 uses updated so that the database can run in edge-based environments where necessary. Turso also supports the same transaction API that the standard SQLite database uses. The only difference is that the ```getTransaction``` function for Turso needs a type of either ```read``` or ```write```.
 
 In the root directory of the project, you can install flyweight with
 
