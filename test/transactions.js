@@ -91,7 +91,7 @@ const run = async () => {
       hometown: 'Test',
       isActive: false
     });
-    return [coach, fighter];
+    return [coach, many, fighter];
   });
   const count = await db.coaches.count();
   assert.equal(count, 1);

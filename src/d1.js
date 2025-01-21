@@ -113,7 +113,8 @@ class D1Database extends Database {
     const client = makeClient(this, { isBatch: true });
     const handlers = handler(client).flat();
     const results = await Promise.all(handlers);
-    const responses = await this.raw.batch(results.map(r => r.statement));
+    const flat = results.flat();
+    const responses = await this.raw.batch(flat.map(r => r.statement));
     return responses.map((response, i) => {
       const handler = results[i];
       if (handler.post) {

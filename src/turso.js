@@ -101,9 +101,10 @@ class TursoDatabase extends Database {
     const client = makeClient(this, { isBatch: true });
     const handlers = handler(client).flat();
     const results = await Promise.all(handlers);
-    const statements = results.map(r => r.statement);
+    const flat = results.flat();
+    const statements = flat.map(r => r.statement);
     const batchType = statements.some(s => isWrite(s.sql)) ? 'write' : 'read';
-    const responses = await this.raw.batch(results.map(r => r.statement), batchType);
+    const responses = await this.raw.batch(flat.map(r => r.statement), batchType);
     return responses.map((response, i) => {
       const handler = results[i];
       if (handler.post) {

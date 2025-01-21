@@ -183,7 +183,8 @@ class SQLiteDatabase extends Database {
     await this.getWriter();
     const result = this.write.transaction(() => {
       const responses = [];
-      for (const handler of handlers) {
+      const flat = handlers.flat();
+      for (const handler of flat) {
         const { statement, params, post } = handler;
         const run = post ? 'all' : 'run';
         let response = isEmpty(params) ? statement[run]() : statement[run](params);
