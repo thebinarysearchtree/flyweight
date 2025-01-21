@@ -164,6 +164,18 @@ class SQLiteDatabase extends Database {
     return statement.all();
   }
 
+  async insertBatch(inserts) {
+    await this.getWriter();
+    const inserted = this.write.transaction(() => {
+      for (const insert of inserts) {
+        const { query, params } = insert;
+        const statement = this.write.prepare(query);
+        statement.run(params);
+      }
+    });
+    inserted();
+  }
+
   async batch(handler) {
     const client = makeClient(this, { isBatch: true });
     const promises = handler(client).flat();

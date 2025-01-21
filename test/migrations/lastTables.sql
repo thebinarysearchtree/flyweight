@@ -36,7 +36,7 @@ create table coaches (
     id integer primary key,
     name text not null,
     city text not null,
-    profile
+    profile json
 );
 
 create table fighters (
@@ -47,7 +47,7 @@ create table fighters (
     heightCm integer,
     reachCm integer,
     hometown text not null,
-    social,
+    social json,
     isActive boolean not null
 );
 

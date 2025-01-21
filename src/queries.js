@@ -169,68 +169,22 @@ const insert = async (db, table, params, tx) => {
   return post(result);
 }
 
-const batchInserts = async (tx, db, columns, columnTypes, items) => {
-  const sql = makeInsertSql(columns, columnTypes, table);
-  const promises = [];
+const batchInserts = async (tx, db, table, columns, columnTypes, items) => {
+  const sql = makeInsertSql(db.supports, columns, columnTypes, table);
+  const inserts = [];
   for (const item of items) {
     const adjusted = adjust(item, columnTypes, db);
-    const promise = db.run({
+    inserts.push({
       query: sql,
       params: adjusted,
       tx,
       adjusted: true
     });
-    promises.push(promise);
   }
-  const statements = await Promise.all(promises);
   if (tx && tx.isBatch) {
-    return statements;
+    return await Promise.all(inserts.map(insert => db.run(insert)));
   }
-  await db.raw.batch(statements);
-}
-
-const many = async (tx, db, columns, columnTypes, items) => {
-  let createdTransaction;
-  if (!tx) {
-    tx = await db.getTransaction();
-    createdTransaction = true;
-  }
-  let statement;
-  try {
-    if (createdTransaction) {
-      await tx.begin();
-    }
-    const sql = makeInsertSql(columns, columnTypes, table);
-    statement = await tx.db.prepare(sql);
-    const promises = [];
-    for (const item of items) {
-      const adjusted = adjust(item, columnTypes, db);
-      const promise = db.run({
-        query: statement,
-        params: adjusted,
-        tx,
-        adjusted: true
-      });
-      promises.push(promise);
-    }
-    await Promise.all(promises);
-    if (createdTransaction) {
-      await tx.commit();
-    }
-  }
-  catch (e) {
-    if (createdTransaction) {
-      await tx.rollback();
-    }
-    throw e;
-  }
-  finally {
-    if (createdTransaction) {
-      db.release(tx);
-    }
-    await db.finalize(statement);
-    return;
-  }
+  await db.insertBatch(inserts);
 }
 
 const insertMany = async (db, table, items, tx) => {
@@ -248,12 +202,7 @@ const insertMany = async (db, table, items, tx) => {
   verify(columns);
   const hasBlob = db.tables[table].filter(c => columns.includes(c.name)).some(c => c.type === 'blob');
   if (hasBlob) {
-    if (!db.d1) {
-      return await many(tx, db, columns, columnTypes, items);
-    }
-    else {
-      return await batchInserts(tx, db, columns, columnTypes, items);
-    }
+    return await batchInserts(tx, db, table, columns, columnTypes, items);
   }
   let sql = `insert into ${table}(${columns.join(', ')}) select `;
   const select = columns.map(column => {

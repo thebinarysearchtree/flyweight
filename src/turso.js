@@ -87,6 +87,16 @@ class TursoDatabase extends Database {
     return meta.rows;
   }
 
+  async insertBatch(inserts) {
+    const mapped = inserts.map(insert => {
+      return {
+        sql: insert.query,
+        args: insert.params
+      }
+    });
+    await this.raw.batch(mapped, 'write');
+  }
+
   async batch(handler) {
     const client = makeClient(this, { isBatch: true });
     const handlers = handler(client).flat();

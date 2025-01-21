@@ -102,6 +102,13 @@ class D1Database extends Database {
     return this.raw.prepare(sql);
   }
 
+  async insertBatch(inserts) {
+    const statements = inserts
+      .map(insert => this.cache(insert.query, insert.params))
+      .map(insert => this.raw.prepare(insert.sql).bind(...insert.orderedParams));
+    await this.raw.batch(statements);
+  }
+
   async batch(handler) {
     const client = makeClient(this, { isBatch: true });
     const handlers = handler(client).flat();
