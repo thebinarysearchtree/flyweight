@@ -161,7 +161,8 @@ class D1Database extends Database {
       await this.initialize();
     }
     let { query, params, adjusted, tx } = props;
-    if (props.statement) {
+    const isBatch = tx && tx.isBatch;
+    if (props.statement && !isBatch) {
       return await props.statement.run();
     }
     if (params === null) {
@@ -172,7 +173,7 @@ class D1Database extends Database {
     }
     const { sql, orderedParams } = this.cache(query, params);
     const statement = this.raw.prepare(sql).bind(...orderedParams);
-    if (tx && tx.isBatch) {
+    if (isBatch) {
       return {
         statement
       }
@@ -185,7 +186,8 @@ class D1Database extends Database {
       await this.initialize();
     }
     let { query, params, options, adjusted, tx } = props;
-    if (props.statement) {
+    const isBatch = tx && tx.isBatch;
+    if (props.statement && !isBatch) {
       const meta = await statement.all();
       return this.process(meta.results, options);
     }
@@ -197,7 +199,7 @@ class D1Database extends Database {
     }
     const { sql, orderedParams } = this.cache(query, params);
     const statement = this.raw.prepare(sql).bind(...orderedParams);
-    if (tx && tx.isBatch) {
+    if (isBatch) {
       return {
         statement,
         post: (meta) => this.process(meta.results, options)

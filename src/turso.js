@@ -119,7 +119,8 @@ class TursoDatabase extends Database {
       await this.initialize();
     }
     let { query, params, adjusted, tx } = props;
-    if (props.statement) {
+    const isBatch = tx && tx.isBatch;
+    if (props.statement && !isBatch) {
       return await this.raw.execute(statement);
     }
     if (params === null) {
@@ -130,9 +131,9 @@ class TursoDatabase extends Database {
     }
     const statement = {
       sql: query,
-      args: params
+      args: params || {}
     };
-    if (tx && tx.isBatch) {
+    if (isBatch) {
       return statement;
     }
     await this.raw.execute(statement);
@@ -143,7 +144,8 @@ class TursoDatabase extends Database {
       await this.initialize();
     }
     let { query, params, options, adjusted, tx } = props;
-    if (props.statement) {
+    const isBatch = tx && tx.isBatch;
+    if (props.statement && !isBatch) {
       const meta = await this.raw.execute(statement);
       return this.process(meta.rows, options);
     }
@@ -155,9 +157,9 @@ class TursoDatabase extends Database {
     }
     const statement = {
       sql: query,
-      args: params
+      args: params || {}
     };
-    if (tx && tx.isBatch) {
+    if (isBatch) {
       return {
         statement,
         post: (meta) => this.process(meta.rows, options)
