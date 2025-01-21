@@ -144,9 +144,8 @@ class D1Database extends Database {
     }
     const orderedParams = [];
     if (params) {
-      for (const [key, value] of Object.entries(params)) {
-        const param = key.substring(1);
-        const index = placeholdersMap.get(param);
+      for (const [name, value] of Object.entries(params)) {
+        const index = placeholdersMap.get(name);
         orderedParams[index - 1] = value;
       }
     }
