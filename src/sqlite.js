@@ -48,12 +48,21 @@ class SQLiteDatabase extends Database {
 
   getConnection(tx, write) {
     if (tx) {
-      return this.transact;
+      return {
+        client: this.transact,
+        name: 'transact'
+      };
     }
     else if (write) {
-      return this.write;
+      return {
+        client: this.write,
+        name: 'write'
+      };
     }
-    return this.read;
+    return {
+      client: this.read,
+      name: 'read'
+    };
   }
 
   async initialize() {
@@ -158,8 +167,8 @@ class SQLiteDatabase extends Database {
     if (!tx && !this.initialized) {
       await this.initialize();
     }
-    const db = this.getConnection(tx);
-    const statement = db.prepare(sql);
+    const { client } = this.getConnection(tx);
+    const statement = client.prepare(sql);
     statement.run();
   }
 
@@ -167,8 +176,8 @@ class SQLiteDatabase extends Database {
     if (!tx && !this.initialized) {
       await this.initialize();
     }
-    const db = this.getConnection(tx);
-    const statement = db.prepare(sql);
+    const { client } = this.getConnection(tx);
+    const statement = client.prepare(sql);
     return statement.all();
   }
 
@@ -215,15 +224,15 @@ class SQLiteDatabase extends Database {
     if (params !== undefined && !adjusted) {
       params = this.adjust(params);
     }
-    const db = this.getConnection(tx, true);
+    const { client, name } = this.getConnection(tx, true);
     if (typeof query === 'string') {
-      const key = query + `${tx !== undefined}`;
+      const key = query + name;
       const cached = this.statements.get(key);
       if (cached) {
         query = cached;
       }
       else {
-        const statement = db.prepare(query);
+        const statement = client.prepare(query);
         this.statements.set(key, statement);
         query = statement;
       }
@@ -249,9 +258,9 @@ class SQLiteDatabase extends Database {
     if (params !== undefined && !adjusted) {
       params = this.adjust(params);
     }
-    const client = this.getConnection(tx, write);
+    const { client, name } = this.getConnection(tx, write);
     if (typeof query === 'string') {
-      const key = query + `${tx !== undefined}`;
+      const key = query + name;
       const cached = this.statements.get(key);
       if (cached) {
         query = cached;
