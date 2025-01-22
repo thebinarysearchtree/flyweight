@@ -30,6 +30,7 @@ class Database {
   constructor(props) {
     this.read = null;
     this.write = null;
+    this.transact = null;
     this.tables = {};
     this.columnSets = {};
     this.mappers = {};
