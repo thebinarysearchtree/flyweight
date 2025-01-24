@@ -108,6 +108,38 @@ class ArrayType {
     if (objectType && otherObject) {
       objectType.merge(otherObject);
     }
+    const arrayTypes = ['ArrayType', 'TupleType'];
+    const arrayType = this.types.find(t => arrayTypes.includes(t.name) && !needsAdding.includes(t));
+    const otherArrayType = other.types.find(t => arrayTypes.includes(t.name));
+    if (!arrayType || !otherArrayType) {
+      return;
+    }
+    if (arrayType.name !== otherArrayType.name) {
+      const keep = [arrayType, otherArrayType].find(t => t.name === 'ArrayType');
+      if (!this.types.includes(keep)) {
+        this.push(keep);
+      }
+      this.types = this.types.filter(t => t.name !== 'TupleType');
+    }
+    else {
+      if (arrayType.name === 'TupleType' && !arrayType.equals(otherArrayType)) {
+        const types = arrayType.types;
+        const existing = new Set();
+        const unique = [];
+        for (const type of types) {
+          if (!existing.has(type.type)) {
+            unique.push(type);
+            existing.add(type.type);
+          }
+        }
+        const arrayType = new ArrayType(unique);
+        this.types.push(arrayType);
+        this.types = this.types.filter(t => !t.name === 'TupleType');
+      }
+      else if (arrayType.name === 'ArrayType') {
+        arrayType.merge(otherArrayType);
+      }
+    }
   }
 
   getInterfaces() {
@@ -207,7 +239,7 @@ class ObjectType {
       this.properties[key].push(...other.properties[key]);
     }
     for (const [key, types] of Object.entries(this.properties)) {
-      const otherTypes = other.properties[key];
+      const otherTypes = other.properties[key] || [];
       const existingTypes = types.map(t => t.name);
       const existingValues = types.filter(t => t.name === 'ValueType').map(t => t.type);
       const needsAdding = otherTypes.filter(t => !existingTypes.includes(t.name));
@@ -221,6 +253,14 @@ class ObjectType {
       const otherObject = otherTypes.find(t => t.name === 'ObjectType');
       if (objectType && otherObject) {
         objectType.merge(otherObject);
+      }
+      const arrayType = types.find(t => t.name === 'ArrayType' && !needsAdding.includes(t));
+      const otherArray = otherTypes.find(t => t.name === 'ArrayType');
+      if (arrayType && otherArray) {
+        arrayType.merge(otherArray);
+      }
+      if (types.filter(t => ['ArrayType', 'TupleType'].includes(t.name)).length > 1) {
+        this.properties[key] = this.properties[key].filter(t => t.name !== 'TupleType');
       }
     }
   }
@@ -298,7 +338,8 @@ const parse = (value, branch) => {
         const unique = new Set(types);
         const type = types.at(0);
         if (unique.size === 1 && type !== 'object') {
-          const tuple = new TupleType(type);
+          const valueTypes = items.at(0).map(t => new ValueType(typeof t));
+          const tuple = new TupleType(valueTypes);
           branch.root = new ArrayType([tuple]);
           return;
         }
@@ -310,8 +351,25 @@ const parse = (value, branch) => {
           return;
         }
       }
+      else {
+        const types = [];
+        for (const item of items) {
+          for (const element of item) {
+            types.push(typeof element);
+          }
+        }
+        const unique = new Set(types);
+        if (!types.includes('object')) {
+          const valueTypes = Array.from(unique.values());
+          const types = valueTypes.map(t => new ValueType(t));
+          const arrayType = new ArrayType(types);
+          branch.root = new ArrayType([arrayType]);
+          return;
+        }
+      }
       const type = new AnyType();
-      branch.root = new ArrayType([type]);
+      const arrayType = new ArrayType([type]);
+      branch.root = new ArrayType([arrayType]);
       return;
     }
     const objectTypes = [];
@@ -346,11 +404,12 @@ const social = {
   posts: [
     {
       date: 13982424,
-      content: 'this is a test'
+      content: 'this is a test',
+      shape: [[1, 3], [2, 4], [7, 9]]
     },
     {
       date: 2498114,
-      content: 'what is happening here'
+      shape: [[4, 1], [6, 23], [56, 2]]
     }
   ]
 };
