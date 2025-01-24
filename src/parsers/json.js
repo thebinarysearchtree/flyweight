@@ -4,8 +4,11 @@ const sample = (items, count) => {
   return sorted.slice(0, size);
 }
 
+const capitalize = (word) => word[0].toUpperCase() + word.substring(1);
+
 class ValueType {
   constructor(type) {
+    this.name = 'ValueType';
     this.type = type;
   }
 
@@ -16,13 +19,50 @@ class ValueType {
     return false;
   }
 
+  getInterfaces() {
+    return [];
+  }
+
   toString() {
     return this.type;
   }
 }
 
+class TupleType {
+  constructor(types) {
+    this.name = 'TupleType';
+    this.types = types;
+  }
+
+  equals(other) {
+    if (!other instanceof TupleType) {
+      return false;
+    }
+    if (this.types.length !== other.types.length) {
+      return false;
+    }
+    for (let i = 0; i < this.types.length; i++) {
+      const existingType = this.types[i];
+      const otherType = other.types[i];
+      if (!existingType.equals(otherType)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  getInterfaces() {
+    return [];
+  }
+
+  toString() {
+    return `[${this.types.map(t => t.toString()).join(', ')}]`;
+  }
+}
+
 class ArrayType {
   constructor(types) {
+    this.name = 'ArrayType';
     this.types = types;
   }
 
@@ -53,19 +93,75 @@ class ArrayType {
     return true;
   }
 
+  merge(other) {
+    const existingNames = this.types.map(t => t.name);
+    const existingValues = this.types.filter(t => t.name === 'ValueType').map(t => t.type);
+    const needsAdding = other.types.filter(t => !existingNames.includes(t.name));
+    this.types.push(...needsAdding);
+    const otherValues = other.types
+      .filter(t => t.name === 'ValueType')
+      .filter(t => !existingValues.includes(t.type))
+      .filter(t => !needsAdding.includes(t));
+    this.types.push(...otherValues);
+    const objectType = this.types.find(t => t.name === 'ObjectType' && !needsAdding.includes(t));
+    const otherObject = other.types.find(t => t.name === 'ObjectType' && !needsAdding.includes(t));
+    if (objectType && otherObject) {
+      objectType.merge(otherObject);
+    }
+  }
+
+  getInterfaces() {
+    const interfaces = [];
+    for (const type of this.types) {
+      interfaces.push(...type.getInterfaces());
+    }
+    return interfaces;
+  }
+
   toString() {
     return `Array<${this.types.map(t => t.toString()).join(' | ')}>`;
   }
 }
 
 class UndefinedType {
+  constructor() {
+    this.name = 'UndefinedType';
+  }
+
   equals(other) {
     return other instanceof UndefinedType;
+  }
+
+  getInterfaces() {
+    return [];
+  }
+
+  toString() {
+    return 'undefined';
+  }
+}
+
+class AnyType {
+  constructor() {
+    this.name = 'AnyType';
+  }
+
+  equals(other) {
+    return other instanceof AnyType;
+  }
+
+  getInterfaces() {
+    return [];
+  }
+
+  toString() {
+    return 'any';
   }
 }
 
 class ObjectType {
   constructor(className, properties) {
+    this.name = 'ObjectType';
     this.className = className;
     this.properties = properties;
   }
@@ -100,7 +196,7 @@ class ObjectType {
 
   merge(other) {
     const keys = Object.keys(this.properties);
-    const otherKeys = Object.keys(other);
+    const otherKeys = Object.keys(other.properties);
     const notOther = keys.filter(k => !otherKeys.includes(k));
     const notExisting = otherKeys.filter(k => !keys.includes(k));
     for (const key of notOther) {
@@ -108,8 +204,48 @@ class ObjectType {
     }
     for (const key of notExisting) {
       this.properties[key] = [new UndefinedType()];
-      this.properties[key].push(...other[key]);
+      this.properties[key].push(...other.properties[key]);
     }
+    for (const [key, types] of Object.entries(this.properties)) {
+      const otherTypes = other.properties[key];
+      const existingTypes = types.map(t => t.name);
+      const existingValues = types.filter(t => t.name === 'ValueType').map(t => t.type);
+      const needsAdding = otherTypes.filter(t => !existingTypes.includes(t.name));
+      types.push(...needsAdding);
+      const otherValues = otherTypes
+        .filter(t => t.name === 'ValueType')
+        .filter(t => !existingValues.includes(t.type))
+        .filter(t => !needsAdding.includes(t));
+      types.push(...otherValues);
+      const objectType = types.find(t => t.name === 'ObjectType' && !needsAdding.includes(t));
+      const otherObject = otherTypes.find(t => t.name === 'ObjectType');
+      if (objectType && otherObject) {
+        objectType.merge(otherObject);
+      }
+    }
+  }
+
+  getInterface() {
+    const entries = Object.entries(this.properties);
+    if (entries.length === 0) {
+      return '';
+    }
+    let interfaceString = `interface ${this.className} {\n`;
+    for (const [key, types] of entries) {
+      interfaceString += `  ${key}: ${types.map(t => t.toString()).join(' | ')},\n`;
+    }
+    return `${interfaceString.slice(0, -2)}\n}`;
+  }
+
+  getInterfaces() {
+    const existing = this.getInterface();
+    const interfaces = [existing];
+    for (const types of Object.values(this.properties)) {
+      for (const type of types) {
+        interfaces.push(...type.getInterfaces());
+      }
+    }
+    return interfaces;
   }
 
   toString() {
@@ -117,56 +253,86 @@ class ObjectType {
   }
 }
 
-const parse = (value, parsed) => {
+const createObjectType = (className, item) => {
+  const properties = {};
+  for (const [key, value] of Object.entries(item)) {
+    const tree = {
+      root: {},
+      className: `${className}${capitalize(key)}`
+    };
+    parse(value, tree);
+    properties[key] = [tree.root];
+  }
+  return new ObjectType(className, properties);
+}
+
+const parse = (value, branch) => {
   const type = value === null ? 'null' : typeof value;
   if (type !== 'object') {
-    parsed.push({ category: 'value', types: [type] });
-    return parsed;
+    branch.root = new ValueType(type);
+    return;
   }
   if (Array.isArray(value)) {
+    if (value.length === 0) {
+      const type = new AnyType();
+      branch.root = new ArrayType([type]);
+      return;
+    }
     const items = sample(value, 10);
     const valueTypes = new Set(items.map(item => item === null ? 'null' : typeof item));
     if (!valueTypes.has('object')) {
-      const types = Array.from(valueTypes.values());
-      parsed.push({ category: 'array', types });
-      return parsed;
+      const types = Array.from(valueTypes.values()).map(t => new ValueType(t));
+      branch.root = new ArrayType(types);
+      return;
     }
-    const properties = {};
-    for (const item of items) {
-      const itemKeys = Object.keys(item);
-      const existingKeys = Object.keys(properties);
-      const missing = existingKeys.filter(k => !itemKeys.includes(k));
-      for (const key of missing) {
-        properties[key].push({ category: 'undefined' });
-      }
-      for (const [key, value] of Object.entries(item)) {
+    if (!items.some(item => !Array.isArray(item))) {
+      const lengths = items.map(item => item.length);
+      const unique = new Set(lengths);
+      if (unique.size === 1) {
         const types = [];
-        parse(value, types);
-        if (!properties[key]) {
-          properties[key] = [];
+        for (const item of items) {
+          for (const element of item) {
+            types.push(typeof element);
+          }
         }
-        properties[key].push(...types);
+        const unique = new Set(types);
+        const type = types.at(0);
+        if (unique.size === 1 && type !== 'object') {
+          const tuple = new TupleType(type);
+          branch.root = new ArrayType([tuple]);
+          return;
+        }
+        if (!types.includes('object')) {
+          const valueTypes = Array.from(unique.values());
+          const types = valueTypes.map(t => new ValueType(t));
+          const arrayType = new ArrayType(types);
+          branch.root = new ArrayType(arrayType);
+          return;
+        }
       }
+      const type = new AnyType();
+      branch.root = new ArrayType([type]);
+      return;
     }
-    const adjusted = {};
-    for (const [key, types] of Object.entries(properties)) {
-      const unique = [];
+    const objectTypes = [];
+    for (const item of items) {
+      const type = createObjectType(branch.className, item);
+      objectTypes.push(type);
+    }
+    const sampleObject = objectTypes.at(0);
+    if (objectTypes.length > 1) {
+      const types = objectTypes.slice(1);
       for (const type of types) {
-
+        sampleObject.merge(type);
       }
     }
-    parsed.push(adjusted);
-    return parsed;
+    branch.root = new ArrayType([sampleObject]);
+    return;
   }
   else {
-    const properties = {};
-    for (const [key, item] of Object.entries(value)) {
-      const types = [];
-      parse(item, types);
-      properties[key] = types.at(0);
-    }
-    parsed.push(properties);
-    return parsed;
+    const type = createObjectType(branch.className, value);
+    branch.root = type;
+    return;
   }
 }
 
@@ -188,6 +354,13 @@ const social = {
     }
   ]
 };
-const parsed = [];
-parse(social, parsed);
-console.log(parsed.at(0));
+const tree = {
+  root: {},
+  className: 'FighterSocial'
+};
+parse(social, tree);
+console.log(tree.root.toString());
+const interfaces = tree.root.getInterfaces();
+for (const interfaceString of interfaces) {
+  console.log(interfaceString);
+}
