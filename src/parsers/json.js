@@ -1,3 +1,5 @@
+import pluralize from 'pluralize';
+
 const sample = (items, count) => {
   const size = Math.min(items.length, count);
   const sorted = [...items].sort(() => 0.5 - Math.random());
@@ -35,7 +37,7 @@ class TupleType {
   }
 
   equals(other) {
-    if (!other instanceof TupleType) {
+    if (!(other instanceof TupleType)) {
       return false;
     }
     if (this.types.length !== other.types.length) {
@@ -67,7 +69,7 @@ class ArrayType {
   }
 
   equals(other) {
-    if (!other instanceof ArrayType) {
+    if (!(other instanceof ArrayType)) {
       return false;
     }
     let count = 0;
@@ -94,52 +96,7 @@ class ArrayType {
   }
 
   merge(other) {
-    const existingNames = this.types.map(t => t.name);
-    const existingValues = this.types.filter(t => t.name === 'ValueType').map(t => t.type);
-    const needsAdding = other.types.filter(t => !existingNames.includes(t.name));
-    this.types.push(...needsAdding);
-    const otherValues = other.types
-      .filter(t => t.name === 'ValueType')
-      .filter(t => !existingValues.includes(t.type))
-      .filter(t => !needsAdding.includes(t));
-    this.types.push(...otherValues);
-    const objectType = this.types.find(t => t.name === 'ObjectType' && !needsAdding.includes(t));
-    const otherObject = other.types.find(t => t.name === 'ObjectType' && !needsAdding.includes(t));
-    if (objectType && otherObject) {
-      objectType.merge(otherObject);
-    }
-    const arrayTypes = ['ArrayType', 'TupleType'];
-    const arrayType = this.types.find(t => arrayTypes.includes(t.name) && !needsAdding.includes(t));
-    const otherArrayType = other.types.find(t => arrayTypes.includes(t.name));
-    if (!arrayType || !otherArrayType) {
-      return;
-    }
-    if (arrayType.name !== otherArrayType.name) {
-      const keep = [arrayType, otherArrayType].find(t => t.name === 'ArrayType');
-      if (!this.types.includes(keep)) {
-        this.push(keep);
-      }
-      this.types = this.types.filter(t => t.name !== 'TupleType');
-    }
-    else {
-      if (arrayType.name === 'TupleType' && !arrayType.equals(otherArrayType)) {
-        const types = arrayType.types;
-        const existing = new Set();
-        const unique = [];
-        for (const type of types) {
-          if (!existing.has(type.type)) {
-            unique.push(type);
-            existing.add(type.type);
-          }
-        }
-        const arrayType = new ArrayType(unique);
-        this.types.push(arrayType);
-        this.types = this.types.filter(t => !t.name === 'TupleType');
-      }
-      else if (arrayType.name === 'ArrayType') {
-        arrayType.merge(otherArrayType);
-      }
-    }
+    this.types = mergeTypes(this.types, other.types);
   }
 
   getInterfaces() {
@@ -199,7 +156,7 @@ class ObjectType {
   }
 
   equals(other) {
-    if (!other instanceof ObjectType) {
+    if (!(other instanceof ObjectType)) {
       return false;
     }
     const keys = Object.keys(this.properties);
@@ -232,36 +189,17 @@ class ObjectType {
     const notOther = keys.filter(k => !otherKeys.includes(k));
     const notExisting = otherKeys.filter(k => !keys.includes(k));
     for (const key of notOther) {
-      this.properties[key].push(new UndefinedType());
+      if (!this.properties[key].find(t => t.name === 'UndefinedType')) {
+        this.properties[key].push(new UndefinedType());
+      }
     }
     for (const key of notExisting) {
       this.properties[key] = [new UndefinedType()];
-      this.properties[key].push(...other.properties[key]);
+      this.properties[key].push(...other.properties[key].filter(t => t.name !== 'UndefinedType'));
     }
     for (const [key, types] of Object.entries(this.properties)) {
       const otherTypes = other.properties[key] || [];
-      const existingTypes = types.map(t => t.name);
-      const existingValues = types.filter(t => t.name === 'ValueType').map(t => t.type);
-      const needsAdding = otherTypes.filter(t => !existingTypes.includes(t.name));
-      types.push(...needsAdding);
-      const otherValues = otherTypes
-        .filter(t => t.name === 'ValueType')
-        .filter(t => !existingValues.includes(t.type))
-        .filter(t => !needsAdding.includes(t));
-      types.push(...otherValues);
-      const objectType = types.find(t => t.name === 'ObjectType' && !needsAdding.includes(t));
-      const otherObject = otherTypes.find(t => t.name === 'ObjectType');
-      if (objectType && otherObject) {
-        objectType.merge(otherObject);
-      }
-      const arrayType = types.find(t => t.name === 'ArrayType' && !needsAdding.includes(t));
-      const otherArray = otherTypes.find(t => t.name === 'ArrayType');
-      if (arrayType && otherArray) {
-        arrayType.merge(otherArray);
-      }
-      if (types.filter(t => ['ArrayType', 'TupleType'].includes(t.name)).length > 1) {
-        this.properties[key] = this.properties[key].filter(t => t.name !== 'TupleType');
-      }
+      this.properties[key] = mergeTypes(types, otherTypes);
     }
   }
 
@@ -296,14 +234,78 @@ class ObjectType {
 const createObjectType = (className, item) => {
   const properties = {};
   for (const [key, value] of Object.entries(item)) {
+    let singular = pluralize.singular(key);
+    if (properties.hasOwnProperty(singular)) {
+      singular = key;
+    }
     const tree = {
       root: {},
-      className: `${className}${capitalize(key)}`
+      className: `${className}${capitalize(singular)}`
     };
     parse(value, tree);
     properties[key] = [tree.root];
   }
   return new ObjectType(className, properties);
+}
+
+const mergeTypes = (into, from) => {
+  if (into.find(t => t.name === 'AnyType') || from.find(t => t.name === 'AnyType')) {
+    const type = new AnyType();
+    return [type];
+  }
+  const existingNames = into.map(t => t.name);
+  const existingValues = into.filter(t => t.name === 'ValueType').map(t => t.type);
+  const needsAdding = from.filter(t => !existingNames.includes(t.name));
+  into.push(...needsAdding);
+  const otherValues = from
+    .filter(t => t.name === 'ValueType')
+    .filter(t => !existingValues.includes(t.type))
+    .filter(t => !needsAdding.includes(t));
+  into.push(...otherValues);
+  const objectType = into.find(t => t.name === 'ObjectType' && !needsAdding.includes(t));
+  const otherObject = from.find(t => t.name === 'ObjectType' && !needsAdding.includes(t));
+  if (objectType && otherObject) {
+    objectType.merge(otherObject);
+  }
+  const arrayTypes = ['ArrayType', 'TupleType'];
+  const arrayType = into.find(t => arrayTypes.includes(t.name) && !needsAdding.includes(t));
+  const otherArrayType = from.find(t => arrayTypes.includes(t.name));
+  if (!arrayType || !otherArrayType) {
+    if (into.length > 3) {
+      return [new AnyType()];
+    }
+    return into;
+  }
+  if (arrayType.name !== otherArrayType.name) {
+    const keep = [arrayType, otherArrayType].find(t => t.name === 'ArrayType');
+    if (!into.includes(keep)) {
+      this.push(keep);
+    }
+    into = into.filter(t => t.name !== 'TupleType');
+  }
+  else {
+    if (arrayType.name === 'TupleType' && !arrayType.equals(otherArrayType)) {
+      const types = arrayType.types;
+      const existing = new Set();
+      const unique = [];
+      for (const type of types) {
+        if (!existing.has(type.type)) {
+          unique.push(type);
+          existing.add(type.type);
+        }
+      }
+      const arrayType = new ArrayType(unique);
+      into.push(arrayType);
+      into = into.filter(t => !t.name === 'TupleType');
+    }
+    else if (arrayType.name === 'ArrayType') {
+      arrayType.merge(otherArrayType);
+    }
+  }
+  if (into.length > 3) {
+    return [new AnyType()];
+  }
+  return into;
 }
 
 const parse = (value, branch) => {
@@ -314,8 +316,7 @@ const parse = (value, branch) => {
   }
   if (Array.isArray(value)) {
     if (value.length === 0) {
-      const type = new AnyType();
-      branch.root = new ArrayType([type]);
+      branch.root = new ArrayType([]);
       return;
     }
     const items = sample(value, 10);
@@ -332,7 +333,7 @@ const parse = (value, branch) => {
         const types = [];
         for (const item of items) {
           for (const element of item) {
-            types.push(typeof element);
+            types.push(element === null ? 'null' : typeof element);
           }
         }
         const unique = new Set(types);
@@ -372,6 +373,31 @@ const parse = (value, branch) => {
       branch.root = new ArrayType([arrayType]);
       return;
     }
+    else if (items.some(item => item === null || typeof item !== 'object')) {
+      const valueTypes = items
+        .filter(t => t === null || typeof t !== 'object')
+        .map(t => t === null ? 'null' : typeof t)
+        .map(t => new ValueType(t));
+      const otherTypes = items.filter(t => t !== null && typeof t === 'object');
+      let types = [];
+      for (const value of otherTypes) {
+        const tree = {
+          root: {},
+          className: branch.className
+        };
+        parse(value, tree);
+        if (!types.find(t => t.equals(tree.root))) {
+          types = mergeTypes(types, [tree.root]);
+        }
+      }
+      for (const type of valueTypes) {
+        if (!types.find(t => t.equals(type))) {
+          types = mergeTypes(types, [type]);
+        }
+      }
+      branch.root = new ArrayType(types);
+      return;
+    }
     const objectTypes = [];
     for (const item of items) {
       const type = createObjectType(branch.className, item);
@@ -409,10 +435,30 @@ const social = {
     },
     {
       date: 2498114,
-      shape: [[4, 1], [6, 23], [56, 2]]
+      shape: [[4, 1], [6, 23], [3, 4]]
     }
   ]
 };
+const simple = [
+  {
+    dog: 'asfasf'
+  },
+  {
+    instagram: 'asfasf'
+  },
+  {
+    instagram: 'asfasf asfasf asf'
+  },
+  {
+    instagram: 'asfasf'
+  },
+  {
+    dog: 3
+  },
+  {
+    instagram: 'asfasf'
+  }
+]
 const tree = {
   root: {},
   className: 'FighterSocial'
