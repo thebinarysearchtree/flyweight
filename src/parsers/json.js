@@ -1,12 +1,20 @@
 import pluralize from 'pluralize';
+import { readFile } from 'fs/promises';
+import words from './words.js';
 
-const sample = (items, count) => {
-  const size = Math.min(items.length, count);
+const sampleSize = 10 ** 2;
+const usedNames = new Set();
+const interfaceBodies = new Map();
+
+const capitalize = (word) => word[0].toUpperCase() + word.substring(1);
+
+const camel = (word) => word.replace(/_([a-z])/g, (m, l) => l.toUpperCase());
+
+const sample = (items) => {
+  const size = Math.min(items.length, sampleSize);
   const sorted = [...items].sort(() => 0.5 - Math.random());
   return sorted.slice(0, size);
 }
-
-const capitalize = (word) => word[0].toUpperCase() + word.substring(1);
 
 class ValueType {
   constructor(type) {
@@ -27,6 +35,41 @@ class ValueType {
 
   toString() {
     return this.type;
+  }
+}
+
+class EnumType {
+  constructor(key, types) {
+    this.name = 'EnumType';
+    this.key = key;
+    this.typeName = null;
+    this.types = types;
+  }
+
+  equals(other) {
+    if (!(other instanceof EnumType)) {
+      return false;
+    }
+    if (this.types.length !== other.types.length) {
+      return false;
+    }
+    return !this.types.some(t => !other.types.includes(t));
+  }
+
+  getInterfaces() {
+    if (!this.typeName) {
+      this.typeName = getTypeName(this.key);
+    }
+    const types = this.types.map(t => `'${t}'`).join(' | ') + ' | (string & {})';
+    const interfaceString = `type ${this.typeName} = ${types}`;
+    return [interfaceString];
+  }
+
+  toString() {
+    if (!this.typeName) {
+      this.typeName = getTypeName(this.key);
+    }
+    return this.typeName;
   }
 }
 
@@ -108,7 +151,8 @@ class ArrayType {
   }
 
   toString() {
-    return `Array<${this.types.map(t => t.toString()).join(' | ')}>`;
+    const types = this.types.map(t => t.toString()).join(' | ');
+    return types.includes('|') ? `(${types})[]` : `${types}[]`;
   }
 }
 
@@ -149,9 +193,10 @@ class AnyType {
 }
 
 class ObjectType {
-  constructor(className, properties) {
+  constructor(key, properties) {
     this.name = 'ObjectType';
-    this.className = className;
+    this.key = key;
+    this.typeName = null;
     this.properties = properties;
   }
 
@@ -203,19 +248,43 @@ class ObjectType {
     }
   }
 
-  getInterface() {
+  getInterface(bodyOnly) {
+    let body = '';
     const entries = Object.entries(this.properties);
     if (entries.length === 0) {
       return '';
     }
-    let interfaceString = `interface ${this.className} {\n`;
     for (const [key, types] of entries) {
-      interfaceString += `  ${key}: ${types.map(t => t.toString()).join(' | ')},\n`;
+      const optional = types.some(t => t.name === 'UndefinedType');
+      const adjusted = types.filter(t => t.name !== 'UndefinedType');
+      body += `  ${key}${optional ? '?' : ''}: ${adjusted.map(t => t.toString()).join(' | ')},\n`;
     }
-    return `${interfaceString.slice(0, -2)}\n}`;
+    body = body.slice(0, -2);
+    if (bodyOnly) {
+      return body;
+    }
+    if (!this.typeName) {
+      this.typeName = getTypeName(this.key);
+    }
+    let interfaceString = `interface ${this.typeName} {\n`;
+    return `${interfaceString}${body}\n}`;
+  }
+
+  setTypeName() {
+    if (!this.typeName) {
+      const body = this.getInterface(true);
+      const match = interfaceBodies.get(body);
+      if (match) {
+        this.typeName = match;
+      }
+      else {
+        this.typeName = getTypeName(this.key, body);
+      }
+    }
   }
 
   getInterfaces() {
+    this.setTypeName();
     const existing = this.getInterface();
     const interfaces = [existing];
     for (const types of Object.values(this.properties)) {
@@ -227,20 +296,38 @@ class ObjectType {
   }
 
   toString() {
-    return this.className;
+    this.setTypeName();
+    return this.typeName;
   }
+}
+
+const getTypeName = (key, body) => {
+  key = camel(key);
+  key = pluralize.singular(key);
+  key = capitalize(key);
+  if (!usedNames.has(key)) {
+    usedNames.add(key);
+    interfaceBodies.set(body, key);
+    return key;
+  }
+  for (let i = 0; i < 100; i++) {
+    const word = words[Math.floor(Math.random() * words.length)];
+    const name = `${word}${key}`;
+    if (!usedNames.has(name)) {
+      usedNames.add(name);
+      interfaceBodies.set(name, body);
+      return name;
+    }
+  }
+  throw Error('Unable to generate an interface name.');
 }
 
 const createObjectType = (className, item) => {
   const properties = {};
   for (const [key, value] of Object.entries(item)) {
-    let singular = pluralize.singular(key);
-    if (properties.hasOwnProperty(singular)) {
-      singular = key;
-    }
     const tree = {
       root: {},
-      className: `${className}${capitalize(singular)}`
+      className: key
     };
     parse(value, tree);
     properties[key] = [tree.root];
@@ -257,6 +344,11 @@ const mergeTypes = (into, from) => {
   const existingValues = into.filter(t => t.name === 'ValueType').map(t => t.type);
   const needsAdding = from.filter(t => !existingNames.includes(t.name));
   into.push(...needsAdding);
+  const stringType = into.find(t => t.name === 'ValueType' && t.type === 'string');
+  const enumType = into.find(t => t.name === 'EnumType');
+  if (stringType && enumType) {
+    into = into.filter(t => t.name !== 'EnumType');
+  }
   const otherValues = from
     .filter(t => t.name === 'ValueType')
     .filter(t => !existingValues.includes(t.type))
@@ -319,7 +411,7 @@ const parse = (value, branch) => {
       branch.root = new ArrayType([]);
       return;
     }
-    const items = sample(value, 10);
+    const items = sample(value);
     const valueTypes = new Set(items.map(item => item === null ? 'null' : typeof item));
     if (!valueTypes.has('object')) {
       const types = Array.from(valueTypes.values()).map(t => new ValueType(t));
@@ -410,6 +502,37 @@ const parse = (value, branch) => {
         sampleObject.merge(type);
       }
     }
+    if (items.length === sampleSize) {
+      const stringTypes = [];
+      for (const [key, types] of Object.entries(sampleObject.properties)) {
+        if (types.length === 1) {
+          const type = types.at(0);
+          if (type.name === 'ValueType' && type.type === 'string') {
+            stringTypes.push(key);
+          }
+        }
+      }
+      for (const key of stringTypes) {
+        const unique = new Set();
+        let tooLong = false;
+        for (const item of items) {
+          const value = item[key];
+          if (value.length > 15) {
+            tooLong = true;
+          }
+          unique.add(value);
+          if (unique.size > 8) {
+            break;
+          }
+        }
+        if (unique.size <= 8 && !tooLong) {
+          const types = Array.from(unique.values());
+          const typeName = getTypeName(branch.className);
+          const type = new EnumType(typeName, types);
+          sampleObject.properties[key] = [type];
+        }
+      }
+    }
     branch.root = new ArrayType([sampleObject]);
     return;
   }
@@ -441,31 +564,45 @@ const social = {
 };
 const simple = [
   {
-    dog: 'asfasf'
+    dog: 'asfasf',
+    direction: 'north'
   },
   {
-    instagram: 'asfasf'
+    instagram: 'asfasf',
+    direction: 'south'
   },
   {
-    instagram: 'asfasf asfasf asf'
+    instagram: 'asfasf asfasf asf',
+    direction: 'north'
   },
   {
-    instagram: 'asfasf'
+    instagram: 'asfasf',
+    direction: 'east'
   },
   {
-    dog: 3
+    dog: 3,
+    direction: 'east'
   },
   {
-    instagram: 'asfasf'
+    instagram: 'asfasf',
+    direction: 'west'
   }
 ]
 const tree = {
   root: {},
-  className: 'FighterSocial'
+  className: 'Social'
 };
-parse(social, tree);
+const t = JSON.parse(await readFile('test.json', 'utf-8'));
+parse(t, tree);
 console.log(tree.root.toString());
 const interfaces = tree.root.getInterfaces();
+const existing = new Set();
 for (const interfaceString of interfaces) {
+  const match = /((type)|(interface)) (?<name>[a-z]+) /mi.exec(interfaceString);
+  const name = match.groups.name;
+  if (existing.has(name)) {
+    continue;
+  }
+  existing.add(name);
   console.log(interfaceString);
 }
