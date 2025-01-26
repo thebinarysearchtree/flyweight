@@ -8,7 +8,7 @@ const interfaceBodies = new Map();
 
 const capitalize = (word) => word[0].toUpperCase() + word.substring(1);
 
-const camel = (word) => word.replace(/_([a-z])/g, (m, l) => l.toUpperCase());
+const camel = (word) => word.replace(/(?:_|\s)+([a-z])/g, (m, l) => l.toUpperCase());
 
 const sample = (items) => {
   const size = Math.min(items.length, sampleSize);
@@ -152,7 +152,7 @@ class ArrayType {
 
   toString() {
     const types = this.types.map(t => t.toString()).join(' | ');
-    return types.includes('|') ? `(${types})[]` : `${types}[]`;
+    return types.includes('|') ? `Array<${types}>` : `${types}[]`;
   }
 }
 
@@ -257,7 +257,7 @@ class ObjectType {
     for (const [key, types] of entries) {
       const optional = types.some(t => t.name === 'UndefinedType');
       const adjusted = types.filter(t => t.name !== 'UndefinedType');
-      body += `  ${key}${optional ? '?' : ''}: ${adjusted.map(t => t.toString()).join(' | ')},\n`;
+      body += `  ${key.includes(' ') ? `'${key}'` : key}${optional ? '?' : ''}: ${adjusted.map(t => t.toString()).join(' | ')},\n`;
     }
     body = body.slice(0, -2);
     if (bodyOnly) {
@@ -440,7 +440,7 @@ const parse = (value, branch) => {
           const valueTypes = Array.from(unique.values());
           const types = valueTypes.map(t => new ValueType(t));
           const arrayType = new ArrayType(types);
-          branch.root = new ArrayType(arrayType);
+          branch.root = new ArrayType([arrayType]);
           return;
         }
       }
@@ -527,8 +527,7 @@ const parse = (value, branch) => {
         }
         if (unique.size <= 8 && !tooLong) {
           const types = Array.from(unique.values());
-          const typeName = getTypeName(branch.className);
-          const type = new EnumType(typeName, types);
+          const type = new EnumType(key, types);
           sampleObject.properties[key] = [type];
         }
       }
