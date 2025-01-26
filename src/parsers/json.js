@@ -29,6 +29,8 @@ const typeSorter = (a, b) => {
   return aIndex - bIndex;
 };
 
+let rootName = '';
+
 class ValueType {
   constructor(type) {
     this.name = 'ValueType';
@@ -286,9 +288,6 @@ class ObjectType {
     if (bodyOnly) {
       return body;
     }
-    if (!this.typeName) {
-      this.typeName = getTypeName(this.key);
-    }
     let interfaceString = `interface ${this.typeName} {\n`;
     return `${interfaceString}${body}\n}`;
   }
@@ -325,20 +324,25 @@ class ObjectType {
 }
 
 const getTypeName = (key, body) => {
-  key = camel(key);
-  key = pluralize.singular(key);
-  key = capitalize(key);
-  if (!usedNames.has(key)) {
-    usedNames.add(key);
-    interfaceBodies.set(body, key);
-    return key;
+  if (/^[0-9]+$/.test(key)) {
+    key = '';
+  }
+  else {
+    key = camel(key);
+    key = pluralize.singular(key);
+    key = capitalize(key);
+    if (!usedNames.has(key)) {
+      usedNames.add(key);
+      interfaceBodies.set(body, key);
+      return key;
+    }
   }
   for (let i = 0; i < 100; i++) {
     const word = words[Math.floor(Math.random() * words.length)];
     const name = `${word}${key}`;
     if (!usedNames.has(name)) {
       usedNames.add(name);
-      interfaceBodies.set(name, body);
+      interfaceBodies.set(body, name);
       return name;
     }
   }
