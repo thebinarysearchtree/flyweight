@@ -144,7 +144,7 @@ type JsonValue = string | number | boolean | null;
 type JsonArray = Array<Json>;
 
 type JsonObject = {
-  [key: string]: JsonObject;
+  [key: string]: Json;
 }
 
 type Json = JsonValue | JsonObject | JsonArray;

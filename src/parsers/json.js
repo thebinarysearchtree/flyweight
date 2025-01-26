@@ -16,6 +16,19 @@ const sample = (items) => {
   return sorted.slice(0, size);
 }
 
+const typeSorter = (a, b) => {
+  const order = ['string', 'number', 'boolean', 'other', 'null'];
+  let aIndex = order.indexOf(a);
+  if (aIndex === -1) {
+    aIndex = 4;
+  }
+  let bIndex = order.indexOf(b);
+  if (bIndex === -1) {
+    bIndex = 4;
+  }
+  return aIndex - bIndex;
+};
+
 class ValueType {
   constructor(type) {
     this.name = 'ValueType';
@@ -151,7 +164,10 @@ class ArrayType {
   }
 
   toString() {
-    const types = this.types.map(t => t.toString()).join(' | ');
+    let types = this.types
+      .map(t => t.toString())
+      .sort(typeSorter)
+      .join(' | ');
     return types.includes('|') ? `Array<${types}>` : `${types}[]`;
   }
 }
@@ -174,13 +190,13 @@ class UndefinedType {
   }
 }
 
-class AnyType {
+class JsonType {
   constructor() {
-    this.name = 'AnyType';
+    this.name = 'JsonType';
   }
 
   equals(other) {
-    return other instanceof AnyType;
+    return other instanceof JsonType;
   }
 
   getInterfaces() {
@@ -188,7 +204,7 @@ class AnyType {
   }
 
   toString() {
-    return 'any';
+    return 'Json';
   }
 }
 
@@ -256,8 +272,15 @@ class ObjectType {
     }
     for (const [key, types] of entries) {
       const optional = types.some(t => t.name === 'UndefinedType');
-      const adjusted = types.filter(t => t.name !== 'UndefinedType');
-      body += `  ${key.includes(' ') ? `'${key}'` : key}${optional ? '?' : ''}: ${adjusted.map(t => t.toString()).join(' | ')},\n`;
+      let adjusted = types
+        .filter(t => t.name !== 'UndefinedType')
+        .map(t => t.toString())
+        .sort(typeSorter)
+        .join(' | ');
+      if (adjusted === 'null') {
+        adjusted = 'Json';
+      }
+      body += `  ${key.includes(' ') ? `'${key}'` : key}${optional ? '?' : ''}: ${adjusted},\n`;
     }
     body = body.slice(0, -2);
     if (bodyOnly) {
@@ -336,8 +359,8 @@ const createObjectType = (className, item) => {
 }
 
 const mergeTypes = (into, from) => {
-  if (into.find(t => t.name === 'AnyType') || from.find(t => t.name === 'AnyType')) {
-    const type = new AnyType();
+  if (into.find(t => t.name === 'JsonType') || from.find(t => t.name === 'JsonType')) {
+    const type = new JsonType();
     return [type];
   }
   const existingNames = into.map(t => t.name);
@@ -364,7 +387,7 @@ const mergeTypes = (into, from) => {
   const otherArrayType = from.find(t => arrayTypes.includes(t.name));
   if (!arrayType || !otherArrayType) {
     if (into.length > 3) {
-      return [new AnyType()];
+      return [new JsonType()];
     }
     return into;
   }
@@ -395,7 +418,7 @@ const mergeTypes = (into, from) => {
     }
   }
   if (into.length > 3) {
-    return [new AnyType()];
+    return [new JsonType()];
   }
   return into;
 }
@@ -460,7 +483,7 @@ const parse = (value, branch) => {
           return;
         }
       }
-      const type = new AnyType();
+      const type = new JsonType();
       const arrayType = new ArrayType([type]);
       branch.root = new ArrayType([arrayType]);
       return;
@@ -597,6 +620,9 @@ console.log(tree.root.toString());
 const interfaces = tree.root.getInterfaces();
 const existing = new Set();
 for (const interfaceString of interfaces) {
+  if (!interfaceString) {
+    continue;
+  }
   const match = /((type)|(interface)) (?<name>[a-z]+) /mi.exec(interfaceString);
   const name = match.groups.name;
   if (existing.has(name)) {
