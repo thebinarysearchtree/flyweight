@@ -329,7 +329,7 @@ const getTypeName = (key, body) => {
   }
   else {
     key = camel(key);
-    key = pluralize.singular(key);
+    key = key.endsWith('data') ? key : pluralize.singular(key);
     key = capitalize(key);
     if (!usedNames.has(key)) {
       usedNames.add(key);
