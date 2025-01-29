@@ -306,6 +306,9 @@ class ObjectType {
   }
 
   getInterfaces() {
+    if (Object.keys(this.properties).length === 0) {
+      return [];
+    }
     this.setTypeName();
     const existing = this.getInterface();
     const interfaces = [existing];
@@ -318,6 +321,9 @@ class ObjectType {
   }
 
   toString() {
+    if (Object.keys(this.properties).length === 0) {
+      return 'JsonObject';
+    }
     this.setTypeName();
     return this.typeName;
   }
@@ -628,7 +634,7 @@ for (const interfaceString of interfaces) {
   if (!interfaceString) {
     continue;
   }
-  const match = /((type)|(interface)) (?<name>[a-z]+) /mi.exec(interfaceString);
+  const match = /((type)|(interface)) (?<name>[a-z0-9]+) /mi.exec(interfaceString);
   const name = match.groups.name;
   if (existing.has(name)) {
     continue;
