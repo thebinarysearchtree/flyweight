@@ -282,7 +282,7 @@ class ObjectType {
       if (adjusted === 'null') {
         adjusted = 'Json';
       }
-      body += `  ${key.includes(' ') ? `'${key}'` : key}${optional ? '?' : ''}: ${adjusted},\n`;
+      body += `  ${!/^[a-z0-9_]+$/i.test(key) ? `'${key}'` : key}${optional ? '?' : ''}: ${adjusted},\n`;
     }
     body = body.slice(0, -2);
     if (bodyOnly) {
@@ -324,6 +324,7 @@ class ObjectType {
 }
 
 const getTypeName = (key, body) => {
+  key = key.replaceAll(/[^a-z0-9]/gim, '_');
   if (/^[0-9]+$/.test(key)) {
     key = '';
   }
