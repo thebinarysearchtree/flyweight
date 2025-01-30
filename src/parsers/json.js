@@ -272,6 +272,8 @@ class ObjectType {
     if (entries.length === 0) {
       return '';
     }
+    let onlyNumbers = true;
+    const uniqueTypes = new Set();
     for (const [key, types] of entries) {
       const optional = types.some(t => t.name === 'UndefinedType');
       let adjusted = types
@@ -282,9 +284,19 @@ class ObjectType {
       if (adjusted === 'null') {
         adjusted = 'Json';
       }
+      uniqueTypes.add(adjusted);
+      if (onlyNumbers && !/^[0-9]+$/.test(key)) {
+        onlyNumbers = false;
+      }
       body += `  ${!/^[a-z0-9_]+$/i.test(key) ? `'${key}'` : key}${optional ? '?' : ''}: ${adjusted},\n`;
     }
     body = body.slice(0, -2);
+    if (onlyNumbers && uniqueTypes.size === 1) {
+      const type = Array.from(uniqueTypes.values()).at(0);
+      return {
+        type
+      };
+    }
     if (bodyOnly) {
       return body;
     }
@@ -295,6 +307,10 @@ class ObjectType {
   setTypeName() {
     if (!this.typeName) {
       const body = this.getInterface(true);
+      if (typeof body !== 'string') {
+        this.typeName = `JsonMap<${body.type}>`;
+        return;
+      }
       const match = interfaceBodies.get(body);
       if (match) {
         this.typeName = match;
@@ -311,7 +327,7 @@ class ObjectType {
     }
     this.setTypeName();
     const existing = this.getInterface();
-    const interfaces = [existing];
+    const interfaces = typeof existing === 'string' ? [existing] : [];
     for (const types of Object.values(this.properties)) {
       for (const type of types) {
         interfaces.push(...type.getInterfaces());
@@ -331,7 +347,7 @@ class ObjectType {
 
 const getTypeName = (key, body) => {
   key = key.replaceAll(/[^a-z0-9]/gim, '_');
-  if (/^[0-9]+$/.test(key)) {
+  if (/^[0-9]+$/.test(key) || /^_+$/.test(key)) {
     key = '';
   }
   else {
@@ -549,17 +565,22 @@ const parse = (value, branch) => {
       for (const key of stringTypes) {
         const unique = new Set();
         let tooLong = false;
+        let hasDate = false;
         for (const item of items) {
           const value = item[key];
           if (value.length > 15) {
             tooLong = true;
+          }
+          if (!isNaN(Date.parse(value))) {
+            hasDate = true;
+            break;
           }
           unique.add(value);
           if (unique.size > 8) {
             break;
           }
         }
-        if (unique.size <= 8 && !tooLong) {
+        if (unique.size <= 8 && !tooLong && !hasDate) {
           const types = Array.from(unique.values());
           const type = new EnumType(key, types);
           sampleObject.properties[key] = [type];

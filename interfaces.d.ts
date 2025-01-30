@@ -147,6 +147,10 @@ type JsonObject = {
   [key: string]: Json;
 }
 
+type JsonMap<T> = {
+  [key: string]: T;
+}
+
 type Json = JsonValue | JsonObject | JsonArray;
 
 type TableObject<T> = {
