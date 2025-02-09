@@ -1,12 +1,6 @@
 import Database from './db.js';
 import { makeClient } from './proxy.js';
 
-const wait = async () => {
-  return new Promise((resolve, reject) => {
-    setTimeout(() => resolve(), 100);
-  });
-}
-
 const isEmpty = (params) => {
   if (params === undefined) {
     return true;
@@ -31,19 +25,20 @@ class SQLiteDatabase extends Database {
     this.viewsPath = props.views;
     this.tablesPath = props.tables;
     this.extensionsPath = props.extensions;
-    this.isBusy = false;
+    this.writer = null;
   }
 
   async getWriter() {
-    if (!this.isBusy) {
-      this.isBusy = true;
-      return;
+    let lock;
+    while (true) {
+      if (!this.writer) {
+        lock = Promise.withResolvers();
+        this.writer = lock.promise;
+        break;
+      }
+      await this.writer;
     }
-    while (this.isBusy) {
-      await wait();
-    }
-    this.isBusy = true;
-    return;
+    return lock;
   }
 
   getConnection(tx, write) {
@@ -132,8 +127,8 @@ class SQLiteDatabase extends Database {
     if (!this.initialized) {
       await this.initialize();
     }
-    await this.getWriter();
-    const tx = { db: this.transact };
+    const writer = await this.getWriter();
+    const tx = { db: this.transact, writer };
     return makeClient(this, tx);
   }
 
@@ -151,12 +146,14 @@ class SQLiteDatabase extends Database {
 
   async commit(tx) {
     await this.basicRun('commit', tx);
-    this.isBusy = false;
+    this.writer = null;
+    tx.writer.resolve();
   }
 
   async rollback(tx) {
     await this.basicRun('rollback', tx);
-    this.isBusy = false;
+    this.writer = null;
+    tx.writer.resolve();
   }
 
   async getError(sql) {
