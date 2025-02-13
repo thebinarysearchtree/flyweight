@@ -46,7 +46,7 @@ interface Paths {
 declare class Database {
   constructor(options: DatabaseConfig);
   runMigration(sql: string): Promise<void>;
-  makeTypes(fileSystem: FileSystem, paths: Paths): Promise<void>;
+  makeTypes(fileSystem: FileSystem, paths: Paths, sampleData?: boolean): Promise<void>;
   getClient<T>(): T; 
   getTables(): Promise<string>;
   createMigration(fileSystem: FileSystem, paths: Paths, name: string, reset?: boolean): Promise<string>;

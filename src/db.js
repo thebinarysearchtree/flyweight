@@ -74,7 +74,7 @@ class Database {
     ]);
   }
 
-  async makeTypes(fileSystem, paths) {
+  async makeTypes(fileSystem, paths, sampleData) {
     if (!this.initialized) {
       await this.initialize();
     }
@@ -82,7 +82,9 @@ class Database {
       db: this,
       sqlDir: paths.sql,
       destinationPath: paths.types,
-      fileSystem
+      jsonPath: paths.json,
+      fileSystem,
+      sampleData
     });
   }
 

@@ -99,6 +99,11 @@ class SQLiteDatabase extends Database {
     }
   }
 
+  async getSample(table, column) {
+    const sql = `select json(${column}) as ${column} from ${table} order by rowid desc limit 100`;
+    return this.read.prepare(sql).all().map(r => JSON.parse(r[column]));
+  }
+
   async createDatabase() {
     const db = new this.adaptor.sqlite3(this.dbPath);
     await this.enableForeignKeys(db);

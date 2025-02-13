@@ -22,3 +22,4 @@ yarn-error.log*
 *.tar.gz
 
 test/db.d.ts
+test/types.json

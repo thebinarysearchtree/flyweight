@@ -83,6 +83,13 @@ class D1Database extends Database {
     }
   }
 
+  async getSample(table, column) {
+    const sql = `select ${column} from ${table} order by rowid desc limit 100`;
+    const statement = this.raw.prepare(sql);
+    const meta = await statement.all();
+    return meta.results.map(r => JSON.parse(r[column]));
+  }
+
   async getError(sql) {
     return this.raw.prepare(sql);
   }

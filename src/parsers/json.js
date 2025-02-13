@@ -1,9 +1,8 @@
 import pluralize from 'pluralize';
-import { readFile } from 'fs/promises';
 import words from './words.js';
 
 const sampleSize = 10 ** 2;
-const usedNames = new Set();
+let usedNames = new Set();
 const interfaceBodies = new Map();
 
 const capitalize = (word) => word[0].toUpperCase() + word.substring(1);
@@ -341,6 +340,9 @@ class ObjectType {
       return 'JsonObject';
     }
     this.setTypeName();
+    if (!this.typeName.startsWith('JsonMap')) {
+      return `(${this.typeName} & JsonObject)`;
+    }
     return this.typeName;
   }
 }
@@ -597,69 +599,27 @@ const parse = (value, branch) => {
   }
 }
 
-const social = {
-  instagram: 'strickland',
-  tiktok: 'realstrickland',
-  youtube: {
-    main: 'stricklandmma',
-    secondary: 'stricklandpodcast'
-  },
-  posts: [
-    {
-      date: 13982424,
-      content: 'this is a test',
-      shape: [[1, 3], [2, 4], [7, 9]]
-    },
-    {
-      date: 2498114,
-      shape: [[4, 1], [6, 23], [3, 4]]
-    }
-  ]
-};
-const simple = [
-  {
-    dog: 'asfasf',
-    direction: 'north'
-  },
-  {
-    instagram: 'asfasf',
-    direction: 'south'
-  },
-  {
-    instagram: 'asfasf asfasf asf',
-    direction: 'north'
-  },
-  {
-    instagram: 'asfasf',
-    direction: 'east'
-  },
-  {
-    dog: 3,
-    direction: 'east'
-  },
-  {
-    instagram: 'asfasf',
-    direction: 'west'
+const getTypes = (column, sample, typeSet) => {
+  usedNames = typeSet;
+  const adjusted = camel(column);
+  const className = capitalize(adjusted);
+  const tree = {
+    root: {},
+    className
+  };
+  parse(sample, tree);
+  const type = tree.root.toString();
+  const match = type.match(/^Array<(?<type>.+)>$/);
+  let columnType = type;
+  if (match) {
+    columnType = match.groups.type;
   }
-]
-const tree = {
-  root: {},
-  className: 'Social'
-};
-const t = JSON.parse(await readFile('test.json', 'utf-8'));
-parse(t, tree);
-console.log(tree.root.toString());
-const interfaces = tree.root.getInterfaces();
-const existing = new Set();
-for (const interfaceString of interfaces) {
-  if (!interfaceString) {
-    continue;
-  }
-  const match = /((type)|(interface)) (?<name>[a-z0-9]+) /mi.exec(interfaceString);
-  const name = match.groups.name;
-  if (existing.has(name)) {
-    continue;
-  }
-  existing.add(name);
-  console.log(interfaceString);
+  const interfaces = tree.root.getInterfaces();
+  const unique = new Set(interfaces);
+  return {
+    columnType,
+    interfaces: Array.from(unique.values())
+  };
 }
+
+export default getTypes;

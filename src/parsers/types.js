@@ -5,6 +5,7 @@ import { blank } from './utils.js';
 import { preprocess } from './preprocessor.js';
 import files from './files.js';
 import pluralize from 'pluralize';
+import getTypes from './json.js';
 
 const capitalize = (word) => word[0].toUpperCase() + word.substring(1);
 
@@ -368,7 +369,9 @@ const createTypes = async (options) => {
     db,
     sqlDir,
     destinationPath,
-    fileSystem
+    fileSystem,
+    sampleData,
+    jsonPath
   } = options;
   const features = db.supports;
   let index = files.index;
@@ -379,11 +382,19 @@ const createTypes = async (options) => {
   let i = 1;
   const matches = (index + '\n' + definitions).matchAll(/^(export )?(default )?(interface|class) (?<name>[a-z0-9_]+)/gmi);
   for (const match of matches) {
-    typeSet.add(match.groups.name.toLowerCase());
+    typeSet.add(match.groups.name);
   }
   const tables = Object.entries(db.tables).map(([key, value]) => ({ name: key, columns: value }));
   let types = `${index}\n${definitions}\n\n`;
   const returnTypes = [];
+  let jsonTypes;
+  try {
+    const saved = await fileSystem.readFile(jsonPath, 'utf8');
+    jsonTypes = new Map(JSON.parse(saved));
+  }
+  catch {
+    jsonTypes = new Map();
+  }
   for (const table of tables) {
     const singular = pluralize.singular(table.name);
     const capitalized = capitalize(singular);
@@ -419,13 +430,31 @@ const createTypes = async (options) => {
       }
     }
     returnTypes.push(returnType);
+    const jsonInterfaces = [];
     types += `export interface ${interfaceName} {\n`;
     for (const column of table.columns) {
       const { name, type, primaryKey, notNull } = column;
-      const tsType = toTsType({
+      let tsType = toTsType({
         type,
         notNull: notNull || primaryKey
       }, db.customTypes);
+      if (type === 'json' && sampleData) {
+        const key = `${table.name} ${name}`;
+        if (sampleData) {
+          const sample = await db.getSample(table.name, name);
+          const types = getTypes(name, sample, typeSet);
+          tsType = tsType.replace('Json', types.columnType);
+          jsonInterfaces.push(...types.interfaces);
+          jsonTypes.set(key, types);
+        }
+        else {
+          const existing = jsonTypes.get(key);
+          if (existing) {
+            tsType = tsType.replace('Json', existing.columnType);
+            jsonInterfaces.push(...existing.interfaces);
+          }
+        }
+      }
       let property = `  ${name}`;
       property += ': ';
       property += tsType;
@@ -433,6 +462,10 @@ const createTypes = async (options) => {
       types += property;
     }
     types += '}\n\n';
+    if (jsonInterfaces.length > 0) {
+      types += jsonInterfaces.join('\n\n');
+      types += '\n\n';
+    }
     types += `export interface ${insertInterfaceName} {\n`;
     for (const column of table.columns) {
       const { name, type, primaryKey, notNull, hasDefault } = column;
@@ -464,7 +497,8 @@ const createTypes = async (options) => {
       let property = `  ${name}`;
       property += '?: ';
       if (tsType === 'Json') {
-        property += 'JsonWhereFunction';
+        const saved = jsonTypes.get(`${table.name} ${name}`);
+        property += `WhereFunction<${saved ? saved.columnType : tsType}>`;
       }
       else {
         property += tsType;
@@ -496,6 +530,9 @@ const createTypes = async (options) => {
   types += replaced;
 
   await fileSystem.writeFile(destinationPath, types, 'utf8');
+  if (sampleData) {
+    await fileSystem.writeFile(jsonPath, JSON.stringify(Array.from(jsonTypes)), 'utf8');
+  }
 }
 
 export {

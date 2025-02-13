@@ -50,6 +50,16 @@ class TursoDatabase extends Database {
     }
   }
 
+  async getSample(table, column) {
+    const sql = `select ${column} from ${table} order by rowid desc limit 100`;
+    const statement = {
+      sql,
+      args: {}
+    };
+    const meta = await this.raw.execute(statement);
+    return meta.rows.map(r => JSON.parse(r[column]));
+  }
+
   async getTransaction(type) {
     if (!this.initialized) {
       await this.initialize();
