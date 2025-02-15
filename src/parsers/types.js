@@ -438,7 +438,7 @@ const createTypes = async (options) => {
         type,
         notNull: notNull || primaryKey
       }, db.customTypes);
-      if (type === 'json' && sampleData) {
+      if (type === 'json') {
         const key = `${table.name} ${name}`;
         if (sampleData) {
           const sample = await db.getSample(table.name, name);

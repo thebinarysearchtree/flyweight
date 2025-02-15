@@ -327,7 +327,7 @@ class Database {
       if (value === undefined) {
         value = null;
       }
-      if (value === null || typeof value === 'string' || typeof value === 'number' || value instanceof Buffer) {
+      if (value === null || typeof value === 'string' || typeof value === 'number' || (typeof Buffer !== 'undefined' && Buffer.isBuffer(value))) {
         adjusted[key] = value;
       }
       else {

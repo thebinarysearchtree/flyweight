@@ -33,6 +33,7 @@ class D1Database extends Database {
     super({ ...props, supports });
     this.files = props.files;
     this.raw = props.db;
+    this.getSample = props.getSample;
   }
 
   async initialize() {
@@ -81,13 +82,6 @@ class D1Database extends Database {
     catch (e) {
       throw e;
     }
-  }
-
-  async getSample(table, column) {
-    const sql = `select ${column} from ${table} order by rowid desc limit 100`;
-    const statement = this.raw.prepare(sql);
-    const meta = await statement.all();
-    return meta.results.map(r => JSON.parse(r[column]));
   }
 
   async getError(sql) {

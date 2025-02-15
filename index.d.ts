@@ -23,6 +23,7 @@ interface TursoConfig extends DatabaseConfig {
 interface D1Config extends DatabaseConfig {
   db: any;
   files: any;
+  getSample?: any;
 }
 
 interface FileSystem {

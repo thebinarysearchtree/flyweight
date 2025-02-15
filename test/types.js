@@ -5,7 +5,7 @@ import { join } from 'path';
 import fileSystem from './files.js';
 
 const run = async () => {
-  await database.makeTypes(fileSystem, paths, true);
+  await database.makeTypes(fileSystem, paths, database.getSample.bind(database));
   compareTypes();
   const path = join(database.sqlPath, 'fights', 'error.sql');
   await writeFile(path, 'select id rom something');

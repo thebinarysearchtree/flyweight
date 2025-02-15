@@ -128,6 +128,12 @@ If you want to reset the migration system to a new database that already has tab
 
 If you want to add a new column to a table without needing to drop the table, make sure you put the column at the end of the list of columns.
 
+## JSON support
+
+Flyweight can sample columns that are declared with the ```json``` by querying the database. From these samples, types will be automatically created for both the return type of queries and for creating queries themselves.
+
+To sample your local database, run ```npm run sample```.
+
 ## Default values
 
 Default values can be set for boolean and date columns using the following syntax:
@@ -401,6 +407,8 @@ To get started, run this command in the root of your Cloudflare Workers project.
 ```
 npx create-flyweight d1 src/database
 ```
+
+The first thing you will want to do is go into ```src/database/config.js``` and set the database name. If you want to use JSON sampling, you should also set the ```localPath``` to the path of the local SQLite file, which is usually somewhere in the ```.wrangler``` folder.
 
 If your database already has tables created on it, go into ```src/database/sql/tables.sql``` and add all of the ```create``` statements and then run:
 
