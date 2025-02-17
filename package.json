@@ -1,6 +1,6 @@
 {
   "name": "flyweightjs",
-  "version": "3.0.44",
+  "version": "3.0.45",
   "description": "An ORM for SQLite",
   "types": "index.d.ts",
   "type": "module",
@@ -17,8 +17,8 @@
   "license": "MIT",
   "devDependencies": {
     "better-sqlite3": "^11.8.1",
-    "esbuild": "0.20.2",
-    "flyweight-client": "^1.0.20"
+    "esbuild": "0.25.0",
+    "flyweight-client": "^1.0.22"
   },
   "dependencies": {
     "pluralize": "^8.0.0"

@@ -48,7 +48,8 @@ create table fighters (
     reachCm integer,
     hometown text not null,
     social json,
-    isActive boolean not null
+    isActive boolean not null,
+    phone json
 );
 
 create index fightersIsActiveIndex on fighters(isActive);

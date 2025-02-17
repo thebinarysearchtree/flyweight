@@ -308,9 +308,9 @@ const makeQueryHandler = (table, db, tx) => {
 const makeClient = (db, tx) => {
   const tableHandler = {
     get: function(target, table) {
-      if (db[table] && ['begin', 'commit', 'rollback'].includes(table)) {
+      if (db[table] && ['exec', 'begin', 'commit', 'rollback', 'pragma', 'deferForeignKeys'].includes(table)) {
         db[table] = db[table].bind(db);
-        return () => db[table](tx);
+        return (sql) => db[table](tx, sql);
       }
       if (db[table] && ['getTransaction', 'batch', 'sync'].includes(table)) {
         db[table] = db[table].bind(db);

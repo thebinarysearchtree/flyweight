@@ -87,14 +87,15 @@ class SQLiteDatabase extends Database {
   }
 
   async runMigration(sql) {
+    const tx = await this.getTransaction();
     try {
-      await this.begin();
-      await this.deferForeignKeys();
-      await this.exec(sql);
-      await this.commit();
+      await tx.begin();
+      await tx.deferForeignKeys();
+      await tx.exec(sql);
+      await tx.commit();
     }
     catch (e) {
-      await this.rollback();
+      await tx.rollback();
       throw e;
     }
   }
@@ -124,8 +125,8 @@ class SQLiteDatabase extends Database {
     db.pragma('foreign_keys = on');
   }
 
-  async deferForeignKeys() {
-    await this.pragma('defer_foreign_keys = true');
+  async deferForeignKeys(tx) {
+    await this.pragma(tx, 'defer_foreign_keys = true');
   }
 
   async getTransaction() {
@@ -141,8 +142,9 @@ class SQLiteDatabase extends Database {
     db.loadExtension(path);
   }
 
-  async pragma(sql) {
-    this.read.pragma(sql);
+  async pragma(tx, sql) {
+    const { client } = this.getConnection(tx);
+    return client.pragma(sql);
   }
 
   async begin(tx) {
@@ -285,11 +287,12 @@ class SQLiteDatabase extends Database {
     return process(rows, options);
   }
 
-  async exec(sql) {
+  async exec(tx, sql) {
     if (!this.initialized) {
       await this.initialize();
     }
-    this.write.exec(sql);
+    const { client } = this.getConnection(tx, true);
+    client.exec(sql);
   }
 
   async close() {

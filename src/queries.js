@@ -43,6 +43,8 @@ const methods = new Map([
   ['match', 'match'],
   ['glob', 'glob'],
   ['range', null],
+  ['includes', null],
+  ['some', null],
   ['eq', '=']
 ]);
 
@@ -93,6 +95,11 @@ const getConditions = (column, query, params) => {
       const operator = methods.get(method);
       conditions.push(`${selector} ${operator} $${placeholder}`);
     }
+  }
+  else if (method === 'includes') {
+    const placeholder = getPlaceholder();
+    params[placeholder] = value;
+    conditions.push(`${selector} = $${placeholder}`);
   }
   else {
     const placeholder = getPlaceholder();
