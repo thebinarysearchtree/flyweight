@@ -5,6 +5,7 @@ const getDigits = (n) => {
   for (let i = 0; i < n; i++) {
     s += Math.floor(Math.random() * 10);
   }
+  return s;
 }
 
 const getNumbers = () => {
