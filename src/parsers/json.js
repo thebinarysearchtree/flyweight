@@ -267,7 +267,9 @@ class ObjectType {
 
   getInterface(bodyOnly) {
     let body = '';
-    const entries = Object.entries(this.properties);
+    const entries = Object
+      .entries(this.properties)
+      .sort((a, b) => a[0].localeCompare(b[0]));
     if (entries.length === 0) {
       return '';
     }
