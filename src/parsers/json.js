@@ -28,8 +28,6 @@ const typeSorter = (a, b) => {
   return aIndex - bIndex;
 };
 
-let rootName = '';
-
 class ValueType {
   constructor(type) {
     this.name = 'ValueType';
