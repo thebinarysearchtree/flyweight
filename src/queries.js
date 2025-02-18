@@ -321,10 +321,7 @@ const update = async (db, table, options, tx) => {
   const setString = statements.join(', ');
   let sql = `update ${table} set ${setString}`;
   if (where) {
-    const { whereClauses } = toWhere(verify, where, set);
-    if (whereClauses) {
-      sql += ` where ${whereClauses}`;
-    }
+    sql += addClauses(verify, where, set);
   }
   const runOptions = {
     query: sql,
@@ -591,13 +588,7 @@ const exists = async (db, table, query, tx) => {
   const columnSet = db.columnSets[table];
   const verify = makeVerify(table, columnSet);
   let sql = `select exists(select 1 from ${table}`;
-  const { whereClauses, fromClauses } = toWhere(verify, query);
-  if (fromClauses) {
-    sql += `, ${fromClauses}`;
-  }
-  if (whereClauses) {
-    sql += ` where ${whereClauses}`;
-  }
+  sql += addClauses(verify, query);
   sql += ') as result';
   const options = {
     query: sql,
@@ -615,6 +606,18 @@ const exists = async (db, table, query, tx) => {
   }
   const results = await db.all(options);
   return post(results);
+}
+
+const addClauses = (verify, query, params) => {
+  let sql = '';
+  const { whereClauses, fromClauses } = toWhere(verify, query, params);
+  if (fromClauses) {
+    sql += `, ${fromClauses}`;
+  }
+  if (whereClauses) {
+    sql += ` where ${whereClauses}`;
+  }
+  return sql;
 }
 
 const count = async (db, table, query, keywords, tx) => {
@@ -636,13 +639,7 @@ const count = async (db, table, query, keywords, tx) => {
     sql += 'distinct ';
   }
   sql += `count(*) as count from ${table}`;
-  const { whereClauses, fromClauses } = toWhere(verify, query);
-  if (fromClauses) {
-    sql += `, ${fromClauses}`;
-  }
-  if (whereClauses) {
-    sql += ` where ${whereClauses}`;
-  }
+  sql += addClauses(verify, query);
   const options = {
     query: sql,
     params: cleanse(query),
@@ -687,13 +684,7 @@ const get = async (db, table, query, columns, keywords, tx) => {
     sql += 'distinct ';
   }
   sql += `${select} from ${table}`;
-  const { whereClauses, fromClauses } = toWhere(verify, query);
-  if (fromClauses) {
-    sql += `, ${fromClauses}`;
-  }
-  if (whereClauses) {
-    sql += ` where ${whereClauses}`;
-  }
+  sql += addClauses(verify, query);
   sql += toKeywords(verify, keywords, query, customFields);
   sql += ' limit 1';
   const options = {
@@ -749,13 +740,7 @@ const all = async (db, table, query, columns, keywords, tx) => {
     sql += 'distinct ';
   }
   sql += `${select} from ${table}`;
-  const { whereClauses, fromClauses } = toWhere(verify, query);
-  if (fromClauses) {
-    sql += `, ${fromClauses}`;
-  }
-  if (whereClauses) {
-    sql += ` where ${whereClauses}`;
-  }
+  sql += addClauses(verify, query);
   sql += toKeywords(verify, keywords, query, customFields);
   const options = {
     query: sql,
@@ -810,10 +795,7 @@ const remove = async (db, table, query, tx) => {
   const columnSet = db.columnSets[table];
   const verify = makeVerify(table, columnSet);
   let sql = `delete from ${table}`;
-  const { whereClauses } = toWhere(verify, query);
-  if (whereClauses) {
-    sql += ` where ${whereClauses}`;
-  }
+  sql += addClauses(verify, query);
   const options = {
     query: sql,
     params: cleanse(query),
