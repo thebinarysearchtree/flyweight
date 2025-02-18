@@ -272,34 +272,41 @@ const toWhere = (verify, query, params) => {
   return conditions.join(' and ');
 }
 
-const update = async (db, table, query, params, tx) => {
+const update = async (db, table, options, tx) => {
   if (!db.initialized) {
     await db.initialize();
   }
+  const { where, set } = options;
   const columnSet = db.columnSets[table];
   const verify = makeVerify(table, columnSet);
-  const keys = Object.keys(params);
+  const keys = Object.keys(set);
   verify(keys);
   const statements = [];
-  for (const [column, param] of Object.entries(params)) {
+  const columnTypes = db.columns[table];
+  for (const [column, param] of Object.entries(set)) {
     const placeholder = getPlaceholder();
-    params[placeholder] = param;
-    statements.push(`${column} = $${placeholder}`);
-  }
-  const set = statements.join(', ');
-  let sql = `update ${table} set ${set}`;
-  if (query) {
-    const where = toWhere(verify, query, params);
-    if (where) {
-      sql += ` where ${where}`;
+    set[placeholder] = param;
+    if (columnTypes[column] === 'json' && db.supports.jsonb) {
+      statements.push(`${column} = jsonb($${placeholder})`);
+    }
+    else {
+      statements.push(`${column} = $${placeholder}`);
     }
   }
-  const options = {
+  const setString = statements.join(', ');
+  let sql = `update ${table} set ${setString}`;
+  if (where) {
+    const whereString = toWhere(verify, where, set);
+    if (whereString) {
+      sql += ` where ${whereString}`;
+    }
+  }
+  const runOptions = {
     query: sql,
-    params: cleanse(params),
+    params: cleanse(set),
     tx
   };
-  return await db.run(options);
+  return await db.run(runOptions);
 }
 
 const makeVerify = (table, columnSet) => {

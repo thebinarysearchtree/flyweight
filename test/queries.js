@@ -17,7 +17,10 @@ const run = async () => {
   const inserted = await db.coaches.get({ id: 1 });
   assert.notEqual(inserted, undefined);
   assert.equal(inserted.city, 'Auckland');
-  await db.coaches.update({ id: 1 }, { city: 'Brisbane' });
+  await db.coaches.update({
+    where: { id: 1 },
+    set: { city: 'Brisbane' }
+  });
   const updated = await db.coaches.get({ id: 1 });
   assert.equal(updated.city, 'Brisbane');
   await db.coaches.remove({ id: 1 });
@@ -43,7 +46,10 @@ const run = async () => {
   await db.coaches.remove();
   await db.coaches.insert({ name: 'Andrew', city: 'Brisbane' });
   await db.coaches.insert({ name: 'Andrew', city: 'Brisbane' });
-  await db.coaches.update({ name: 'Andrew' }, { name: 'Eugene' });
+  await db.coaches.update({
+    where: { name: 'Andrew' },
+    set: { name: 'Eugene' }
+  });
   const count = await db.coaches.count({ name: 'Eugene' });
   assert.equal(count, 2);
   await db.coaches.remove();

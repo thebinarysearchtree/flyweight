@@ -70,6 +70,11 @@ export interface ComplexQuerySelector<W, T, N> extends Keywords<T> {
   select: (selector: T) => N;
 }
 
+export interface UpdateQuery<W, T> {
+  where?: W | null;
+  set: Partial<T>;
+}
+
 export interface VirtualQueries<T, W> {
   [key: string]: any;
   get(params?: W | null): Promise<T | undefined>;
@@ -94,7 +99,7 @@ export interface Queries<T, I, W, R> {
   [key: string]: any;
   insert(params: I): Promise<R>;
   insertMany(params: Array<I>): Promise<void>;
-  update(query: W | null, params: Partial<T>): Promise<number>;
+  update(options: UpdateQuery<W, T>): Promise<number>;
   get(params?: W | null): Promise<T | undefined>;
   get<K extends keyof T, A extends string, N>(params: W | null, columns: (Alias<T, A, N> | K)[] | (keyof T)[]): Promise<(Pick<T, K> & Record<A, N>) | undefined>;
   get<K extends keyof T>(params: W | null, column: K): Promise<T[K] | undefined>;

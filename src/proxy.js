@@ -14,7 +14,7 @@ import { preprocess, insertUnsafe } from './parsers/preprocessor.js';
 const basic = {
   insert: (database, table, tx) => async (params) => await insert(database, table, params, tx),
   insertMany: (database, table, tx) => async (items) => await insertMany(database, table, items, tx),
-  update: (database, table, tx) => async (params, query) => await update(database, table, params, query, tx),
+  update: (database, table, tx) => async (options) => await update(database, table, options, tx),
   exists: (database, table, tx) => async (query) => await exists(database, table, query, tx),
   count: (database, table, tx) => async (query, keywords) => await count(database, table, query, keywords, tx),
   get: (database, table, tx) => async (query, columns, keywords) => await get(database, table, query, columns, keywords, tx),

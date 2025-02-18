@@ -158,10 +158,13 @@ Every table has ```get```, ```many```, ```query```, ```update```, ```insert```, 
 
 ### Update
 
-```update``` takes two arguments - the ```query``` (or null), and the ```params``` you want to update. It returns a number representing the number of rows that were affected by the query. For example:
+```update``` takes an object with an optional ```where``` property, and a ```set``` property. It returns a number representing the number of rows that were affected by the query. For example:
 
 ```js
-await db.coaches.update({ id: 100 }, { city: 'Brisbane' });
+await db.coaches.update({
+  where: { id: 100 }, 
+  set: { city: 'Brisbane' }
+});
 ```
 
 which corresponds to
