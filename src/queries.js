@@ -48,7 +48,7 @@ const methods = new Map([
   ['eq', '=']
 ]);
 
-const getConditions = (column, query, params) => {
+const convert = (query) => {
   const handler = {
     get: function(target, property) {
       target.push(property);
@@ -69,6 +69,15 @@ const getConditions = (column, query, params) => {
     throw Error(`Invalid operator: ${method}`);
   }
   const path = chain.length === 0 ? null : `$.${chain.join('.')}`;
+  return {
+    method,
+    value,
+    path
+  }
+}
+
+const getConditions = (column, query, params) => {
+  const { method, value, path } = convert(query);
   const placeholder = getPlaceholder();
   if (path) {
     params[placeholder] = path;
@@ -101,7 +110,7 @@ const getConditions = (column, query, params) => {
     const placeholder = getPlaceholder();
     params[placeholder] = value;
     conditions.push(`${column}_json.value = $${placeholder}`);
-    fromClauses.push(`left join json_each(${selector}) as ${column}_json`);
+    fromClauses.push(`json_each(${selector}) as ${column}_json`);
   }
   else {
     const placeholder = getPlaceholder();
@@ -284,7 +293,7 @@ const toWhere = (verify, query, params) => {
   }
   return {
     whereClauses: conditions.join(' and '),
-    fromClauses: fromClauses.join(' ')
+    fromClauses: fromClauses.join(', ')
   }
 }
 
@@ -375,10 +384,10 @@ const expandStar = (db, table) => {
   const statements = [];
   for (const [column, type] of Object.entries(columnTypes)) {
     if (type === 'json') {
-      statements.push(`json(${column}) as ${column}`);
+      statements.push(`json(${table}.${column}) as ${column}`);
     }
     else {
-      statements.push(column);
+      statements.push(`${table}.${column}`);
     }
   }
   return statements.join(', ');
@@ -390,7 +399,7 @@ const toSelect = (db, table, columns, verify, params, customFields) => {
     if (typeof columns === 'string') {
       verify(columns);
       if (db.supports.jsonb && columnTypes[columns] === 'json') {
-        return `json(${columns}) as ${columns}`;
+        return `json(${table}.${columns}) as ${columns}`;
       }
       return columns;
     }
@@ -400,9 +409,11 @@ const toSelect = (db, table, columns, verify, params, customFields) => {
         if (typeof column === 'string') {
           verify(column);
           if (db.supports.jsonb && columnTypes[columns] === 'json') {
-            statements.push(`json(${columns}) as ${columns}`);
+            statements.push(`json(${table}.${columns}) as ${columns}`);
           }
-          statements.push(column);
+          else {
+            statements.push(`${table}.${column}`);
+          }
         }
         else {
           const { select, as } = column;
@@ -414,7 +425,7 @@ const toSelect = (db, table, columns, verify, params, customFields) => {
           const placeholder = getPlaceholder();
           params[placeholder] = result.path;
           customFields[as] = 'any';
-          statements.push(`json_extract(${result.column}, $${placeholder}) as ${as}`);
+          statements.push(`json_extract(${table}.${result.column}, $${placeholder}) as ${as}`);
         }
       }
       return statements.join(', ');
@@ -425,7 +436,7 @@ const toSelect = (db, table, columns, verify, params, customFields) => {
       const placeholder = getPlaceholder();
       params[placeholder] = path;
       customFields['json_result'] = 'any';
-      return `json_extract(${column}, $${placeholder}) as json_result`;
+      return `json_extract(${table}.${column}, $${placeholder}) as json_result`;
     }
     return expandStar(db, table);
   }
@@ -514,9 +525,11 @@ const getVirtual = async (db, table, query, tx, keywords, select, returnValue, v
         statements.push(`${column} match $${placeholder}`);
       }
     }
-    sql += ` where ${statements.join(' and ')}`;
     if (fromClauses.length > 0) {
-      sql += ` ${fromClauses.join(',')}`;
+      sql += `, ${fromClauses.join(',')}`;
+    }
+    if (statements.length > 0) {
+      sql += ` where ${statements.join(' and ')}`;
     }
   }
   if (keywords.rank) {
@@ -580,7 +593,7 @@ const exists = async (db, table, query, tx) => {
   let sql = `select exists(select 1 from ${table}`;
   const { whereClauses, fromClauses } = toWhere(verify, query);
   if (fromClauses) {
-    sql += ` ${fromClauses}`;
+    sql += `, ${fromClauses}`;
   }
   if (whereClauses) {
     sql += ` where ${whereClauses}`;
@@ -625,7 +638,7 @@ const count = async (db, table, query, keywords, tx) => {
   sql += `count(*) as count from ${table}`;
   const { whereClauses, fromClauses } = toWhere(verify, query);
   if (fromClauses) {
-    sql += ` ${fromClauses}`;
+    sql += `, ${fromClauses}`;
   }
   if (whereClauses) {
     sql += ` where ${whereClauses}`;
@@ -676,12 +689,13 @@ const get = async (db, table, query, columns, keywords, tx) => {
   sql += `${select} from ${table}`;
   const { whereClauses, fromClauses } = toWhere(verify, query);
   if (fromClauses) {
-    sql += ` ${fromClauses}`;
+    sql += `, ${fromClauses}`;
   }
   if (whereClauses) {
     sql += ` where ${whereClauses}`;
   }
   sql += toKeywords(verify, keywords, query, customFields);
+  sql += ' limit 1';
   const options = {
     query: sql,
     params: cleanse(query),
@@ -737,7 +751,7 @@ const all = async (db, table, query, columns, keywords, tx) => {
   sql += `${select} from ${table}`;
   const { whereClauses, fromClauses } = toWhere(verify, query);
   if (fromClauses) {
-    sql += ` ${fromClauses}`;
+    sql += `, ${fromClauses}`;
   }
   if (whereClauses) {
     sql += ` where ${whereClauses}`;

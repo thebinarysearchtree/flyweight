@@ -80,6 +80,8 @@ const run = async () => {
   const insertCount = await db.coaches.count();
   assert.equal(insertCount, 5);
   await db.coaches.remove();
+  const phone = await db.fighters.get({ phone: p => p.includes('0430 473 923') });
+  assert.equal(phone.id, 5);
 }
 
 const cleanUp = async () => {
