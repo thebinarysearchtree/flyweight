@@ -444,6 +444,8 @@ const createTypes = async (options) => {
           const sample = await db.getSample(table.name, name);
           const types = getTypes(name, sample, typeSet);
           tsType = tsType.replace('Json', types.columnType);
+          const unique = new Set(tsType.split('|').map(s => s.trim()));
+          tsType = Array.from(unique.values()).join(' | ');
           if (tsType.endsWith(' | null | null')) {
             tsType = tsType.slice(0, -7);
           }
@@ -454,9 +456,8 @@ const createTypes = async (options) => {
           const existing = jsonTypes.get(key);
           if (existing) {
             tsType = tsType.replace('Json', existing.columnType);
-            if (tsType.endsWith(' | null | null')) {
-              tsType = tsType.slice(0, -7);
-            }
+            const unique = new Set(tsType.split('|').map(s => s.trim()));
+            tsType = Array.from(unique.values()).join(' | ');
             jsonInterfaces.push(...existing.interfaces);
           }
         }
