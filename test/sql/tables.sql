@@ -49,7 +49,8 @@ create table fighters (
     hometown text not null,
     social json,
     isActive boolean not null,
-    phone json
+    phone json,
+    documents json
 );
 
 create index fightersIsActiveIndex on fighters(isActive);

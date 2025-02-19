@@ -146,21 +146,20 @@ type BooleanMethods<T> = {
   eq: (value: T) => void;
 }
 
-type ValueArrayMethods<T> = {
+type ArrayMethods<T> = {
   includes: (value: T) => void;
-}
-
-type ObjectArrayMethods<T> = {
   some: (selector: (value: ArrayTransform<T>) => void) => void;
 }
 
 type ArrayTransform<T> = T extends string | number | boolean | Date
-  ? T
+  ? CompareMethods<T>
   : {
   [K in keyof T]: T[K] extends string | number | undefined
     ? CompareMethods<T[K]>
     : T[K] extends boolean | undefined
     ? BooleanMethods<T[K]>
+    : T[K] extends Array<infer U>
+    ? ArrayMethods<U>
     : T[K];
 };
 
@@ -169,18 +168,14 @@ type Transform<T> = T extends string | number | Date
   : T extends boolean
   ? BooleanMethods<T>
   : T extends Array<infer U>
-  ? U extends string | number | boolean | Date
-    ? ValueArrayMethods<U>
-    : ObjectArrayMethods<U>
+  ? ArrayMethods<U>
   : {
   [K in keyof T]: T[K] extends string | number | undefined
     ? CompareMethods<T[K]>
     : T[K] extends boolean | undefined
     ? BooleanMethods<T[K]>
     : T[K] extends Array<infer U>
-    ? U extends string | number | boolean | Date
-      ? ValueArrayMethods<U>
-      : ObjectArrayMethods<U>
+    ? ArrayMethods<U>
     : T[K];
 };
 

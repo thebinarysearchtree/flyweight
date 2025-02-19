@@ -48,7 +48,7 @@ const methods = new Map([
   ['eq', '=']
 ]);
 
-const convert = (query) => {
+const getConditions = (table, column, query, params) => {
   const handler = {
     get: function(target, property) {
       target.push(property);
@@ -69,20 +69,11 @@ const convert = (query) => {
     throw Error(`Invalid operator: ${method}`);
   }
   const path = chain.length === 0 ? null : `$.${chain.join('.')}`;
-  return {
-    method,
-    value,
-    path
-  }
-}
-
-const getConditions = (column, query, params) => {
-  const { method, value, path } = convert(query);
   const placeholder = getPlaceholder();
   if (path) {
     params[placeholder] = path;
   }
-  const selector = path ? `json_extract(${column}, $${placeholder})` : column;
+  const selector = path ? `json_extract(${table}.${column}, $${placeholder})` : `${table}.${column}`;
   const conditions = [];
   const fromClauses = [];
   if (method === 'not') {
@@ -107,10 +98,18 @@ const getConditions = (column, query, params) => {
     }
   }
   else if (method === 'includes') {
+    const alias = `${table}_${column.replace('.', '_')}_json`;
     const placeholder = getPlaceholder();
     params[placeholder] = value;
-    conditions.push(`${column}_json.value = $${placeholder}`);
-    fromClauses.push(`json_each(${selector}) as ${column}_json`);
+    conditions.push(`${alias}.value = $${placeholder}`);
+    fromClauses.push(`json_each(${selector}) as ${alias}`);
+  }
+  else if (method === 'some') {
+    const alias = `${table}_${column.replace('.', '_')}_json`;
+    fromClauses.push(`json_each(${selector}) as ${alias}`);
+    const result = getConditions(alias, 'value', value, params);
+    conditions.push(...result.conditions);
+    fromClauses.push(...result.fromClauses);
   }
   else {
     const placeholder = getPlaceholder();
@@ -245,7 +244,7 @@ const insertMany = async (db, table, items, tx) => {
   return await db.run(options);
 }
 
-const toWhere = (verify, query, params) => {
+const toWhere = (verify, table, query, params) => {
   if (!query) {
     return {
       whereClauses: '',
@@ -273,22 +272,22 @@ const toWhere = (verify, query, params) => {
       continue;
     }
     if (typeof param === 'function') {
-      const result = getConditions(column, param, params);
+      const result = getConditions(table, column, param, params);
       conditions.push(...result.conditions);
       fromClauses.push(...result.fromClauses);
     }
     else if (Array.isArray(param)) {
       const placeholder = getPlaceholder();
       params[placeholder] = param;
-      conditions.push(`${column} in (select json_each.value from json_each($${placeholder}))`);
+      conditions.push(`${table}.${column} in (select json_each.value from json_each($${placeholder}))`);
     }
     else if (param === null) {
-      conditions.push(`${column} is null`);
+      conditions.push(`${table}.${column} is null`);
     }
     else {
       const placeholder = getPlaceholder();
       params[placeholder] = param;
-      conditions.push(`${column} = $${placeholder}`);
+      conditions.push(`${table}.${column} = $${placeholder}`);
     }
   }
   return {
@@ -321,7 +320,7 @@ const update = async (db, table, options, tx) => {
   const setString = statements.join(', ');
   let sql = `update ${table} set ${setString}`;
   if (where) {
-    sql += addClauses(verify, where, set);
+    sql += addClauses(verify, table, where, set);
   }
   const runOptions = {
     query: sql,
@@ -398,7 +397,7 @@ const toSelect = (db, table, columns, verify, params, customFields) => {
       if (db.supports.jsonb && columnTypes[columns] === 'json') {
         return `json(${table}.${columns}) as ${columns}`;
       }
-      return columns;
+      return `${table}.${columns}`;
     }
     else if (Array.isArray(columns) && columns.length > 0) {
       const statements = [];
@@ -588,7 +587,7 @@ const exists = async (db, table, query, tx) => {
   const columnSet = db.columnSets[table];
   const verify = makeVerify(table, columnSet);
   let sql = `select exists(select 1 from ${table}`;
-  sql += addClauses(verify, query);
+  sql += addClauses(verify, table, query);
   sql += ') as result';
   const options = {
     query: sql,
@@ -608,9 +607,9 @@ const exists = async (db, table, query, tx) => {
   return post(results);
 }
 
-const addClauses = (verify, query, params) => {
+const addClauses = (verify, table, query, params) => {
   let sql = '';
-  const { whereClauses, fromClauses } = toWhere(verify, query, params);
+  const { whereClauses, fromClauses } = toWhere(verify, table, query, params);
   if (fromClauses) {
     sql += `, ${fromClauses}`;
   }
@@ -639,7 +638,7 @@ const count = async (db, table, query, keywords, tx) => {
     sql += 'distinct ';
   }
   sql += `count(*) as count from ${table}`;
-  sql += addClauses(verify, query);
+  sql += addClauses(verify, table, query);
   const options = {
     query: sql,
     params: cleanse(query),
@@ -684,7 +683,7 @@ const get = async (db, table, query, columns, keywords, tx) => {
     sql += 'distinct ';
   }
   sql += `${select} from ${table}`;
-  sql += addClauses(verify, query);
+  sql += addClauses(verify, table, query);
   sql += toKeywords(verify, keywords, query, customFields);
   sql += ' limit 1';
   const options = {
@@ -740,7 +739,7 @@ const all = async (db, table, query, columns, keywords, tx) => {
     sql += 'distinct ';
   }
   sql += `${select} from ${table}`;
-  sql += addClauses(verify, query);
+  sql += addClauses(verify, table, query);
   sql += toKeywords(verify, keywords, query, customFields);
   const options = {
     query: sql,
@@ -795,7 +794,7 @@ const remove = async (db, table, query, tx) => {
   const columnSet = db.columnSets[table];
   const verify = makeVerify(table, columnSet);
   let sql = `delete from ${table}`;
-  sql += addClauses(verify, query);
+  sql += addClauses(verify, table, query);
   const options = {
     query: sql,
     params: cleanse(query),
