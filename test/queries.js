@@ -100,6 +100,24 @@ const run = async () => {
     phone: p => p.some(v => v.like('% 473 923')) 
   });
   assert.equal(phoneTest !== undefined, true);
+  const upsertId = await db.coaches.insert({
+    name: 'Test User',
+    city: 'Test City'
+  });
+  await db.coaches.upsert({
+    values: {
+      id: upsertId,
+      name: 'Not User',
+      city: 'Not City'
+    },
+    target: 'id',
+    set: {
+      city: 'Updated City'
+    }
+  });
+  const upsert = await db.coaches.get({ id: upsertId });
+  assert.equal(upsert.city, 'Updated City');
+  await db.coaches.remove();
 }
 
 const cleanUp = async () => {

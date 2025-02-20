@@ -79,6 +79,12 @@ export interface UpdateQuery<W, T> {
   set: Partial<MakeOptionalNullable<T>>;
 }
 
+export interface UpsertQuery<T, K> {
+  values: T;
+  target?: K;
+  set?: Partial<MakeOptionalNullable<T>>;
+}
+
 export interface VirtualQueries<T, W> {
   [key: string]: any;
   get(params?: W | null): Promise<T | undefined>;
@@ -104,6 +110,7 @@ export interface Queries<T, I, W, R> {
   insert(params: I): Promise<R>;
   insertMany(params: Array<I>): Promise<void>;
   update(options: UpdateQuery<W, I>): Promise<number>;
+  upsert<K extends keyof T>(options: UpsertQuery<I, K>): Promise<R>;
   get(params?: W | null): Promise<T | undefined>;
   get<K extends keyof T, A extends string, N>(params: W | null, columns: (Alias<T, A, N> | K)[] | (keyof T)[]): Promise<(Pick<T, K> & Record<A, N>) | undefined>;
   get<K extends keyof T>(params: W | null, column: K): Promise<T[K] | undefined>;

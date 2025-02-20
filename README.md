@@ -150,7 +150,7 @@ create table users (
 
 ## The API
 
-Every table has ```get```, ```many```, ```query```, ```update```, ```insert```, ```insertMany```, and ```remove``` methods available to it, along with any of the custom methods that are created when you add a new SQL file to the corresponding table's folder. Views only have the ```get```, ```many```, and ```query``` methods available to them.
+Every table has ```get```, ```many```, ```query```, ```update```, ```upsert```, ```insert```, ```insertMany```, and ```remove``` methods available to it, along with any of the custom methods that are created when you add a new SQL file to the corresponding table's folder. Views only have the ```get```, ```many```, and ```query``` methods available to them.
 
 ### Insert
 
@@ -171,6 +171,24 @@ which corresponds to
 
 ```sql
 update coaches set city = 'Brisbane' where id = 100;
+```
+
+### Upsert
+
+```upsert``` will update the row if the target's uniqueness contraint is violated by the insert. If ```target``` or ```set``` are not provided, the upsert will do nothing when there is a conflict. ```upsert``` returns the primary key of the inserted or updated row.
+
+```js
+const id = await db.coaches.upsert({
+  values: {
+    id: 1,
+    name: 'Test User',
+    city: 'Test City'
+  },
+  target: 'id',
+  set: {
+    city: 'Updated City'
+  }
+});
 ```
 
 ### Get

@@ -123,16 +123,20 @@ const getConditions = (table, column, query, params) => {
   }
 }
 
-const getPlaceholders = (supports, columnNames, columnTypes) => {
-  return columnNames.map(columnName => {
+const getPlaceholders = (supports, params, columnTypes) => {
+  const columns = Object.keys(params);
+  return columns.map(columnName => {
+    const placeholder = getPlaceholder();
+    params[placeholder] = params[columnName];
     if (supports.jsonb && columnTypes[columnName] === 'json') {
-      return `jsonb($${columnName})`;
+      return `jsonb($${placeholder})`;
     }
-    return `$${columnName}`;
+    return `$${placeholder}`;
   });
 }
 
-const adjust = (params, columnTypes, db) => {
+const adjust = (db, table, params) => {
+  const columnTypes = db.columnSets[table];
   const adjusted = db.adjust(params);
   const processed = {};
   for (const [name, value] of Object.entries(adjusted)) {
@@ -146,8 +150,10 @@ const adjust = (params, columnTypes, db) => {
   return processed;
 }
 
-const makeInsertSql = (supports, columns, columnTypes, table) => {
-  const placeholders = getPlaceholders(supports, columns, columnTypes);
+const makeInsertSql = (db, table, params) => {
+  const columns = Object.keys(params);
+  const columnTypes = db.columnSets[table];
+  const placeholders = getPlaceholders(db.supports, params, columnTypes);
   return `insert into ${table}(${columns.join(', ')}) values(${placeholders.join(', ')})`;
 }
 
@@ -163,6 +169,45 @@ const processBatch = async (db, options, post) => {
   }
 }
 
+const upsert = async (db, table, options, tx) => {
+  if (!db.initialized) {
+    await db.initialize();
+  }
+  const { values, target, update } = options;
+  const columnSet = db.columnSets[table];
+  const verify = makeVerify(table, columnSet);
+  const params = adjust(db, table, values);
+  let sql = makeInsertSql(db, table, params);
+  let allParams = { ...params };
+  verify(Object.keys(values));
+  if (target && update) {
+    verify([target]);
+    verify(Object.keys(update));
+    const params = adjust(db, table, update);
+    const set = createSetClause(db, table, params);
+    sql += ` on conflict(${target}) do update ${set}`;
+    allParams = { ...allParams, ...params };
+  }
+  else {
+    sql += ' on conflict do nothing';
+  }
+  const primaryKey = db.getPrimaryKey(table);
+  sql += ` returning ${primaryKey}`;
+  const queryOptions = {
+    query: sql,
+    params: cleanse(allParams),
+    tx,
+    write: true,
+    adjusted: true
+  };
+  const post = (result) => result[0][primaryKey];
+  if (tx && tx.isBatch) {
+    return await processBatch(db, queryOptions, post);
+  }
+  const result = await db.all(queryOptions);
+  return post(result);
+}
+
 const insert = async (db, table, params, tx) => {
   if (!db.initialized) {
     await db.initialize();
@@ -171,12 +216,12 @@ const insert = async (db, table, params, tx) => {
   const verify = makeVerify(table, columnSet);
   const columns = Object.keys(params);
   verify(columns);
-  const adjusted = adjust(params, db.columns[table], db);
-  const sql = makeInsertSql(db.supports, columns, db.columns[table], table);
+  const adjusted = adjust(db, table, params);
+  const sql = makeInsertSql(db, table, adjusted);
   const primaryKey = db.getPrimaryKey(table);
   const options = {
     query: `${sql} returning ${primaryKey}`,
-    params: adjusted,
+    params: cleanse(adjusted),
     tx,
     write: true,
     adjusted: true
@@ -189,14 +234,14 @@ const insert = async (db, table, params, tx) => {
   return post(result);
 }
 
-const batchInserts = async (tx, db, table, columns, columnTypes, items) => {
-  const sql = makeInsertSql(db.supports, columns, columnTypes, table);
+const batchInserts = async (tx, db, table, columns, items) => {
   const inserts = [];
   for (const item of items) {
-    const adjusted = adjust(item, columnTypes, db);
+    const adjusted = adjust(db, table, item);
+    const sql = makeInsertSql(db, table, adjusted);
     inserts.push({
       query: sql,
-      params: adjusted,
+      params: cleanse(adjusted),
       tx,
       adjusted: true
     });
@@ -222,7 +267,7 @@ const insertMany = async (db, table, items, tx) => {
   verify(columns);
   const hasBlob = db.tables[table].filter(c => columns.includes(c.name)).some(c => c.type === 'blob');
   if (hasBlob) {
-    return await batchInserts(tx, db, table, columns, columnTypes, items);
+    return await batchInserts(tx, db, table, columns, items);
   }
   let sql = `insert into ${table}(${columns.join(', ')}) select `;
   const select = columns.map(column => {
@@ -296,6 +341,22 @@ const toWhere = (verify, table, query, params) => {
   }
 }
 
+const createSetClause = (db, table, params) => {
+  const statements = [];
+  const columnTypes = db.columns[table];
+  for (const [column, param] of Object.entries(params)) {
+    const placeholder = getPlaceholder();
+    params[placeholder] = param;
+    if (columnTypes[column] === 'json' && db.supports.jsonb) {
+      statements.push(`${column} = jsonb($${placeholder})`);
+    }
+    else {
+      statements.push(`${column} = $${placeholder}`);
+    }
+  }
+  return statements.join(', ');
+}
+
 const update = async (db, table, options, tx) => {
   if (!db.initialized) {
     await db.initialize();
@@ -305,26 +366,15 @@ const update = async (db, table, options, tx) => {
   const verify = makeVerify(table, columnSet);
   const keys = Object.keys(set);
   verify(keys);
-  const statements = [];
-  const columnTypes = db.columns[table];
-  for (const [column, param] of Object.entries(set)) {
-    const placeholder = getPlaceholder();
-    set[placeholder] = param;
-    if (columnTypes[column] === 'json' && db.supports.jsonb) {
-      statements.push(`${column} = jsonb($${placeholder})`);
-    }
-    else {
-      statements.push(`${column} = $${placeholder}`);
-    }
-  }
-  const setString = statements.join(', ');
+  const params = adjust(db, table, set);
+  const setString = createSetClause(db, table, params);
   let sql = `update ${table} set ${setString}`;
   if (where) {
-    sql += addClauses(verify, table, where, set);
+    sql += addClauses(verify, table, where, params);
   }
   const runOptions = {
     query: sql,
-    params: cleanse(set),
+    params: cleanse(params),
     tx
   };
   return await db.run(runOptions);
@@ -807,6 +857,7 @@ export {
   insert,
   insertMany,
   update,
+  upsert,
   exists,
   count,
   get,
