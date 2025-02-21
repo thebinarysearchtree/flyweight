@@ -61,13 +61,13 @@ export interface CountQuery<W> {
 export interface ComplexQuery<W, T, U> extends Keywords<T> {
   where?: W;
   select?: undefined;
-  includes?: U;
+  include?: U;
 }
 
 export interface ComplexQueryObject<W, A extends string, K, T, N, U> extends Keywords<T & Record<A, null>> {
   where?: W;
   select: (Alias<T, A, N> | K)[] | (keyof T)[];
-  includes?: U;
+  include?: U;
 }
 
 export interface ComplexQueryValue<W, K, T> extends Keywords<T> {
