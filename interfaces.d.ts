@@ -172,8 +172,12 @@ type ArrayMethods<T> = {
   some: (selector: (value: ArrayTransform<T>) => void) => void;
 }
 
-type ArrayTransform<T> = T extends string | number | boolean | Date
+type ArrayTransform<T> = T extends string | number | Date
   ? CompareMethods<T>
+  : T extends boolean
+  ? BooleanMethods<T>
+  : T extends Array<infer U>
+  ? ArrayMethods<U>
   : {
   [K in keyof T]: T[K] extends string | number | undefined
     ? CompareMethods<T[K]>

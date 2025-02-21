@@ -24,12 +24,13 @@ const cleanse = (params) => {
 }
 
 const reservedWords = [
-  'where', 
-  'select', 
-  'orderBy', 
-  'desc', 
-  'limit', 
-  'offset', 
+  'where',
+  'select',
+  'include',
+  'orderBy',
+  'desc',
+  'limit',
+  'offset',
   'distinct'
 ];
 
