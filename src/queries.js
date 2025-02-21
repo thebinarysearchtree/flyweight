@@ -173,19 +173,19 @@ const upsert = async (db, table, options, tx) => {
   if (!db.initialized) {
     await db.initialize();
   }
-  const { values, target, update } = options;
+  const { values, target, set } = options;
   const columnSet = db.columnSets[table];
   const verify = makeVerify(table, columnSet);
   const params = adjust(db, table, values);
   let sql = makeInsertSql(db, table, params);
   let allParams = { ...params };
   verify(Object.keys(values));
-  if (target && update) {
+  if (target && set) {
     verify([target]);
-    verify(Object.keys(update));
-    const params = adjust(db, table, update);
-    const set = createSetClause(db, table, params);
-    sql += ` on conflict(${target}) do update ${set}`;
+    verify(Object.keys(set));
+    const params = adjust(db, table, set);
+    const setClause = createSetClause(db, table, params);
+    sql += ` on conflict(${target}) do update set ${setClause}`;
     allParams = { ...allParams, ...params };
   }
   else {
@@ -763,7 +763,7 @@ const get = async (db, table, query, columns, keywords, tx) => {
   return post(results);
 }
 
-const all = async (db, table, query, columns, keywords, tx) => {
+const all = async (db, table, query, columns, keywords, first, tx) => {
   if (!db.initialized) {
     await db.initialize();
   }
@@ -798,6 +798,9 @@ const all = async (db, table, query, columns, keywords, tx) => {
   };
   const post = (rows) => {
     if (rows.length === 0) {
+      if (first) {
+        return undefined;
+      }
       return rows;
     }
     const sample = rows[0];
@@ -826,7 +829,20 @@ const all = async (db, table, query, columns, keywords, tx) => {
         return adjusted[0].count;
       }
       const key = keys[0];
-      return adjusted.map(item => item[key]);
+      const mapped = adjusted.map(item => item[key]);
+      if (first) {
+        if (mapped.length > 0) {
+          return mapped.at(0);
+        }
+        return undefined;
+      }
+      return mapped;
+    }
+    if (first) {
+      if (adjusted.length > 0) {
+        return adjusted.at(0);
+      }
+      return undefined;
     }
     return adjusted;
   };

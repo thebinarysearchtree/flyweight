@@ -123,6 +123,10 @@ export interface Queries<T, I, W, R> {
   query<K extends keyof T>(query: ComplexQueryValue<W, K, T>): Promise<Array<T[K]>>;
   query(query: ComplexQuery<W, T>): Promise<Array<T>>;
   query<N>(query: ComplexQuerySelector<W, T, N>): Promise<Array<N>>;
+  first<K extends keyof T, A extends string, N>(query: ComplexQueryObject<W, A, K, T, N>): Promise<(Pick<T, K> & Pick<{ [key: string]: (N extends TableProperty ? JsonValue : N) }, A>) | undefined>;
+  first<K extends keyof T>(query: ComplexQueryValue<W, K, T>): Promise<T[K] | undefined>;
+  first(query: ComplexQuery<W, T>): Promise<T | undefined>;
+  first<N>(query: ComplexQuerySelector<W, T, N>): Promise<N | undefined>;
   count(query: CountQuery<W>): Promise<number>;
   count(params: W | null): Promise<number>;
   exists(params: W | null): Promise<boolean>;

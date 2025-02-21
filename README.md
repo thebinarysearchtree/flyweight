@@ -243,7 +243,7 @@ In this case, ```social``` is a JSON object with an ```instagram``` property.
 const fighter = await db.fighters.get({ id: 3 }, ['id', 'born', { select: c => c.social.instagram, as: 'instagram' }]);
 ```
 
-Alternatively, you can use the ```query``` syntax to access additional keywords. ```query``` returns an array in the same way as ```many```. The additional keywords are:
+Alternatively, you can use the ```query``` or ```first``` syntax to access additional keywords. ```query``` returns an array in the same way as ```many```, and ```first``` returns an object or ```undefined``` if nothing is found. The additional keywords are:
 
 ```orderBy```: a string representing the column to order the result by, or an array of columns to order the result by.
 

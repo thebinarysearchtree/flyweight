@@ -118,6 +118,12 @@ const run = async () => {
   const upsert = await db.coaches.get({ id: upsertId });
   assert.equal(upsert.city, 'Updated City');
   await db.coaches.remove();
+  const first = await db.fighters.first({
+    where: {
+      id: 3
+    }
+  });
+  assert.equal(first.id, 3);
 }
 
 const cleanUp = async () => {
