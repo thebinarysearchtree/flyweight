@@ -420,7 +420,7 @@ const createTypes = async (options) => {
       returnType = `  ${table.name}: VirtualQueries<${interfaceName}, ${whereInterfaceName}>`;
     }
     else {
-      returnType = `  ${table.name}: Queries<${interfaceName}, ${insertInterfaceName}, ${whereInterfaceName}, ${tsType}>`;
+      returnType = `  ${table.name}: Queries<${interfaceName}, ${insertInterfaceName}, ${whereInterfaceName}, ${tsType}, TypedDb>`;
     }
     let queries;
     if (sqlDir) {
