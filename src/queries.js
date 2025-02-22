@@ -1000,17 +1000,17 @@ const all = async (db, table, query, columns, first, tx, dbClient) => {
     const item = adjusted.at(0);
     for (const include of includeResults) {
       const { runQuery } = include.result;
-      const adjusted = await runQuery(dbClient, item);
+      await runQuery(dbClient, item);
       if (columnsToRemove.length === 0) {
-        return adjusted;
+        return item;
       }
-      for (const [key, value] of Object.entries(adjusted)) {
+      for (const [key, value] of Object.entries(item)) {
         if (columnsToRemove.includes(key)) {
           continue;
         }
-        adjusted[key] = value;
+        item[key] = value;
       }
-      return adjusted;
+      return item;
     }
   }
   else {
