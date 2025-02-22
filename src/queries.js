@@ -170,6 +170,22 @@ const processBatch = async (db, options, post) => {
   }
 }
 
+const processInsert = async (db, sql, params, primaryKey, tx) => {
+  const options = {
+    query: sql,
+    params: cleanse(params),
+    tx,
+    write: true,
+    adjusted: true
+  };
+  const post = (result) => result[0][primaryKey];
+  if (tx && tx.isBatch) {
+    return await processBatch(db, options, post);
+  }
+  const result = await db.all(options);
+  return post(result);
+}
+
 const upsert = async (db, table, options, tx) => {
   if (!db.initialized) {
     await db.initialize();
@@ -194,19 +210,7 @@ const upsert = async (db, table, options, tx) => {
   }
   const primaryKey = db.getPrimaryKey(table);
   sql += ` returning ${primaryKey}`;
-  const queryOptions = {
-    query: sql,
-    params: cleanse(allParams),
-    tx,
-    write: true,
-    adjusted: true
-  };
-  const post = (result) => result[0][primaryKey];
-  if (tx && tx.isBatch) {
-    return await processBatch(db, queryOptions, post);
-  }
-  const result = await db.all(queryOptions);
-  return post(result);
+  return await processInsert(db, sql, allParams, primaryKey, tx);
 }
 
 const insert = async (db, table, params, tx) => {
@@ -220,22 +224,11 @@ const insert = async (db, table, params, tx) => {
   const adjusted = adjust(db, table, params);
   const sql = makeInsertSql(db, table, adjusted);
   const primaryKey = db.getPrimaryKey(table);
-  const options = {
-    query: `${sql} returning ${primaryKey}`,
-    params: cleanse(adjusted),
-    tx,
-    write: true,
-    adjusted: true
-  };
-  const post = (result) => result[0][primaryKey];
-  if (tx && tx.isBatch) {
-    return await processBatch(db, options, post);
-  }
-  const result = await db.all(options);
-  return post(result);
+  const query = `${sql} returning ${primaryKey}`;
+  return await processInsert(db, query, adjusted, primaryKey, tx);
 }
 
-const batchInserts = async (tx, db, table, columns, items) => {
+const batchInserts = async (tx, db, table, items) => {
   const inserts = [];
   for (const item of items) {
     const adjusted = adjust(db, table, item);
@@ -268,7 +261,7 @@ const insertMany = async (db, table, items, tx) => {
   verify(columns);
   const hasBlob = db.tables[table].filter(c => columns.includes(c.name)).some(c => c.type === 'blob');
   if (hasBlob) {
-    return await batchInserts(tx, db, table, columns, items);
+    return await batchInserts(tx, db, table, items);
   }
   let sql = `insert into ${table}(${columns.join(', ')}) select `;
   const select = columns.map(column => {
@@ -708,6 +701,125 @@ const count = async (db, table, query, keywords, tx) => {
   return post(results);
 }
 
+const processInclude = (key, query) => {
+  const tableTarget = {};
+  const tableHandler = {
+    get: function(target, property) {
+      if (target.length === 0) {
+        target.table = property;
+        return tableProxy;
+      }
+      if (target.length === 1) {
+        target.method = property;
+        return tableProxy;
+      }
+      else {
+        return (...args) => {
+          target.args = args;
+          return tableProxy;
+        }
+      }
+    }
+  };
+  const tableProxy = new Proxy(tableTarget, tableHandler);
+  const columnHandler = {
+    get: function(target, property) {
+      target.name = property;
+      return columnProxy;
+    }
+  }
+  const columnTarget = {};
+  const columnProxy = new Proxy(columnTarget, columnHandler);
+  query(tableProxy, columnProxy);
+  const method = tableTarget.method;
+  const runQuery = async (db, result) => {
+    const singleResult = !Array.isArray(result);
+    const singleInclude = ['first', 'get', 'exists', 'count'].includes(method);
+    const values = singleResult ? result[columnTarget.name] : result.map(item => item[columnTarget.name]);
+    let where;
+    if (['get', 'many', 'exists'].includes(method) || (method === 'count' && !tableTarget.args.where)) {
+      where = tableTarget.args[0];
+    }
+    else {
+      where = tableTarget.args[0].where;
+    }
+    let whereKey;
+    for (const [key, value] of Object.entries(where)) {
+      if (value instanceof Proxy) {
+        whereKey = key;
+        where[key] = values;
+        break;
+      }
+    }
+    let returnToValues = null;
+    if (['get', 'many', 'exists', 'count'].includes(method)) {
+      if (tableTarget.args.length > 1) {
+        const select = tableTarget.args[1];
+        if (!Array.isArray(select)) {
+          if (select !== whereKey) {
+            returnToValues = select;
+            tableTarget.args[1] = [select, whereKey];
+          }
+        }
+        else if (!select.includes(whereKey)) {
+          select.push(whereKey);
+        }
+      }
+      if (method === 'count') {
+        tableTarget.args.push(whereKey);
+        returnToValues = 'count';
+      }
+      if (method === 'exists') {
+        tableTarget.args.push(whereKey);
+        returnToValues = 'result';
+      }
+    }
+    else {
+      const options = tableTarget.args[0];
+      const select = options.select;
+      if (select) {
+        if (!Array.isArray(select) && select !== whereKey) {
+          returnToValues = select;
+          options.select = [select, whereKey];
+        }
+        else if (!select.includes(whereKey)) {
+          select.push(whereKey);
+        }
+      }
+    }
+    let queryMethod = method;
+    if (!singleResult && method === 'get') {
+      queryMethod = 'many';
+    }
+    if (!singleResult && method === 'first') {
+      queryMethod = 'query';
+    }
+    const included = await db[tableTarget.table][queryMethod](...tableTarget.args);
+    if (singleResult) {
+      result[key] = included;
+      if (returnToValues !== null) {
+        item[key] = item[key][returnToValues];
+      }
+    }
+    else {
+      for (const item of result) {
+        const itemKey = item[columnTarget.name];
+        item[key] = included.filter(value => value[whereKey] === itemKey);
+        if (returnToValues !== null) {
+          item[key] = item[key].map(v => v[returnToValues]);
+        }
+        if (singleInclude) {
+          item[key] = item[key].at(0);
+        }
+      }
+    }
+  }
+  return {
+    column: columnTarget.name,
+    runQuery
+  }
+}
+
 const get = async (db, table, query, columns, keywords, tx) => {
   if (!db.initialized) {
     await db.initialize();
@@ -764,13 +876,14 @@ const get = async (db, table, query, columns, keywords, tx) => {
   return post(results);
 }
 
-const all = async (db, table, query, columns, keywords, first, tx) => {
+const all = async (db, table, query, columns, first, tx) => {
   if (!db.initialized) {
     await db.initialize();
   }
   if (!query) {
     query = {};
   }
+  let keywords;
   if (reservedWords.some(k => query.hasOwnProperty(k))) {
     const { where, select, ...rest } = query;
     query = where || {};

@@ -17,12 +17,12 @@ const basic = {
   insertMany: (database, table, tx) => async (items) => await insertMany(database, table, items, tx),
   update: (database, table, tx) => async (options) => await update(database, table, options, tx),
   upsert: (database, table, tx) => async (options) => await upsert(database, table, options, tx),
-  exists: (database, table, tx) => async (query) => await exists(database, table, query, tx),
-  count: (database, table, tx) => async (query, keywords) => await count(database, table, query, keywords, tx),
-  get: (database, table, tx) => async (query, columns, keywords) => await get(database, table, query, columns, keywords, tx),
-  many: (database, table, tx) => async (query, columns, keywords) => await all(database, table, query, columns, keywords, false, tx),
-  query: (database, table, tx) => async (query, columns, keywords) => await all(database, table, query, columns, keywords, false, tx),
-  first: (database, table, tx) => async (query, columns, keywords) => await all(database, table, query, columns, keywords, true, tx),
+  exists: (database, table, tx) => async (query, groupKey) => await exists(database, table, query, tx, groupKey),
+  count: (database, table, tx) => async (query, groupKey) => await count(database, table, query, tx, groupKey),
+  get: (database, table, tx) => async (query, columns) => await get(database, table, query, columns, tx),
+  many: (database, table, tx) => async (query, columns) => await all(database, table, query, columns, false, tx),
+  query: (database, table, tx) => async (query, columns) => await all(database, table, query, columns, false, tx),
+  first: (database, table, tx) => async (query, columns) => await all(database, table, query, columns, true, tx),
   remove: (database, table, tx) => async (query) => await remove(database, table, query, tx)
 }
 
