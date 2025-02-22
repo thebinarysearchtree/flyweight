@@ -624,9 +624,18 @@ const getVirtual = async (db, table, query, tx, keywords, select, returnValue, v
   return post(results);
 }
 
-const exists = async (db, table, query, tx) => {
+const exists = async (db, table, query, tx, groupKey) => {
   if (!db.initialized) {
     await db.initialize();
+  }
+  if (groupKey) {
+    const result = await count(db, table, query, tx, groupKey);
+    return result.map(r => {
+      return {
+        result: r.count > 0,
+        groupKey: r[groupKey]
+      }
+    });
   }
   const columnSet = db.columnSets[table];
   const verify = makeVerify(table, columnSet);
@@ -663,7 +672,7 @@ const addClauses = (verify, table, query, params) => {
   return sql;
 }
 
-const count = async (db, table, query, keywords, tx) => {
+const count = async (db, table, query, tx, groupKey) => {
   if (!db.initialized) {
     await db.initialize();
   }
@@ -671,24 +680,30 @@ const count = async (db, table, query, keywords, tx) => {
     query = {};
   }
   if (reservedWords.some(k => query.hasOwnProperty(k))) {
-    const { where, ...rest } = query;
-    query = where;
-    keywords = rest;
+    query = query.where;
   }
   const columnSet = db.columnSets[table];
   const verify = makeVerify(table, columnSet);
-  let sql = 'select ';
-  if (keywords && keywords.distinct) {
-    sql += 'distinct ';
+  let sql;
+  if (groupKey) {
+    sql = `select count(*) as count, ${groupKey} from ${table}`;
   }
-  sql += `count(*) as count from ${table}`;
+  else {
+    sql = `select count(*) as count from ${table}`;
+  }
   sql += addClauses(verify, table, query);
+  if (groupKey) {
+    sql += ` group by ${groupKey}`;
+  }
   const options = {
     query: sql,
     params: cleanse(query),
     tx
   };
   const post = (results) => {
+    if (groupKey) {
+      return results;
+    }
     if (results.length > 0) {
       return results[0].count;
     }
@@ -705,15 +720,12 @@ const processInclude = (key, query) => {
   const tableTarget = {};
   const tableHandler = {
     get: function(target, property) {
-      if (target.length === 0) {
+      if (!target.table) {
         target.table = property;
         return tableProxy;
       }
-      if (target.length === 1) {
+      if (!target.method) {
         target.method = property;
-        return tableProxy;
-      }
-      else {
         return (...args) => {
           target.args = args;
           return tableProxy;
@@ -745,7 +757,7 @@ const processInclude = (key, query) => {
     }
     let whereKey;
     for (const [key, value] of Object.entries(where)) {
-      if (value instanceof Proxy) {
+      if (value === columnProxy) {
         whereKey = key;
         where[key] = values;
         break;
@@ -815,7 +827,7 @@ const processInclude = (key, query) => {
     }
   }
   return {
-    column: columnTarget.name,
+    proxyColumn: columnTarget.name,
     runQuery
   }
 }
@@ -833,11 +845,11 @@ const get = async (db, table, query, columns, keywords, tx) => {
     columns = select;
     keywords = rest;
   }
+  const returnValue = ['string', 'function'].includes(typeof columns);
   const columnSet = db.columnSets[table];
   const verify = makeVerify(table, columnSet);
   const customFields = {};
   const select = toSelect(db, table, columns, verify, query, customFields);
-  const returnValue = ['string', 'function'].includes(typeof columns) || (keywords && keywords.count);
   if (db.virtualSet.has(table)) {
     return await getVirtual(db, table, query, tx, keywords, selectResult, returnValue, verify, true);
   }
@@ -876,25 +888,41 @@ const get = async (db, table, query, columns, keywords, tx) => {
   return post(results);
 }
 
-const all = async (db, table, query, columns, first, tx) => {
+const all = async (db, table, query, columns, first, tx, dbClient) => {
   if (!db.initialized) {
     await db.initialize();
   }
   if (!query) {
     query = {};
   }
+  let included;
   let keywords;
   if (reservedWords.some(k => query.hasOwnProperty(k))) {
-    const { where, select, ...rest } = query;
+    const { where, select, include, ...rest } = query;
     query = where || {};
     columns = select;
+    included = include;
     keywords = rest;
+  }
+  const returnValue = ['string', 'function'].includes(typeof columns);
+  const includeResults = [];
+  let columnsToRemove = [];
+  if (included && !returnValue) {
+    const extraColumns = new Set();
+    for (const [column, query] of Object.entries(included)) {
+      const result = processInclude(column, query);
+      extraColumns.add(result.proxyColumn);
+      includeResults.push({ column, result });
+    }
+    if (columns) {
+      columnsToRemove = Array.from(extraColumns.values()).filter(c => !columns.includes(c));
+      columns.push(...columnsToRemove);
+    }
   }
   const columnSet = db.columnSets[table];
   const verify = makeVerify(table, columnSet);
   const customFields = {};
   const select = toSelect(db, table, columns, verify, query, customFields);
-  const returnValue = ['string', 'function'].includes(typeof columns) || (keywords && keywords.count);
   if (db.virtualSet.has(table)) {
     return await getVirtual(db, table, query, tx, keywords, select, returnValue, verify, false);
   }
@@ -964,7 +992,48 @@ const all = async (db, table, query, columns, first, tx) => {
     return await processBatch(db, options, post);
   }
   const rows = await db.all(options);
-  return post(rows);
+  const adjusted = post(rows);
+  if (!included || !adjusted || returnValue) {
+    return adjusted;
+  }
+  if (first) {
+    const item = adjusted.at(0);
+    for (const include of includeResults) {
+      const { runQuery } = include.result;
+      const adjusted = await runQuery(dbClient, item);
+      if (columnsToRemove.length === 0) {
+        return adjusted;
+      }
+      for (const [key, value] of Object.entries(adjusted)) {
+        if (columnsToRemove.includes(key)) {
+          continue;
+        }
+        adjusted[key] = value;
+      }
+      return adjusted;
+    }
+  }
+  else {
+    for (const include of includeResults) {
+      const { runQuery } = include.result;
+      await runQuery(dbClient, adjusted);
+      if (columnsToRemove.length === 0) {
+        return adjusted;
+      }
+      const mapped = [];
+      for (const item of adjusted) {
+        const removed = {};
+        for (const [key, value] of Object.entries(item)) {
+          if (columnsToRemove.includes(key)) {
+            continue;
+          }
+          removed[key] = value;
+        }
+        mapped.push(removed);
+      }
+      return mapped;
+    }
+  }
 }
 
 const remove = async (db, table, query, tx) => {

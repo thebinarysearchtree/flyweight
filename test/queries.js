@@ -124,11 +124,12 @@ const run = async () => {
     }
   });
   assert.equal(first.id, 3);
-  const fighters = await db.fighters.query({
+  const locations = await db.locations.query({
     include: {
-      coaches: (t, c) => t.coaches.many({ fighterId: c.id })
+      events: (t, c) => t.events.many({ locationId: c.id })
     }
   });
+  console.log(locations);
 }
 
 const cleanUp = async () => {

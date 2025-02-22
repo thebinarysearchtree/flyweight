@@ -21,8 +21,8 @@ const basic = {
   count: (database, table, tx) => async (query, groupKey) => await count(database, table, query, tx, groupKey),
   get: (database, table, tx) => async (query, columns) => await get(database, table, query, columns, tx),
   many: (database, table, tx) => async (query, columns) => await all(database, table, query, columns, false, tx),
-  query: (database, table, tx) => async (query, columns) => await all(database, table, query, columns, false, tx),
-  first: (database, table, tx) => async (query, columns) => await all(database, table, query, columns, true, tx),
+  query: (database, table, tx, dbClient) => async (query, columns) => await all(database, table, query, columns, false, tx, dbClient),
+  first: (database, table, tx, dbClient) => async (query, columns) => await all(database, table, query, columns, true, tx, dbClient),
   remove: (database, table, tx) => async (query) => await remove(database, table, query, tx)
 }
 
@@ -207,7 +207,7 @@ const getResultType = (columns) => {
   }
 }
 
-const makeQueryHandler = (table, db, tx) => {
+const makeQueryHandler = (table, db, tx, dbClient) => {
   let write;
   return {
     get: function(target, query) {
@@ -228,7 +228,7 @@ const makeQueryHandler = (table, db, tx) => {
           catch (e) {
             const makeQuery = basic[query];
             if (makeQuery) {
-              cachedFunction = makeQuery(db, table, tx);
+              cachedFunction = makeQuery(db, table, tx, dbClient);
               return await cachedFunction(params, queryOptions, keywords);
             }
             else {
@@ -310,7 +310,7 @@ const makeQueryHandler = (table, db, tx) => {
 
 const makeClient = (db, tx) => {
   const tableHandler = {
-    get: function(target, table) {
+    get: function(target, table, dbClient) {
       if (db[table] && ['exec', 'begin', 'commit', 'rollback', 'pragma', 'deferForeignKeys'].includes(table)) {
         db[table] = db[table].bind(db);
         return (sql) => db[table](tx, sql);
@@ -320,7 +320,7 @@ const makeClient = (db, tx) => {
         return db[table];
       }
       if (!target[table]) {
-        target[table] = new Proxy({}, makeQueryHandler(table, db, tx));
+        target[table] = new Proxy({}, makeQueryHandler(table, db, tx, dbClient));
       }
       return target[table];
     }
