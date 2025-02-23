@@ -141,6 +141,24 @@ const run = async () => {
     }
   });
   assert.equal(locations.at(0).events.at(1).id, 415);
+  const events = await db.events.query({
+    include: {
+      location: (t, c) => t.locations.get({ id: c.locationId })
+    },
+    limit: 3
+  });
+  const event = events.at(1);
+  assert.equal(event.location.id, event.locationId);
+  const fight = await db.fights.first({
+    where: {
+      id: 10
+    },
+    include: {
+      blue: (t, c) => t.fighters.get({ id: c.blueId }),
+      red: (t, c) => t.fighters.get({ id: c.redId })
+    }
+  });
+  assert.equal(fight.blue.id, fight.blueId);
 }
 
 const cleanUp = async () => {

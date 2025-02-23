@@ -847,8 +847,7 @@ const processInclude = (key, query) => {
     if (singleResult) {
       let adjusted = false;
       if (singleInclude) {
-        const value = included.at(0);
-        if (value === undefined) {
+        if (included === undefined) {
           adjusted = true;
           if (method === 'exists') {
             result[key] = false;
@@ -857,11 +856,11 @@ const processInclude = (key, query) => {
             result[key] = 0;
           }
           else {
-            result[key] = value;
+            result[key] = included;
           }
         }
         else {
-          result[key] = value;
+          result[key] = included;
         }
       }
       if (returnToValues !== null && !adjusted) {
@@ -1009,6 +1008,9 @@ const all = async (db, table, query, columns, first, tx, dbClient, partitionBy) 
     sql += `${select.clause} from ${table}`;
     sql += addClauses(verify, table, query);
     sql += toKeywords(verify, keywords, query, customFields);
+  }
+  if (first) {
+    sql += ' limit 1';
   }
   const options = {
     query: sql,
