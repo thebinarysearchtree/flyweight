@@ -126,7 +126,7 @@ const run = async () => {
   assert.equal(first.id, 3);
   const locations = await db.locations.query({
     where: {
-      id: n => n.lt(4)
+      id: n => n.range({ gt: 109, lt: 120 })
     },
     include: {
       events: (t, c) => t.events.query({
@@ -134,11 +134,13 @@ const run = async () => {
           locationId: c.id
         },
         orderBy: 'startTime',
+        desc: true,
+        offset: 1,
         limit: 3
       })
     }
   });
-  console.log(locations);
+  assert.equal(locations.at(0).events.at(1).id, 415);
 }
 
 const cleanUp = async () => {

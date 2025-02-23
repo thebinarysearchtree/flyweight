@@ -417,10 +417,17 @@ const traverse = (selector) => {
 }
 
 const expandStar = (db, table) => {
-  if (!db.supports.jsonb || !db.hasJson[table]) {
-    return '*';
-  }
   const columnTypes = db.columns[table];
+  const names = Object.keys(columnTypes);
+  if (!db.supports.jsonb || !db.hasJson[table]) {
+    const clause = names
+      .map(name => `${table}.${name}`)
+      .join(', ');
+    return {
+      names,
+      clause
+    }
+  }
   const statements = [];
   for (const [column, type] of Object.entries(columnTypes)) {
     if (type === 'json') {
@@ -430,24 +437,36 @@ const expandStar = (db, table) => {
       statements.push(`${table}.${column}`);
     }
   }
-  return statements.join(', ');
+  return {
+    names,
+    clause: statements.join(', ')
+  }
 }
 
 const toSelect = (db, table, columns, verify, params, customFields) => {
   const columnTypes = db.columns[table];
   if (columns) {
     if (typeof columns === 'string') {
+      let clause;
       verify(columns);
       if (db.supports.jsonb && columnTypes[columns] === 'json') {
-        return `json(${table}.${columns}) as ${columns}`;
+        clause = `json(${table}.${columns}) as ${columns}`;
       }
-      return `${table}.${columns}`;
+      else {
+        clause = `${table}.${columns}`;
+      }
+      return {
+        names: [columns],
+        clause
+      }
     }
     else if (Array.isArray(columns) && columns.length > 0) {
+      const names = [];
       const statements = [];
       for (const column of columns) {
         if (typeof column === 'string') {
           verify(column);
+          names.push(column);
           if (db.supports.jsonb && columnTypes[columns] === 'json') {
             statements.push(`json(${table}.${columns}) as ${columns}`);
           }
@@ -460,6 +479,7 @@ const toSelect = (db, table, columns, verify, params, customFields) => {
           if (!/^[a-z][a-z0-9]*$/i.test(as)) {
             throw Error(`Invalid alias: ${as}`);
           }
+          names.push(as);
           const result = traverse(select);
           verify(result.column);
           const placeholder = getPlaceholder();
@@ -468,7 +488,10 @@ const toSelect = (db, table, columns, verify, params, customFields) => {
           statements.push(`json_extract(${table}.${result.column}, $${placeholder}) as ${as}`);
         }
       }
-      return statements.join(', ');
+      return {
+        names,
+        clause: statements.join(', ')
+      }
     }
     else if (typeof columns === 'function') {
       const { column, path } = traverse(columns);
@@ -476,7 +499,11 @@ const toSelect = (db, table, columns, verify, params, customFields) => {
       const placeholder = getPlaceholder();
       params[placeholder] = path;
       customFields['json_result'] = 'any';
-      return `json_extract(${table}.${column}, $${placeholder}) as json_result`;
+      const clause = `json_extract(${table}.${column}, $${placeholder}) as json_result`;
+      return {
+        names: ['json_result'],
+        clause
+      }
     }
     return expandStar(db, table);
   }
@@ -919,31 +946,70 @@ const all = async (db, table, query, columns, first, tx, dbClient, partitionBy) 
   const columnSet = db.columnSets[table];
   const verify = makeVerify(table, columnSet);
   const customFields = {};
-  let select = toSelect(db, table, columns, verify, query, customFields);
+  const select = toSelect(db, table, columns, verify, query, customFields);
+  if (db.virtualSet.has(table)) {
+    return await getVirtual(db, table, query, tx, keywords, select.clause, returnValue, verify, false);
+  }
+  let sql = 'select ';
   if (partitionBy) {
     let orderBy;
-    if (keywords && keywords.orderBy) {
+    if (keywords.orderBy) {
       orderBy = getOrderBy(verify, keywords, customFields);
     }
     else {
       orderBy = db.getPrimaryKey(table);
     }
     let desc = '';
-    if (keywords && keywords.desc) {
+    if (keywords.desc) {
       desc = ' desc';
     }
-    const clause = `row_number() over (partition by ${partitionBy} order by ${orderBy}${desc}) as flyweight_rn`
+    let i = 1;
+    let alias = 'rn';
+    while (select.names.includes(alias)) {
+      i++;
+      alias = `rn${i}`;
+    }
+    select.clause += `, row_number() over (partition by ${partitionBy} order by ${orderBy}${desc}) as ${alias}`;
+    const wrapQuery = (sql) => {
+      let statement = `with rankedQuery as (${sql}) select ${select.names.join(', ')} from rankedQuery where ${alias}`;
+      const hasOffset = keywords.offset !== undefined && Number.isInteger(keywords.offset);
+      const hasLimit = keywords.limit !== undefined && Number.isInteger(keywords.limit);
+      if (hasOffset && hasLimit) {
+        const start = keywords.offset;
+        const end = keywords.offset + keywords.limit;
+        const startPlaceholder = getPlaceholder();
+        const endPlaceholder = getPlaceholder();
+        query[startPlaceholder] = start;
+        query[endPlaceholder] = end;
+        statement += ` > $${startPlaceholder} and ${alias} <= $${endPlaceholder}`;
+      }
+      else if (hasLimit && !hasOffset) {
+        const placeholder = getPlaceholder();
+        query[placeholder] = keywords.limit;
+        statement += ` <= $${placeholder}`;
+      }
+      else if (hasOffset && !hasLimit) {
+        const placeholder = getPlaceholder();
+        query[placeholder] = keywords.limit;
+        statement += ` > $${placeholder}`;
+      }
+      return statement;
+    }
+    if (keywords.distinct) {
+      sql += 'distinct ';
+    }
+    sql += `${select.clause} from ${table}`;
+    sql += addClauses(verify, table, query);
+    sql = wrapQuery(sql);
   }
-  if (db.virtualSet.has(table)) {
-    return await getVirtual(db, table, query, tx, keywords, select, returnValue, verify, false);
+  else {
+    if (keywords && keywords.distinct) {
+      sql += 'distinct ';
+    }
+    sql += `${select.clause} from ${table}`;
+    sql += addClauses(verify, table, query);
+    sql += toKeywords(verify, keywords, query, customFields);
   }
-  let sql = 'select ';
-  if (keywords && keywords.distinct) {
-    sql += 'distinct ';
-  }
-  sql += `${select} from ${table}`;
-  sql += addClauses(verify, table, query);
-  sql += toKeywords(verify, keywords, query, customFields);
   const options = {
     query: sql,
     params: cleanse(query),

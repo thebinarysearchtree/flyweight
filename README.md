@@ -293,6 +293,18 @@ const exists = await db.fighters.exists({ name: 'Israel Adesanya' });
 const changes = await db.fighters.remove({ id: 100 });
 ```
 
+### Includes
+
+Using either the ```first``` or ```query``` API, you can include data from other tables.
+
+```js
+  const locations = await db.locations.query({
+    include: {
+      events: (t, c) => t.events.many({ locationId: c.id })
+    }
+  });
+```
+
 ## Creating SQL queries
 
 When the basic API doesn't do what you need it to do, you can create SQL queries. You can do this by creating a folder with the same name as the table, such as ```./database/sql/users```. You can then put SQL files in this folder that will be available in the API.
