@@ -633,7 +633,7 @@ const exists = async (db, table, query, tx, groupKey) => {
     return result.map(r => {
       return {
         result: r.count > 0,
-        groupKey: r[groupKey]
+        [groupKey]: r[groupKey]
       }
     });
   }
@@ -764,7 +764,7 @@ const processInclude = (key, query) => {
       }
     }
     let returnToValues = null;
-    if (['get', 'many', 'exists', 'count'].includes(method)) {
+    if (['get', 'many', 'exists', 'count'].includes(method) && whereKey !== undefined) {
       if (tableTarget.args.length > 1) {
         const select = tableTarget.args[1];
         if (!Array.isArray(select)) {
@@ -786,7 +786,7 @@ const processInclude = (key, query) => {
         returnToValues = 'result';
       }
     }
-    else {
+    else if (whereKey !== undefined) {
       const options = tableTarget.args[0];
       const select = options.select;
       if (select) {
@@ -808,20 +808,63 @@ const processInclude = (key, query) => {
     }
     const included = await db[tableTarget.table][queryMethod](...tableTarget.args);
     if (singleResult) {
-      result[key] = included;
-      if (returnToValues !== null) {
-        item[key] = item[key][returnToValues];
+      let adjusted = false;
+      if (singleInclude) {
+        const value = included.at(0);
+        if (value === undefined) {
+          adjusted = true;
+          if (method === 'exists') {
+            result[key] = false;
+          }
+          else if (method === 'count') {
+            result[key] = 0;
+          }
+          else {
+            result[key] = value;
+          }
+        }
+        else {
+          result[key] = value;
+        }
+      }
+      if (returnToValues !== null && !adjusted) {
+        const value = result[key];
+        if (singleInclude) {
+          result[key] = value[returnToValues];
+        }
+        else {
+          result[key] = value.map(item => item[returnToValues]);
+        }
       }
     }
     else {
       for (const item of result) {
         const itemKey = item[columnTarget.name];
-        item[key] = included.filter(value => value[whereKey] === itemKey);
+        if (whereKey !== undefined) {
+          item[key] = included.filter(value => value[whereKey] === itemKey);
+        }
+        else {
+          item[key] = included;
+        }
         if (returnToValues !== null) {
           item[key] = item[key].map(v => v[returnToValues]);
         }
         if (singleInclude) {
-          item[key] = item[key].at(0);
+          const value = item[key].at(0);
+          if (value === undefined) {
+            if (method === 'exists') {
+              item[key] = false;
+            }
+            else if (method === 'count') {
+              item[key] = 0;
+            }
+            else {
+              item[key] = value;
+            }
+          }
+          else {
+            item[key] = value;
+          }
         }
       }
     }
@@ -997,31 +1040,31 @@ const all = async (db, table, query, columns, first, tx, dbClient) => {
     return adjusted;
   }
   if (first) {
-    const item = adjusted.at(0);
-    for (const include of includeResults) {
-      const { runQuery } = include.result;
-      await runQuery(dbClient, item);
-      if (columnsToRemove.length === 0) {
-        return item;
-      }
-      for (const [key, value] of Object.entries(item)) {
-        if (columnsToRemove.includes(key)) {
-          continue;
-        }
-        item[key] = value;
-      }
-      return item;
-    }
-  }
-  else {
     for (const include of includeResults) {
       const { runQuery } = include.result;
       await runQuery(dbClient, adjusted);
       if (columnsToRemove.length === 0) {
-        return adjusted;
+        continue;
+      }
+      for (const [key, value] of Object.entries(adjusted)) {
+        if (columnsToRemove.includes(key)) {
+          continue;
+        }
+        adjusted[key] = value;
+      }
+    }
+    return adjusted;
+  }
+  else {
+    let result = adjusted;
+    for (const include of includeResults) {
+      const { runQuery } = include.result;
+      await runQuery(dbClient, adjusted);
+      if (columnsToRemove.length === 0) {
+        continue;
       }
       const mapped = [];
-      for (const item of adjusted) {
+      for (const item of result) {
         const removed = {};
         for (const [key, value] of Object.entries(item)) {
           if (columnsToRemove.includes(key)) {
@@ -1031,8 +1074,9 @@ const all = async (db, table, query, columns, first, tx, dbClient) => {
         }
         mapped.push(removed);
       }
-      return mapped;
+      result = mapped;
     }
+    return result;
   }
 }
 

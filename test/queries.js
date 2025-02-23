@@ -124,9 +124,12 @@ const run = async () => {
     }
   });
   assert.equal(first.id, 3);
-  const locations = await db.locations.query({
+  const locations = await db.locations.first({
+    where: {
+      id: n => n.lt(4)
+    },
     include: {
-      events: (t, c) => t.events.many({ locationId: c.id })
+      hasEvents: (t, c) => t.events.exists({ locationId: c.id })
     }
   });
   console.log(locations);
