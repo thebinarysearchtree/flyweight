@@ -5,7 +5,6 @@ import {
   upsert,
   exists,
   count,
-  get,
   all,
   remove
 } from './queries.js';
@@ -19,10 +18,10 @@ const basic = {
   upsert: (database, table, tx) => async (options) => await upsert(database, table, options, tx),
   exists: (database, table, tx) => async (query, groupKey) => await exists(database, table, query, tx, groupKey),
   count: (database, table, tx) => async (query, groupKey) => await count(database, table, query, tx, groupKey),
-  get: (database, table, tx) => async (query, columns) => await get(database, table, query, columns, tx),
+  get: (database, table, tx) => async (query, columns) => await all(database, table, query, columns, true, tx),
   many: (database, table, tx) => async (query, columns) => await all(database, table, query, columns, false, tx),
-  query: (database, table, tx, dbClient) => async (query, columns) => await all(database, table, query, columns, false, tx, dbClient),
-  first: (database, table, tx, dbClient) => async (query, columns) => await all(database, table, query, columns, true, tx, dbClient),
+  query: (database, table, tx, dbClient) => async (query, partitionBy) => await all(database, table, query, null, false, tx, dbClient, partitionBy),
+  first: (database, table, tx, dbClient) => async (query, partitionBy) => await all(database, table, query, null, true, tx, dbClient, partitionBy),
   remove: (database, table, tx) => async (query) => await remove(database, table, query, tx)
 }
 

@@ -483,15 +483,20 @@ const toSelect = (db, table, columns, verify, params, customFields) => {
   return expandStar(db, table);
 }
 
+const getOrderBy = (verify, keywords, customFields) => {
+  let orderBy = keywords.orderBy;
+  verify(orderBy, customFields);
+  if (Array.isArray(orderBy)) {
+    orderBy = orderBy.join(', ');
+  }
+  return orderBy;
+}
+
 const toKeywords = (verify, keywords, params, customFields) => {
   let sql = '';
   if (keywords) {
     if (keywords.orderBy) {
-      let orderBy = keywords.orderBy;
-      verify(orderBy, customFields);
-      if (Array.isArray(orderBy)) {
-        orderBy = orderBy.join(', ');
-      }
+      const orderBy = getOrderBy(verify, keywords, customFields);
       sql += ` order by ${orderBy}`;
       if (keywords.desc) {
         sql += ' desc';
@@ -806,6 +811,11 @@ const processInclude = (key, query) => {
     if (!singleResult && method === 'first') {
       queryMethod = 'query';
     }
+    if (['first', 'query'].includes(method)) {
+      if (tableTarget.args[0].limit !== undefined) {
+        tableTarget.args.push(whereKey);
+      }
+    }
     const included = await db[tableTarget.table][queryMethod](...tableTarget.args);
     if (singleResult) {
       let adjusted = false;
@@ -875,63 +885,7 @@ const processInclude = (key, query) => {
   }
 }
 
-const get = async (db, table, query, columns, keywords, tx) => {
-  if (!db.initialized) {
-    await db.initialize();
-  }
-  if (!query) {
-    query = {};
-  }
-  if (reservedWords.some(k => query.hasOwnProperty(k))) {
-    const { where, select, ...rest } = query;
-    query = where || {};
-    columns = select;
-    keywords = rest;
-  }
-  const returnValue = ['string', 'function'].includes(typeof columns);
-  const columnSet = db.columnSets[table];
-  const verify = makeVerify(table, columnSet);
-  const customFields = {};
-  const select = toSelect(db, table, columns, verify, query, customFields);
-  if (db.virtualSet.has(table)) {
-    return await getVirtual(db, table, query, tx, keywords, selectResult, returnValue, verify, true);
-  }
-  let sql = 'select ';
-  if (keywords && keywords.distinct) {
-    sql += 'distinct ';
-  }
-  sql += `${select} from ${table}`;
-  sql += addClauses(verify, table, query);
-  sql += toKeywords(verify, keywords, query, customFields);
-  sql += ' limit 1';
-  const options = {
-    query: sql,
-    params: cleanse(query),
-    tx
-  };
-  const post = (results) => {
-    if (results.length > 0) {
-      const result = results[0];
-      const adjusted = {};
-      const entries = Object.entries(result);
-      for (const [key, value] of entries) {
-        adjusted[key] = db.convertToJs(table, key, value, customFields);
-      }
-      if (returnValue) {
-        return adjusted[entries[0][0]];
-      }
-      return adjusted;
-    }
-    return undefined;
-  }
-  if (tx && tx.isBatch) {
-    return await processBatch(db, options, post);
-  }
-  const results = await db.all(options);
-  return post(results);
-}
-
-const all = async (db, table, query, columns, first, tx, dbClient) => {
+const all = async (db, table, query, columns, first, tx, dbClient, partitionBy) => {
   if (!db.initialized) {
     await db.initialize();
   }
@@ -965,7 +919,21 @@ const all = async (db, table, query, columns, first, tx, dbClient) => {
   const columnSet = db.columnSets[table];
   const verify = makeVerify(table, columnSet);
   const customFields = {};
-  const select = toSelect(db, table, columns, verify, query, customFields);
+  let select = toSelect(db, table, columns, verify, query, customFields);
+  if (partitionBy) {
+    let orderBy;
+    if (keywords && keywords.orderBy) {
+      orderBy = getOrderBy(verify, keywords, customFields);
+    }
+    else {
+      orderBy = db.getPrimaryKey(table);
+    }
+    let desc = '';
+    if (keywords && keywords.desc) {
+      desc = ' desc';
+    }
+    const clause = `row_number() over (partition by ${partitionBy} order by ${orderBy}${desc}) as flyweight_rn`
+  }
   if (db.virtualSet.has(table)) {
     return await getVirtual(db, table, query, tx, keywords, select, returnValue, verify, false);
   }
@@ -1103,7 +1071,6 @@ export {
   upsert,
   exists,
   count,
-  get,
   all,
   remove
 }
