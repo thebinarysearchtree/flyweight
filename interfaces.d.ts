@@ -1,5 +1,7 @@
+type ExtractIncludedKeys<U> = U extends Record<string, any> ? keyof U : keyof {};
+
 export interface Keywords<T> {
-  orderBy?: Array<keyof T> | keyof T;
+  orderBy?: T;
   desc?: boolean;
   limit?: number;
   offset?: number;
@@ -58,24 +60,36 @@ export interface CountQuery<W> {
   distinct?: boolean;
 }
 
-export interface ComplexQuery<W, T, U> extends Keywords<T> {
+export interface ComplexQuery<W, T> extends Keywords<Array<keyof T> | keyof T> {
   where?: W;
   select?: undefined;
-  include?: U;
+  include?: undefined;
 }
 
-export interface ComplexQueryObject<W, A extends string, K, T, N, U> extends Keywords<T & Record<A, null>> {
+export interface ComplexQueryInclude<W, T, U> extends Keywords<Array<keyof T | ExtractIncludedKeys<U>> | keyof T | ExtractIncludedKeys<U>> {
+  where?: W;
+  select?: undefined;
+  include: U;
+}
+
+export interface ComplexQueryObject<W, A extends string, K, T, N> extends Keywords<T & Record<A, null>> {
   where?: W;
   select: (Alias<T, A, N> | K)[] | (keyof T)[];
-  include?: U;
+  include?: undefined;
 }
 
-export interface ComplexQueryValue<W, K, T> extends Keywords<T> {
+export interface ComplexQueryObjectInclude<W, A extends string, K, T, N, U> extends Keywords<T & Record<A, null>> {
+  where?: W;
+  select: (Alias<T, A, N> | K)[] | (keyof T)[];
+  include: U;
+}
+
+export interface ComplexQueryValue<W, K, T> extends Keywords<Array<keyof T> | keyof T> {
   where?: W;
   select: K;
 }
 
-export interface ComplexQuerySelector<W, T, N> extends Keywords<T> {
+export interface ComplexQuerySelector<W, T, N> extends Keywords<Array<keyof T> | keyof T> {
   where?: W;
   select: (selector: T) => N;
 }
@@ -129,16 +143,24 @@ export interface Queries<T, I, W, R, Y> {
   many<K extends keyof T, A extends string, N>(params: W | null, columns: (Alias<K, A, N> | K)[] | (keyof T)[]): Promise<Array<(Pick<T, K> & Pick<{ [key: string]: N }, A>)>>;
   many<K extends keyof T>(params: W | null, column: K): Promise<Array<T[K]>>;
   many<N>(params: W | null, column: (selector: T) => N): Promise<Array<N>>;
-  query<K extends keyof T, A extends string, N, U extends Includes<Y, T>>(query: ComplexQueryObject<W, A, K, T, N, U>): Promise<Array<MergeIncludes<(Pick<T, K> & Pick<{ [key: string]: (N extends TableProperty ? JsonValue : N) }, A>), U>>>;
+  query<K extends keyof T, A extends string, N>(query: ComplexQueryObject<W, A, K, T, N>): Promise<Array<(Pick<T, K> & Pick<{ [key: string]: (N extends TableProperty ? JsonValue : N) }, A>)>>;
+  query<K extends keyof T, A extends string, N, U extends Includes<Y, T>>(query: ComplexQueryObjectInclude<W, A, K, T, N, U>): Promise<Array<MergeIncludes<(Pick<T, K> & Pick<{ [key: string]: (N extends TableProperty ? JsonValue : N) }, A>), U>>>;
   query<K extends keyof T>(query: ComplexQueryValue<W, K, T>): Promise<Array<T[K]>>;
-  query<U extends Includes<Y, T>>(query: ComplexQuery<W, T, U>): Promise<Array<MergeIncludes<T, U>>>;
+  query(query: ComplexQuery<W, T>): Promise<Array<T>>;
+  query<U extends Includes<Y, T>>(query: ComplexQueryInclude<W, T, U>): Promise<Array<MergeIncludes<T, U>>>;
   query<N>(query: ComplexQuerySelector<W, T, N>): Promise<Array<N>>;
-  first<K extends keyof T, A extends string, N, U extends Includes<Y, T>>(query: ComplexQueryObject<W, A, K, T, N, U>): Promise<MergeIncludes<(Pick<T, K> & Pick<{ [key: string]: (N extends TableProperty ? JsonValue : N) }, A>), U> | undefined>;
+  first<K extends keyof T, A extends string, N>(query: ComplexQueryObject<W, A, K, T, N>): Promise<(Pick<T, K> & Pick<{ [key: string]: (N extends TableProperty ? JsonValue : N) }, A>) | undefined>;
+  first<K extends keyof T, A extends string, N, U extends Includes<Y, T>>(query: ComplexQueryObjectInclude<W, A, K, T, N, U>): Promise<MergeIncludes<(Pick<T, K> & Pick<{ [key: string]: (N extends TableProperty ? JsonValue : N) }, A>), U> | undefined>;
   first<K extends keyof T>(query: ComplexQueryValue<W, K, T>): Promise<T[K] | undefined>;
-  first<U extends Includes<Y, T>>(query: ComplexQuery<W, T, U>): Promise<MergeIncludes<T, U> | undefined>;
+  first(query: ComplexQuery<W, T>): Promise<T | undefined>;
+  first<U extends Includes<Y, T>>(query: ComplexQueryInclude<W, T, U>): Promise<MergeIncludes<T, U> | undefined>;
   first<N>(query: ComplexQuerySelector<W, T, N>): Promise<N | undefined>;
-  count(query: CountQuery<W>): Promise<number>;
-  count(params: W | null): Promise<number>;
+  count<K extends keyof T>(query: CountQuery<W>, column?: K): Promise<number>;
+  count<K extends keyof T>(params: W | null, column?: K): Promise<number>;
+  avg<K extends keyof T>(params: W | null, column: K): Promise<number>;
+  max<K extends keyof T>(params: W | null, column: K): Promise<number>;
+  min<K extends keyof T>(params: W | null, column: K): Promise<number>;
+  sum<K extends keyof T>(params: W | null, column: K): Promise<number>;
   exists(params: W | null): Promise<boolean>;
   remove(params?: W): Promise<number>;
 }

@@ -149,16 +149,27 @@ const run = async () => {
   });
   const event = events.at(1);
   assert.equal(event.location.id, event.locationId);
+  const corner = (colour) => (t, c) => t.fighters.get({ id: c[`${colour}Id`] });
   const fight = await db.fights.first({
     where: {
       id: 10
     },
     include: {
-      blue: (t, c) => t.fighters.get({ id: c.blueId }),
-      red: (t, c) => t.fighters.get({ id: c.redId })
+      blue: corner('blue'),
+      red: corner('red')
     }
   });
   assert.equal(fight.blue.id, fight.blueId);
+  assert.equal(fight.red.id, fight.redId);
+  const popular = await db.locations.query({
+    include: {
+      eventCount: (t, c) => t.events.count({ locationId: c.id })
+    },
+    orderBy: 'eventCount',
+    desc: true,
+    limit: 3
+  });
+  console.log(popular);
 }
 
 const cleanUp = async () => {

@@ -34,6 +34,15 @@ const reservedWords = [
   'distinct'
 ];
 
+const aggregateMethods = [
+  'count',
+  'avg',
+  'min',
+  'max',
+  'sum',
+  'total'
+];
+
 const methods = new Map([
   ['not', '!='],
   ['gt', '>'],
@@ -49,8 +58,8 @@ const methods = new Map([
   ['eq', '=']
 ]);
 
-const getConditions = (table, column, query, params) => {
-  const handler = {
+const getConditions = (verify, table, column, query, params) => {
+  const operatorHandler = {
     get: function(target, property) {
       target.push(property);
       if (methods.has(property)) {
@@ -59,11 +68,22 @@ const getConditions = (table, column, query, params) => {
           return target;
         }
       }
-      return proxy;
+      return operatorProxy;
     }
   }
-  const proxy = new Proxy([], handler);
-  const chain = query(proxy);
+  const operatorProxy = new Proxy([], operatorHandler);
+  const columnHandler = {
+    get: function(target, property) {
+      target.name = property;
+      return columnProxy;
+    }
+  }
+  const columnTarget = {};
+  const columnProxy = new Proxy(columnTarget, columnHandler);
+  const chain = query(operatorProxy, columnProxy);
+  if (columnTarget.name) {
+    verify(columnTarget.name);
+  }
   const value = chain.pop();
   const method = chain.pop();
   if (!methods.has(method)) {
@@ -86,37 +106,60 @@ const getConditions = (table, column, query, params) => {
     else if (value === null) {
       conditions.push(`${selector} is not null`);
     }
+    else if (value === columnProxy) {
+      conditions.push(`${selector} != ${table}.${columnTarget.name}`);
+    }
+    else {
+      const placeholder = getPlaceholder();
+      params[placeholder] = value;
+      conditions.push(`${selector} != $${placeholder}`);
+    }
   }
   else if (method === 'range') {
     for (const [method, param] of Object.entries(value)) {
       if (!['gt', 'gte', 'lt', 'lte'].includes(method)) {
         throw Error('Invalid range statement');
       }
-      const placeholder = getPlaceholder();
-      params[placeholder] = param;
       const operator = methods.get(method);
-      conditions.push(`${selector} ${operator} $${placeholder}`);
+      if (param === columnProxy) {
+        conditions.push(`${selector} ${operator} ${table}.${columnTarget.name}`);
+      }
+      else {
+        const placeholder = getPlaceholder();
+        params[placeholder] = param;
+        conditions.push(`${selector} ${operator} $${placeholder}`);
+      }
     }
   }
   else if (method === 'includes') {
     const alias = `${table}_${column.replace('.', '_')}_json`;
-    const placeholder = getPlaceholder();
-    params[placeholder] = value;
-    conditions.push(`${alias}.value = $${placeholder}`);
+    if (value === columnProxy) {
+      conditions.push(`${alias}.value = ${table}.${columnTarget.name}`);
+    }
+    else {
+      const placeholder = getPlaceholder();
+      params[placeholder] = value;
+      conditions.push(`${alias}.value = $${placeholder}`);
+    }
     fromClauses.push(`json_each(${selector}) as ${alias}`);
   }
   else if (method === 'some') {
     const alias = `${table}_${column.replace('.', '_')}_json`;
     fromClauses.push(`json_each(${selector}) as ${alias}`);
-    const result = getConditions(alias, 'value', value, params);
+    const result = getConditions(verify, alias, 'value', value, params);
     conditions.push(...result.conditions);
     fromClauses.push(...result.fromClauses);
   }
   else {
-    const placeholder = getPlaceholder();
-    params[placeholder] = value;
     const operator = methods.get(method);
-    conditions.push(`${selector} ${operator} $${placeholder}`);
+    if (value === columnProxy) {
+      conditions.push(`${selector} ${operator} ${table}.${columnTarget.name}`);
+    }
+    else {
+      const placeholder = getPlaceholder();
+      params[placeholder] = value;
+      conditions.push(`${selector} ${operator} $${placeholder}`);
+    }
   }
   return {
     conditions,
@@ -311,7 +354,7 @@ const toWhere = (verify, table, query, params) => {
       continue;
     }
     if (typeof param === 'function') {
-      const result = getConditions(table, column, param, params);
+      const result = getConditions(verify, table, column, param, params);
       conditions.push(...result.conditions);
       fromClauses.push(...result.fromClauses);
     }
@@ -374,9 +417,12 @@ const update = async (db, table, options, tx) => {
   return await db.run(runOptions);
 }
 
-const makeVerify = (table, columnSet) => {
+const makeVerify = (table, columnSet, include) => {
   return (column, customFields) => {
     if (typeof column === 'string') {
+      if (include && include.hasOwnProperty(column)) {
+        return;
+      }
       if (customFields && customFields.hasOwnProperty(column)) {
         return;
       }
@@ -387,6 +433,9 @@ const makeVerify = (table, columnSet) => {
     else {
       const columns = column;
       for (const column of columns) {
+        if (include && include.hasOwnProperty(column)) {
+          return;
+        }
         if (customFields && customFields.hasOwnProperty(column)) {
           return;
         }
@@ -587,7 +636,7 @@ const getVirtual = async (db, table, query, tx, keywords, select, returnValue, v
     for (const [column, param] of Object.entries(query)) {
       verify(column);
       if (typeof param === 'function') {
-        const result = getConditions(column, param, params);
+        const result = getConditions(verify, column, param, params);
         statements.push(...result.conditions);
         fromClauses.push(...result.fromClauses);
       }
@@ -656,15 +705,15 @@ const getVirtual = async (db, table, query, tx, keywords, select, returnValue, v
   return post(results);
 }
 
-const exists = async (db, table, query, tx, groupKey) => {
+const exists = async (db, table, query, tx, groupKey, parentQuery) => {
   if (!db.initialized) {
     await db.initialize();
   }
   if (groupKey) {
-    const result = await count(db, table, query, tx, groupKey);
+    const result = await aggregate(db, table, query, tx, 'count', groupKey, parentQuery);
     return result.map(r => {
       return {
-        result: r.count > 0,
+        result: r.countResult > 0,
         [groupKey]: r[groupKey]
       }
     });
@@ -673,7 +722,7 @@ const exists = async (db, table, query, tx, groupKey) => {
   const verify = makeVerify(table, columnSet);
   let sql = `select exists(select 1 from ${table}`;
   sql += addClauses(verify, table, query);
-  sql += ') as result';
+  sql += ') as exists_result';
   const options = {
     query: sql,
     params: cleanse(query),
@@ -681,7 +730,7 @@ const exists = async (db, table, query, tx, groupKey) => {
   };
   const post = (results) => {
     if (results.length > 0) {
-      return Boolean(results[0].result);
+      return Boolean(results[0].exists_result);
     }
     return undefined;
   }
@@ -704,7 +753,7 @@ const addClauses = (verify, table, query, params) => {
   return sql;
 }
 
-const count = async (db, table, query, tx, groupKey) => {
+const aggregate = async (db, table, query, tx, method, column, groupKey, parentQuery) => {
   if (!db.initialized) {
     await db.initialize();
   }
@@ -716,16 +765,91 @@ const count = async (db, table, query, tx, groupKey) => {
   }
   const columnSet = db.columnSets[table];
   const verify = makeVerify(table, columnSet);
+  const primaryKey = db.getPrimaryKey(table);
   let sql;
   if (groupKey) {
-    sql = `select count(*) as count, ${groupKey} from ${table}`;
+    if (parentQuery) {
+      const clauses = toWhere(verify, table, query);
+      const columnSet = db.columnSets[parentQuery.table];
+      const parentVerify = makeVerify(parentQuery.table, columnSet);
+      const parentClauses = toWhere(parentVerify, parentQuery.table, parentQuery.query, parentQuery.params);
+      if (clauses.fromClauses || parentClauses.fromClauses) {
+        throw Error('Queries that order by included fields cannot contain array searches.');
+      }
+      sql = `select ${method === 'sum' ? 'total' : method}(${column ? `${table}.${column}` : '*'}) as ${method}_result, ${table}.${groupKey} from ${parentQuery.table} left join ${table} on ${parentQuery.table}.${parentQuery.joinColumn} = ${table}.${groupKey}`;
+      if (clauses.whereClauses || parentClauses.whereClauses) {
+        sql += ' where ';
+        if (parentClauses.whereClauses) {
+          sql += parentClauses.whereClauses;
+        }
+        if (clauses.whereClauses) {
+          if (parentClauses.whereClauses) {
+            sql += ' and ';
+          }
+          sql += clauses.whereClauses;
+        }
+      }
+    }
+    else {
+      const { whereClauses, fromClauses } = toWhere(verify, table, query);
+      let expression;
+      if (fromClauses && !column && method === 'count') {
+        expression = `distinct ${table}.${primaryKey}`;
+      }
+      else if (column) {
+        expression = `${table}.${column}`;
+      }
+      else {
+        expression = '*';
+      }
+      sql = `select ${method === 'sum' ? 'total' : method}(${expression}) as ${method}_result, ${table}.${groupKey} from ${table}`;
+      if (fromClauses) {
+        sql += `, ${fromClauses}`;
+      }
+      if (whereClauses) {
+        sql += ` where ${whereClauses}`;
+      }
+    }
   }
   else {
-    sql = `select count(*) as count from ${table}`;
+    const { whereClauses, fromClauses } = toWhere(verify, table, query);
+    let expression;
+    if (fromClauses && !column && method === 'count') {
+      expression = `distinct ${table}.${primaryKey}`;
+    }
+    else if (column) {
+      expression = `${table}.${column}`;
+    }
+    else {
+      expression = '*';
+    }
+    sql = `select ${method === 'sum' ? 'total' : method}(${expression}) as ${method}_result from ${table}`;
+    if (fromClauses) {
+      sql += `, ${fromClauses}`;
+    }
+    if (whereClauses) {
+      sql += ` where ${whereClauses}`;
+    }
   }
-  sql += addClauses(verify, table, query);
   if (groupKey) {
-    sql += ` group by ${groupKey}`;
+    sql += ` group by ${table}.${groupKey}`;
+    if (parentQuery) {
+      sql += ` order by ${method}_result`;
+      const { offset, limit, desc } = parentQuery.keywords;
+      if (desc) {
+        sql += ` desc`;
+      }
+      if (offset) {
+        const placeholder = getPlaceholder();
+        query[placeholder] = offset;
+        sql += ` offset $${placeholder}`;
+      }
+      if (limit) {
+        const placeholder = getPlaceholder();
+        query[placeholder] = limit;
+        sql += ` limit $${placeholder}`;
+      }
+    }
   }
   const options = {
     query: sql,
@@ -737,7 +861,7 @@ const count = async (db, table, query, tx, groupKey) => {
       return results;
     }
     if (results.length > 0) {
-      return results[0].count;
+      return results[0][`${method}_result`];
     }
     return undefined;
   };
@@ -748,7 +872,7 @@ const count = async (db, table, query, tx, groupKey) => {
   return post(results);
 }
 
-const processInclude = (key, query) => {
+const processInclude = (key, query, parentQuery) => {
   const tableTarget = {};
   const tableHandler = {
     get: function(target, property) {
@@ -775,13 +899,20 @@ const processInclude = (key, query) => {
   const columnTarget = {};
   const columnProxy = new Proxy(columnTarget, columnHandler);
   query(tableProxy, columnProxy);
+  if (parentQuery) {
+    parentQuery.joinColumn = columnTarget.name;
+  }
   const method = tableTarget.method;
   const runQuery = async (db, result) => {
-    const singleResult = !Array.isArray(result);
-    const singleInclude = ['first', 'get', 'exists', 'count'].includes(method);
-    const values = singleResult ? result[columnTarget.name] : result.map(item => item[columnTarget.name]);
+    const singleResult = !parentQuery && !Array.isArray(result);
+    const singleInclude = ['first', 'get', 'exists'].includes(method) || aggregateMethods.includes(method);
+    let values;
+    if (!parentQuery) {
+      values = singleResult ? result[columnTarget.name] : result.map(item => item[columnTarget.name]);
+    }
     let where;
-    if (['get', 'many', 'exists'].includes(method) || (method === 'count' && !tableTarget.args.where)) {
+    const whereFirst = ['get', 'many', 'exists'].includes(method) || (method === 'count' && !tableTarget.args.where);
+    if (whereFirst) {
       where = tableTarget.args[0];
     }
     else {
@@ -794,6 +925,22 @@ const processInclude = (key, query) => {
         where[key] = values;
         break;
       }
+    }
+    if (parentQuery) {
+      const adjustedWhere = {};
+      for (const [key, value] of Object.entries(where)) {
+        if (key === whereKey) {
+          continue;
+        }
+        adjustedWhere[key] = value;
+      }
+      if (whereFirst) {
+        tableTarget.args[0] = adjustedWhere;
+      }
+      else {
+        tableTarget.args[0].where = adjustedWhere;
+      }
+      where = adjustedWhere;
     }
     let returnToValues = null;
     if (['get', 'many', 'exists', 'count'].includes(method) && whereKey !== undefined) {
@@ -809,13 +956,14 @@ const processInclude = (key, query) => {
           select.push(whereKey);
         }
       }
-      if (method === 'count') {
-        tableTarget.args.push(whereKey);
-        returnToValues = 'count';
-      }
-      if (method === 'exists') {
-        tableTarget.args.push(whereKey);
-        returnToValues = 'result';
+      if (method === 'exists' || aggregateMethods.includes(method)) {
+        if (method !== 'exists') {
+          if (tableTarget.args.length === 1) {
+            tableTarget.args.push(undefined);
+          }
+        }
+        tableTarget.args.push(whereKey, parentQuery);
+        returnToValues = `${method}_result`;
       }
     }
     else if (whereKey !== undefined) {
@@ -844,65 +992,72 @@ const processInclude = (key, query) => {
       }
     }
     const included = await db[tableTarget.table][queryMethod](...tableTarget.args);
-    if (singleResult) {
-      let adjusted = false;
-      if (singleInclude) {
-        if (included === undefined) {
-          adjusted = true;
-          if (method === 'exists') {
-            result[key] = false;
-          }
-          else if (method === 'count') {
-            result[key] = 0;
+    const postProcess = (result) => {
+      if (singleResult) {
+        let adjusted = false;
+        if (singleInclude) {
+          if (included === undefined) {
+            adjusted = true;
+            if (method === 'exists') {
+              result[key] = false;
+            }
+            else if (method === 'count') {
+              result[key] = 0;
+            }
+            else {
+              result[key] = included;
+            }
           }
           else {
             result[key] = included;
           }
         }
-        else {
-          result[key] = included;
+        if (returnToValues !== null && !adjusted) {
+          const value = result[key];
+          if (singleInclude) {
+            result[key] = value[returnToValues];
+          }
+          else {
+            result[key] = value.map(item => item[returnToValues]);
+          }
         }
       }
-      if (returnToValues !== null && !adjusted) {
-        const value = result[key];
-        if (singleInclude) {
-          result[key] = value[returnToValues];
-        }
-        else {
-          result[key] = value.map(item => item[returnToValues]);
-        }
-      }
-    }
-    else {
-      for (const item of result) {
-        const itemKey = item[columnTarget.name];
-        if (whereKey !== undefined) {
-          item[key] = included.filter(value => value[whereKey] === itemKey);
-        }
-        else {
-          item[key] = included;
-        }
-        if (returnToValues !== null) {
-          item[key] = item[key].map(v => v[returnToValues]);
-        }
-        if (singleInclude) {
-          const value = item[key].at(0);
-          if (value === undefined) {
-            if (method === 'exists') {
-              item[key] = false;
-            }
-            else if (method === 'count') {
-              item[key] = 0;
+      else {
+        for (const item of result) {
+          const itemKey = item[columnTarget.name];
+          if (whereKey !== undefined) {
+            item[key] = included.filter(value => value[whereKey] === itemKey);
+          }
+          else {
+            item[key] = included;
+          }
+          if (returnToValues !== null) {
+            item[key] = item[key].map(v => v[returnToValues]);
+          }
+          if (singleInclude) {
+            const value = item[key].at(0);
+            if (value === undefined) {
+              if (method === 'exists') {
+                item[key] = false;
+              }
+              else if (method === 'count') {
+                item[key] = 0;
+              }
+              else {
+                item[key] = value;
+              }
             }
             else {
               item[key] = value;
             }
           }
-          else {
-            item[key] = value;
-          }
         }
       }
+    }
+    return {
+      raw: included,
+      whereKey,
+      postProcess
     }
   }
   return {
@@ -930,20 +1085,63 @@ const all = async (db, table, query, columns, first, tx, dbClient, partitionBy) 
   const returnValue = ['string', 'function'].includes(typeof columns);
   const includeResults = [];
   let columnsToRemove = [];
+  let runFirst;
+  let orderByIncludes;
   if (included && !returnValue) {
     const extraColumns = new Set();
+    const includeNames = [];
+    const maybeIncludeSort = keywords && keywords.orderBy && (keywords.limit !== undefined || keywords.offset !== undefined);
+    const orderBy = [];
+    if (keywords && keywords.orderBy) {
+      if (!Array.isArray(keywords.orderBy)) {
+        orderBy.push(keywords.orderBy);
+      }
+      else {
+        orderBy.push(...keywords.orderBy);
+      }
+    }
     for (const [column, query] of Object.entries(included)) {
-      const result = processInclude(column, query);
+      let parentQuery;
+      if (maybeIncludeSort && orderBy.includes(column)) {
+        parentQuery = {
+          table,
+          query,
+          columns,
+          keywords
+        };
+      }
+      const result = processInclude(column, query, parentQuery);
       extraColumns.add(result.proxyColumn);
       includeResults.push({ column, result });
+      includeNames.push(column);
     }
     if (columns) {
       columnsToRemove = Array.from(extraColumns.values()).filter(c => !columns.includes(c));
       columns.push(...columnsToRemove);
     }
+    if (keywords && keywords.orderBy && (keywords.limit !== undefined || keywords.offset !== undefined)) {
+      const orderBy = keywords.orderBy;
+      if (Array.isArray(orderBy)) {
+        runFirst = includeNames.find(n => orderBy.includes(n));
+      }
+      else {
+        runFirst = includeNames.find(n => n === orderBy);
+      }
+    }
+    if (runFirst) {
+      orderByIncludes = runFirst;
+    }
+    else if (keywords && keywords.orderBy) {
+      if (Array.isArray(orderBy)) {
+        orderByIncludes = includeNames.find(n => orderBy.includes(n));
+      }
+      else {
+        orderByIncludes = includeNames.find(n => n === orderBy);
+      }
+    }
   }
   const columnSet = db.columnSets[table];
-  const verify = makeVerify(table, columnSet);
+  const verify = makeVerify(table, columnSet, included);
   const customFields = {};
   const select = toSelect(db, table, columns, verify, query, customFields);
   if (db.virtualSet.has(table)) {
@@ -1006,8 +1204,19 @@ const all = async (db, table, query, columns, first, tx, dbClient, partitionBy) 
       sql += 'distinct ';
     }
     sql += `${select.clause} from ${table}`;
+    if (runFirst) {
+      const include = includeResults.find(r => r.column === runFirst);
+      const result = await include.result.runQuery(dbClient);
+      include.postProcess = result.postProcess;
+      const mapped = result.raw.map(r => r[result.whereKey]);
+      query = {
+        [include.result.proxyColumn]: mapped
+      };
+    }
     sql += addClauses(verify, table, query);
-    sql += toKeywords(verify, keywords, query, customFields);
+    if (!runFirst) {
+      sql += toKeywords(verify, keywords, query, customFields);
+    }
   }
   if (first) {
     sql += ' limit 1';
@@ -1077,8 +1286,14 @@ const all = async (db, table, query, columns, first, tx, dbClient, partitionBy) 
   }
   if (first) {
     for (const include of includeResults) {
-      const { runQuery } = include.result;
-      await runQuery(dbClient, adjusted);
+      if (include.postProcess) {
+        include.postProcess(adjusted);
+      }
+      else {
+        const runQuery = include.result.runQuery;
+        const result = await runQuery(dbClient, adjusted);
+        result.postProcess(adjusted);
+      }
       if (columnsToRemove.length === 0) {
         continue;
       }
@@ -1094,8 +1309,14 @@ const all = async (db, table, query, columns, first, tx, dbClient, partitionBy) 
   else {
     let result = adjusted;
     for (const include of includeResults) {
-      const { runQuery } = include.result;
-      await runQuery(dbClient, adjusted);
+      if (include.postProcess) {
+        include.postProcess(adjusted);
+      }
+      else {
+        const runQuery = include.result.runQuery;
+        const result = await runQuery(dbClient, adjusted);
+        result.postProcess(adjusted);
+      }
       if (columnsToRemove.length === 0) {
         continue;
       }
@@ -1111,6 +1332,81 @@ const all = async (db, table, query, columns, first, tx, dbClient, partitionBy) 
         mapped.push(removed);
       }
       result = mapped;
+    }
+    if (orderByIncludes) {
+      const sample = result.find(r => r[orderByIncludes] !== null && r[orderByIncludes] !== undefined);
+      if (sample !== undefined) {
+        const type = sample[orderByIncludes] instanceof Date ? 'Date' : typeof sample[orderByIncludes];
+        let sorter;
+        const nullSorter = (sorter, desc) => {
+          return (a, b) => {
+            if (a === b) {
+              return 0;
+            }
+            if (a === null || a === undefined) {
+              if (b !== null && b !== undefined) {
+                if (desc) {
+                  return -1;
+                }
+                return 1;
+              }
+              return 0;
+            }
+            if (b === null || b === undefined) {
+              if (a !== null & a !== undefined) {
+                if (desc) {
+                  return 1;
+                }
+                return -1;
+              }
+              return 0;
+            }
+            return sorter(a, b);
+          }
+        }
+        if (type === 'string') {
+          if (keywords.desc) {
+            sorter = nullSorter((a, b) => b[orderByIncludes].localeCompare(a[orderByIncludes]), true);
+          }
+          else {
+            sorter = nullSorter((a, b) => a[orderByIncludes].localeCompare(b[orderByIncludes]));
+          }
+        }
+        else if (type === 'number' || type === 'boolean') {
+          if (keywords.desc) {
+            sorter = nullSorter((a, b) => b[orderByIncludes] - a[orderByIncludes], true);
+          }
+          else {
+            sorter = nullSorter((a, b) => a[orderByIncludes] - b[orderByIncludes]);
+          }
+        }
+        else if (type === 'Date') {
+          if (keywords.desc) {
+            const sort = (a, b) => {
+              const order = b[orderByIncludes].getTime() - a[orderByIncludes].getTime();
+              if (order === NaN) {
+                return 0;
+              }
+              return order;
+            };
+            sorter = nullSorter(sort, true);
+          }
+          else {
+            const sort = (a, b) => {
+              const order = a[orderByIncludes].getTime() - b[orderByIncludes].getTime();
+              if (order === NaN) {
+                return 0;
+              }
+              return order;
+            };
+            sorter = nullSorter(sort);
+          }
+        }
+        else {
+          throw Error(`Cannot sort ${type} types`);
+        }
+        result.sort(sorter);
+      }
     }
     return result;
   }
@@ -1138,7 +1434,7 @@ export {
   update,
   upsert,
   exists,
-  count,
+  aggregate,
   all,
   remove
 }

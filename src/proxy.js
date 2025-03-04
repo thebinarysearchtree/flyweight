@@ -4,7 +4,7 @@ import {
   update,
   upsert,
   exists,
-  count,
+  aggregate,
   all,
   remove
 } from './queries.js';
@@ -16,8 +16,12 @@ const basic = {
   insertMany: (database, table, tx) => async (items) => await insertMany(database, table, items, tx),
   update: (database, table, tx) => async (options) => await update(database, table, options, tx),
   upsert: (database, table, tx) => async (options) => await upsert(database, table, options, tx),
-  exists: (database, table, tx) => async (query, groupKey) => await exists(database, table, query, tx, groupKey),
-  count: (database, table, tx) => async (query, groupKey) => await count(database, table, query, tx, groupKey),
+  exists: (database, table, tx) => async (query, groupKey, parentQuery) => await exists(database, table, query, tx, groupKey, parentQuery),
+  count: (database, table, tx) => async (query, column, groupKey, parentQuery) => await aggregate(database, table, query, tx, 'count', column, groupKey, parentQuery),
+  avg: (database, table, tx) => async (query, column, groupKey, parentQuery) => await aggregate(database, table, query, tx, 'avg', column, groupKey, parentQuery),
+  min: (database, table, tx) => async (query, column, groupKey, parentQuery) => await aggregate(database, table, query, tx, 'min', column, groupKey, parentQuery),
+  max: (database, table, tx) => async (query, column, groupKey, parentQuery) => await aggregate(database, table, query, tx, 'max', column, groupKey, parentQuery),
+  sum: (database, table, tx) => async (query, column, groupKey, parentQuery) => await aggregate(database, table, query, tx, 'sum', column, groupKey, parentQuery),
   get: (database, table, tx) => async (query, columns) => await all(database, table, query, columns, true, tx),
   many: (database, table, tx) => async (query, columns) => await all(database, table, query, columns, false, tx),
   query: (database, table, tx, dbClient) => async (query, partitionBy) => await all(database, table, query, null, false, tx, dbClient, partitionBy),
@@ -211,29 +215,25 @@ const makeQueryHandler = (table, db, tx, dbClient) => {
   return {
     get: function(target, query) {
       if (!target[query]) {
+        if (basic[query]) {
+          const makeQuery = basic[query];
+          const method = makeQuery(db, table, tx, dbClient);
+          target[query] = async (...args) => {
+            return await method(...args);
+          }
+          return target[query];
+        }
         let cachedFunction;
         target[query] = async (params, queryOptions, keywords) => {
           if (cachedFunction) {
             return await cachedFunction(params, queryOptions);
           }
           let sql;
-          try {
-            if (!db.initialized) {
-              await db.initialize();
-            }
-            sql = await db.readQuery(table, query);
-            sql = preprocess(sql, db.tables);
+          if (!db.initialized) {
+            await db.initialize();
           }
-          catch (e) {
-            const makeQuery = basic[query];
-            if (makeQuery) {
-              cachedFunction = makeQuery(db, table, tx, dbClient);
-              return await cachedFunction(params, queryOptions, keywords);
-            }
-            else {
-              throw e;
-            }
-          }
+          sql = await db.readQuery(table, query);
+          sql = preprocess(sql, db.tables);
           write = isWrite(sql);
           const columns = parseQuery(sql, db.tables);
           const options = makeOptions(columns, db);
