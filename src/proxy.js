@@ -24,7 +24,7 @@ const basic = {
   sum: (database, table, tx) => async (query, column, groupKey, parentQuery) => await aggregate(database, table, query, tx, 'sum', column, groupKey, parentQuery),
   get: (database, table, tx) => async (query, columns) => await all(database, table, query, columns, true, tx),
   many: (database, table, tx) => async (query, columns) => await all(database, table, query, columns, false, tx),
-  query: (database, table, tx, dbClient) => async (query, partitionBy) => await all(database, table, query, null, false, tx, dbClient, partitionBy),
+  query: (database, table, tx, dbClient) => async (query, partitionBy, singleRow) => await all(database, table, query, null, false, tx, dbClient, partitionBy, singleRow),
   first: (database, table, tx, dbClient) => async (query, partitionBy) => await all(database, table, query, null, true, tx, dbClient, partitionBy),
   remove: (database, table, tx) => async (query) => await remove(database, table, query, tx)
 }

@@ -169,7 +169,31 @@ const run = async () => {
     desc: true,
     limit: 3
   });
-  console.log(popular);
+  assert.equal(popular.at(0).eventCount, 67);
+  const latest = await db.locations.query({
+    select: ['id', 'name'],
+    where: {
+      id: n => n.range({ gt: 109, lt: 120 })
+    },
+    include: {
+      latest: (t, c) => t.events.first({
+        where: {
+          locationId: c.id
+        },
+        orderBy: 'startTime',
+        desc: true
+      })
+    }
+  });
+  assert.equal(latest.at(0).latest.id, 502);
+  const total = await db.fighters.count({
+    where: {
+      heightCm: n => n.not(null)
+    }
+  });
+  const sum = await db.fighters.sum(null, 'heightCm');
+  const avg = await db.fighters.avg(null, 'heightCm');
+  assert.equal(avg, sum / total);
 }
 
 const cleanUp = async () => {

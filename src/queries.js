@@ -990,6 +990,9 @@ const processInclude = (key, query, parentQuery) => {
       if (tableTarget.args[0].limit !== undefined) {
         tableTarget.args.push(whereKey);
       }
+      else if (tableTarget.args[0].orderBy !== undefined && method === 'first' && queryMethod === 'query') {
+        tableTarget.args.push(whereKey, true);
+      }
     }
     const included = await db[tableTarget.table][queryMethod](...tableTarget.args);
     const postProcess = (result) => {
@@ -1066,7 +1069,7 @@ const processInclude = (key, query, parentQuery) => {
   }
 }
 
-const all = async (db, table, query, columns, first, tx, dbClient, partitionBy) => {
+const all = async (db, table, query, columns, first, tx, dbClient, partitionBy, singleRow) => {
   if (!db.initialized) {
     await db.initialize();
   }
@@ -1169,6 +1172,10 @@ const all = async (db, table, query, columns, first, tx, dbClient, partitionBy) 
     select.clause += `, row_number() over (partition by ${partitionBy} order by ${orderBy}${desc}) as ${alias}`;
     const wrapQuery = (sql) => {
       let statement = `with rankedQuery as (${sql}) select ${select.names.join(', ')} from rankedQuery where ${alias}`;
+      if (singleRow) {
+        statement += ' = 1';
+        return statement;
+      }
       const hasOffset = keywords.offset !== undefined && Number.isInteger(keywords.offset);
       const hasLimit = keywords.limit !== undefined && Number.isInteger(keywords.limit);
       if (hasOffset && hasLimit) {

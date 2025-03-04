@@ -506,11 +506,11 @@ const createTypes = async (options) => {
       if (tsType === 'Json') {
         const saved = jsonTypes.get(`${table.name} ${name}`);
         const whereType = saved ? saved.columnType : tsType;
-        property += `WhereFunction<${whereType}, Assignable<${interfaceName}, ${whereType}, '${name}'>>`;
+        property += `WhereFunction<${whereType}>`;
       }
       else {
         property += tsType;
-        property += ` | Array<${tsType}> | WhereFunction<${tsType}, Assignable<${interfaceName}, ${tsType}, '${name}'>>`;
+        property += ` | Array<${tsType}> | WhereFunction<${tsType}>`;
       }
       if (!primaryKey && !notNull) {
         property += ' | null';
