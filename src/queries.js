@@ -1385,7 +1385,7 @@ const all = async (db, table, query, columns, first, tx, dbClient, partitionBy, 
           if (keywords.desc) {
             const sort = (a, b) => {
               const order = b[orderByIncludes].getTime() - a[orderByIncludes].getTime();
-              if (order === NaN) {
+              if (isNaN(order)) {
                 return 0;
               }
               return order;
@@ -1395,7 +1395,7 @@ const all = async (db, table, query, columns, first, tx, dbClient, partitionBy, 
           else {
             const sort = (a, b) => {
               const order = a[orderByIncludes].getTime() - b[orderByIncludes].getTime();
-              if (order === NaN) {
+              if (isNaN(order)) {
                 return 0;
               }
               return order;
