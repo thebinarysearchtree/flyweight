@@ -753,30 +753,29 @@ const addClauses = (verify, table, query, params) => {
   return sql;
 }
 
-const aggregate = async (db, table, query, tx, method, column, groupKey, parentQuery) => {
+const aggregate = async (db, table, query, tx, method, groupKey, parentQuery) => {
   if (!db.initialized) {
     await db.initialize();
   }
   if (!query) {
     query = {};
   }
-  if (reservedWords.some(k => query.hasOwnProperty(k))) {
-    query = query.where;
-  }
+  const { where, column } = query;
+  const distinct = query.distinct ? 'distinct ' : '';
   const columnSet = db.columnSets[table];
   const verify = makeVerify(table, columnSet);
   const primaryKey = db.getPrimaryKey(table);
   let sql;
   if (groupKey) {
     if (parentQuery) {
-      const clauses = toWhere(verify, table, query);
+      const clauses = toWhere(verify, table, where);
       const columnSet = db.columnSets[parentQuery.table];
       const parentVerify = makeVerify(parentQuery.table, columnSet);
       const parentClauses = toWhere(parentVerify, parentQuery.table, parentQuery.query, parentQuery.params);
       if (clauses.fromClauses || parentClauses.fromClauses) {
         throw Error('Queries that order by included fields cannot contain array searches.');
       }
-      sql = `select ${method === 'sum' ? 'total' : method}(${column ? `${table}.${column}` : '*'}) as ${method}_result, ${table}.${groupKey} from ${parentQuery.table} left join ${table} on ${parentQuery.table}.${parentQuery.joinColumn} = ${table}.${groupKey}`;
+      sql = `select ${method === 'sum' ? 'total' : method}(${column ? `${distinct}${table}.${column}` : '*'}) as ${method}_result, ${table}.${groupKey} from ${parentQuery.table} left join ${table} on ${parentQuery.table}.${parentQuery.joinColumn} = ${table}.${groupKey}`;
       if (clauses.whereClauses || parentClauses.whereClauses) {
         sql += ' where ';
         if (parentClauses.whereClauses) {
@@ -791,13 +790,13 @@ const aggregate = async (db, table, query, tx, method, column, groupKey, parentQ
       }
     }
     else {
-      const { whereClauses, fromClauses } = toWhere(verify, table, query);
+      const { whereClauses, fromClauses } = toWhere(verify, table, where);
       let expression;
       if (fromClauses && !column && method === 'count') {
         expression = `distinct ${table}.${primaryKey}`;
       }
       else if (column) {
-        expression = `${table}.${column}`;
+        expression = `${distinct}${table}.${column}`;
       }
       else {
         expression = '*';
@@ -812,13 +811,13 @@ const aggregate = async (db, table, query, tx, method, column, groupKey, parentQ
     }
   }
   else {
-    const { whereClauses, fromClauses } = toWhere(verify, table, query);
+    const { whereClauses, fromClauses } = toWhere(verify, table, where);
     let expression;
     if (fromClauses && !column && method === 'count') {
       expression = `distinct ${table}.${primaryKey}`;
     }
     else if (column) {
-      expression = `${table}.${column}`;
+      expression = `${distinct}${table}.${column}`;
     }
     else {
       expression = '*';
@@ -841,19 +840,19 @@ const aggregate = async (db, table, query, tx, method, column, groupKey, parentQ
       }
       if (offset) {
         const placeholder = getPlaceholder();
-        query[placeholder] = offset;
+        where[placeholder] = offset;
         sql += ` offset $${placeholder}`;
       }
       if (limit) {
         const placeholder = getPlaceholder();
-        query[placeholder] = limit;
+        where[placeholder] = limit;
         sql += ` limit $${placeholder}`;
       }
     }
   }
   const options = {
     query: sql,
-    params: cleanse(query),
+    params: cleanse(where),
     tx
   };
   const post = (results) => {
@@ -911,7 +910,7 @@ const processInclude = (key, query, parentQuery) => {
       values = singleResult ? result[columnTarget.name] : result.map(item => item[columnTarget.name]);
     }
     let where;
-    const whereFirst = ['get', 'many', 'exists'].includes(method) || (method === 'count' && !tableTarget.args.where);
+    const whereFirst = ['get', 'many', 'exists'].includes(method);
     if (whereFirst) {
       where = tableTarget.args[0];
     }
@@ -957,11 +956,6 @@ const processInclude = (key, query, parentQuery) => {
         }
       }
       if (method === 'exists' || aggregateMethods.includes(method)) {
-        if (method !== 'exists') {
-          if (tableTarget.args.length === 1) {
-            tableTarget.args.push(undefined);
-          }
-        }
         tableTarget.args.push(whereKey, parentQuery);
         returnToValues = `${method}_result`;
       }

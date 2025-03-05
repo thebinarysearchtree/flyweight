@@ -55,8 +55,15 @@ export interface VirtualQuerySelector<W, T, N> extends VirtualQuery<W, T> {
   select: (selector: T) => N;
 }
 
-export interface CountQuery<W> {
+export interface CountQuery<W, K> {
   where?: W;
+  column?: K;
+  distinct?: boolean;
+}
+
+export interface AggregateQuery<W, K> {
+  where?: W;
+  column: K;
   distinct?: boolean;
 }
 
@@ -155,12 +162,11 @@ export interface Queries<T, I, W, R, Y> {
   first(query: ComplexQuery<W, T>): Promise<T | undefined>;
   first<U extends Includes<Y, T>>(query: ComplexQueryInclude<W, T, U>): Promise<MergeIncludes<T, U> | undefined>;
   first<N>(query: ComplexQuerySelector<W, T, N>): Promise<N | undefined>;
-  count<K extends keyof T>(query: CountQuery<W>, column?: K): Promise<number>;
-  count<K extends keyof T>(params: W | null, column?: K): Promise<number>;
-  avg<K extends keyof T>(params: W | null, column: K): Promise<number>;
-  max<K extends keyof T>(params: W | null, column: K): Promise<number>;
-  min<K extends keyof T>(params: W | null, column: K): Promise<number>;
-  sum<K extends keyof T>(params: W | null, column: K): Promise<number>;
+  count<K extends keyof T>(query?: CountQuery<W, K>): Promise<number>;
+  avg<K extends keyof T>(query: AggregateQuery<W, K>): Promise<number>;
+  max<K extends keyof T>(query: AggregateQuery<W, K>): Promise<number>;
+  min<K extends keyof T>(query: AggregateQuery<W, K>): Promise<number>;
+  sum<K extends keyof T>(query: AggregateQuery<W, K>): Promise<number>;
   exists(params: W | null): Promise<boolean>;
   remove(params?: W): Promise<number>;
 }

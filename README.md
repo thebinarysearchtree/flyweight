@@ -273,15 +273,34 @@ For example:
 ```js
 const excluded = [1, 2, 3];
 const users = await db.users.many({ id: i => i.not(excluded) });
-const count = await db.users.count({ id: i => i.range({ gt: 10, lt: 15 }) });
+const count = await db.users.count({
+  where: {
+    id: i => i.range({ gt: 10, lt: 15 })
+  }
+});
 ```
 
-### Exists and Count
+### Aggregate functions
 
-These functions take one argument representing the where clause.
+There are multiple functions that aggregate the results into a single value. These include ```count```, ```avg```, ```min```, ```max```, and ```sum```. Despite its name, ```sum``` uses the SQLite function ```total``` to determine the results.
+
+All of these functions take three arguments:
+
+```where```: the where clause
+```column```: the column to aggregate. This is optional for ```count```.
+```distinct```: an optional boolean value indicating whether only distinct values should be used in the calculations.
 
 ```js
-const count = await db.fighters.count({ hometown: 'Brisbane, Australia' });
+const count = await db.fighters.count({
+  where: {
+    hometown: 'Brisbane, Australia'
+  }
+});
+```
+
+There is also an ```exists``` function that takes one argument representing the where clause.
+
+```js
 const exists = await db.fighters.exists({ name: 'Israel Adesanya' });
 ```
 

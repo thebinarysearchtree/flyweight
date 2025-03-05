@@ -51,7 +51,11 @@ const run = async () => {
   assert.equal(coaches.length, 1);
   await db.coaches.remove();
 
-  const methodCount = await db.fights.count({ methodId: null });
+  const methodCount = await db.fights.count({
+    where: {
+      methodId: null
+    }
+  });
   assert.equal(methodCount, 45);
 
   const wait = async () => {

@@ -53,7 +53,11 @@ const run = async () => {
   const count = await db.coaches.count({ name: 'Eugene' });
   assert.equal(count, 2);
   await db.coaches.remove();
-  const fighterCount = await db.fighters.count({ id: n => n.range({ gt: 10, lt: 15 }) });
+  const fighterCount = await db.fighters.count({
+    where: { 
+      id: n => n.range({ gt: 10, lt: 15 }) 
+    }
+  });
   assert.equal(fighterCount, 4);
   const whereSelector = await db.fighters.get({ social: s => s.instagram.eq('angga_thehitman') });
   assert.equal(whereSelector.id, 2);
@@ -163,7 +167,11 @@ const run = async () => {
   assert.equal(fight.red.id, fight.redId);
   const popular = await db.locations.query({
     include: {
-      eventCount: (t, c) => t.events.count({ locationId: c.id })
+      eventCount: (t, c) => t.events.count({
+        where: {
+          locationId: c.id
+        }
+      })
     },
     orderBy: 'eventCount',
     desc: true,
@@ -191,8 +199,8 @@ const run = async () => {
       heightCm: n => n.not(null)
     }
   });
-  const sum = await db.fighters.sum(null, 'heightCm');
-  const avg = await db.fighters.avg(null, 'heightCm');
+  const sum = await db.fighters.sum({ column: 'heightCm' });
+  const avg = await db.fighters.avg({ column: 'heightCm' });
   assert.equal(avg, sum / total);
 }
 
