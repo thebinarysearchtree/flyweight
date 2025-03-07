@@ -946,6 +946,7 @@ const processInclude = (key, query, parentQuery) => {
   const runQuery = async (db, result) => {
     const singleResult = !parentQuery && !Array.isArray(result);
     const singleInclude = ['first', 'get', 'exists'].includes(method) || aggregateMethods.includes(method);
+    let group = false;
     let values;
     if (!parentQuery) {
       values = singleResult ? result[columnTarget.name] : result.map(item => item[columnTarget.name]);
@@ -984,6 +985,7 @@ const processInclude = (key, query, parentQuery) => {
         }
       }
       if (method === 'exists' || aggregateMethods.includes(method)) {
+        group = true;
         tableTarget.args.push(whereKey, parentQuery);
         returnToValues = `${method}_result`;
       }
@@ -1027,7 +1029,8 @@ const processInclude = (key, query, parentQuery) => {
       if (singleResult) {
         let adjusted = false;
         if (singleInclude) {
-          if (included === undefined) {
+          const mapped = group ? included.at(0) : included;
+          if (mapped === undefined) {
             adjusted = true;
             if (method === 'exists') {
               result[key] = false;
@@ -1036,11 +1039,11 @@ const processInclude = (key, query, parentQuery) => {
               result[key] = 0;
             }
             else {
-              result[key] = included;
+              result[key] = mapped;
             }
           }
           else {
-            result[key] = included;
+            result[key] = mapped;
           }
         }
         else {

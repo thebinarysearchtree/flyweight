@@ -225,6 +225,19 @@ const run = async () => {
   });
   assert.equal(ordered.at(2).id, 308);
   assert.equal(ordered.length, 3);
+  const singleCount = await db.locations.first({
+    where: {
+      id: 45
+    },
+    include: {
+      eventsCount: (t, c) => t.events.count({
+        where: {
+          locationId: c.id
+        }
+      })
+    }
+  });
+  assert.equal(singleCount.eventsCount, 18);
 }
 
 const cleanUp = async () => {
