@@ -167,6 +167,16 @@ const run = async () => {
   assert.equal(fight.red.id, fight.redId);
   const popular = await db.locations.query({
     include: {
+      latest: (t, c) => t.events.first({
+        include: {
+          cards: (t, c) => t.cards.many({ eventId: c.id })
+        },
+        where: {
+          locationId: c.id
+        },
+        orderBy: 'startTime',
+        desc: true
+      }),
       eventCount: (t, c) => t.events.count({
         where: {
           locationId: c.id
@@ -177,6 +187,7 @@ const run = async () => {
     desc: true,
     limit: 3
   });
+  assert.equal(popular.at(1).latest.cards.length, 3);
   assert.equal(popular.at(0).eventCount, 67);
   const latest = await db.locations.query({
     select: ['id', 'name'],
@@ -185,6 +196,9 @@ const run = async () => {
     },
     include: {
       latest: (t, c) => t.events.first({
+        include: {
+          cards: (t, c) => t.cards.many({ eventId: c.id })
+        },
         where: {
           locationId: c.id
         },
@@ -202,6 +216,15 @@ const run = async () => {
   const sum = await db.fighters.sum({ column: 'heightCm' });
   const avg = await db.fighters.avg({ column: 'heightCm' });
   assert.equal(avg, sum / total);
+  const ordered = await db.events.query({
+    include: {
+      locationName: (t, c) => t.locations.get({ id: c.locationId }, 'name')
+    },
+    orderBy: 'locationName',
+    limit: 3
+  });
+  assert.equal(ordered.at(2).id, 308);
+  assert.equal(ordered.length, 3);
 }
 
 const cleanUp = async () => {

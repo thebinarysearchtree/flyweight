@@ -143,8 +143,8 @@ export interface Queries<T, I, W, R, Y> {
   update(options: UpdateQuery<W, I>): Promise<number>;
   upsert<K extends keyof T>(options: UpsertQuery<I, K>): Promise<R>;
   get(params?: W | null): Promise<T | undefined>;
-  get<K extends keyof T, A extends string, N>(params: W | null, columns: (Alias<T, A, N> | K)[] | (keyof T)[]): Promise<(Pick<T, K> & Record<A, N>) | undefined>;
   get<K extends keyof T>(params: W | null, column: K): Promise<T[K] | undefined>;
+  get<K extends keyof T, A extends string, N>(params: W | null, columns: (Alias<T, A, N> | K)[] | (keyof T)[]): Promise<(Pick<T, K> & Record<A, N>) | undefined>;
   get<N>(params: W | null, column: (selector: T) => N): Promise<N | undefined>;
   many(params?: W): Promise<Array<T>>;
   many<K extends keyof T, A extends string, N>(params: W | null, columns: (Alias<K, A, N> | K)[] | (keyof T)[]): Promise<Array<(Pick<T, K> & Pick<{ [key: string]: N }, A>)>>;

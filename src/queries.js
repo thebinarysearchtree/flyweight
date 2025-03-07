@@ -902,6 +902,47 @@ const processInclude = (key, query, parentQuery) => {
     parentQuery.joinColumn = columnTarget.name;
   }
   const method = tableTarget.method;
+  let where;
+  const whereFirst = ['get', 'many', 'exists'].includes(method);
+  if (whereFirst) {
+    where = tableTarget.args[0] || {};
+  }
+  else {
+    where = tableTarget.args[0].where || {};
+  }
+  let whereKey;
+  for (const [key, value] of Object.entries(where)) {
+    if (value === columnProxy) {
+      whereKey = key;
+      break;
+    }
+  }
+  if (['first', 'get'].includes(method) && parentQuery) {
+    let column;
+    let where;
+    if (method === 'first') {
+      column = tableTarget.args[0].select;
+      where = tableTarget.args[0].where;
+    }
+    else {
+      if (tableTarget.args.length > 1) {
+        column = tableTarget.args[1];
+      }
+      if (tableTarget.args.length > 0) {
+        where = tableTarget.args[0];
+      }
+    }
+    if (typeof column !== 'string') {
+      throw Error('Cannot order by object types');
+    }
+    return {
+      parentColumn: columnTarget.name,
+      joinColumn: whereKey,
+      table: tableTarget.table,
+      column,
+      where
+    }
+  }
   const runQuery = async (db, result) => {
     const singleResult = !parentQuery && !Array.isArray(result);
     const singleInclude = ['first', 'get', 'exists'].includes(method) || aggregateMethods.includes(method);
@@ -909,21 +950,8 @@ const processInclude = (key, query, parentQuery) => {
     if (!parentQuery) {
       values = singleResult ? result[columnTarget.name] : result.map(item => item[columnTarget.name]);
     }
-    let where;
-    const whereFirst = ['get', 'many', 'exists'].includes(method);
-    if (whereFirst) {
-      where = tableTarget.args[0];
-    }
-    else {
-      where = tableTarget.args[0].where;
-    }
-    let whereKey;
-    for (const [key, value] of Object.entries(where)) {
-      if (value === columnProxy) {
-        whereKey = key;
-        where[key] = values;
-        break;
-      }
+    if (whereKey) {
+      where[whereKey] = values;
     }
     if (parentQuery) {
       const adjustedWhere = {};
@@ -942,7 +970,7 @@ const processInclude = (key, query, parentQuery) => {
       where = adjustedWhere;
     }
     let returnToValues = null;
-    if (['get', 'many', 'exists', 'count'].includes(method) && whereKey !== undefined) {
+    if (['get', 'many', 'exists', ...aggregateMethods].includes(method) && whereKey !== undefined) {
       if (tableTarget.args.length > 1) {
         const select = tableTarget.args[1];
         if (!Array.isArray(select)) {
@@ -958,6 +986,12 @@ const processInclude = (key, query, parentQuery) => {
       if (method === 'exists' || aggregateMethods.includes(method)) {
         tableTarget.args.push(whereKey, parentQuery);
         returnToValues = `${method}_result`;
+      }
+      else if (method === 'get') {
+        if (tableTarget.args.length === 1) {
+          tableTarget.args.push(undefined);
+        }
+        tableTarget.args.push(parentQuery);
       }
     }
     else if (whereKey !== undefined) {
@@ -1009,6 +1043,9 @@ const processInclude = (key, query, parentQuery) => {
             result[key] = included;
           }
         }
+        else {
+          result[key] = included;
+        }
         if (returnToValues !== null && !adjusted) {
           const value = result[key];
           if (singleInclude) {
@@ -1058,7 +1095,7 @@ const processInclude = (key, query, parentQuery) => {
     }
   }
   return {
-    proxyColumn: columnTarget.name,
+    parentColumn: columnTarget.name,
     runQuery
   }
 }
@@ -1108,7 +1145,7 @@ const all = async (db, table, query, columns, first, tx, dbClient, partitionBy, 
         };
       }
       const result = processInclude(column, query, parentQuery);
-      extraColumns.add(result.proxyColumn);
+      extraColumns.add(result.parentColumn);
       includeResults.push({ column, result });
       includeNames.push(column);
     }
@@ -1117,24 +1154,13 @@ const all = async (db, table, query, columns, first, tx, dbClient, partitionBy, 
       columns.push(...columnsToRemove);
     }
     if (keywords && keywords.orderBy && (keywords.limit !== undefined || keywords.offset !== undefined)) {
-      const orderBy = keywords.orderBy;
-      if (Array.isArray(orderBy)) {
-        runFirst = includeNames.find(n => orderBy.includes(n));
-      }
-      else {
-        runFirst = includeNames.find(n => n === orderBy);
-      }
+      runFirst = includeNames.find(n => orderBy.includes(n));
     }
     if (runFirst) {
       orderByIncludes = runFirst;
     }
     else if (keywords && keywords.orderBy) {
-      if (Array.isArray(orderBy)) {
-        orderByIncludes = includeNames.find(n => orderBy.includes(n));
-      }
-      else {
-        orderByIncludes = includeNames.find(n => n === orderBy);
-      }
+      orderByIncludes = includeNames.find(n => orderBy.includes(n));
     }
   }
   const columnSet = db.columnSets[table];
@@ -1145,6 +1171,49 @@ const all = async (db, table, query, columns, first, tx, dbClient, partitionBy, 
     return await getVirtual(db, table, query, tx, keywords, select.clause, returnValue, verify, false);
   }
   let sql = 'select ';
+  let runFirstInclude;
+  let joinWithInclude = false;
+  const otherTableColumns = new Map();
+  if (runFirst) {
+    runFirstInclude = includeResults.find(r => r.column === runFirst);
+    const { table, column, where } = runFirstInclude.result;
+    if (table !== undefined) {
+      joinWithInclude = true;
+      sql += `${table}.${column} as ${runFirstInclude.column}, `;
+      const data = {
+        table,
+        column
+      };
+      otherTableColumns.set(runFirstInclude.column, data);
+    }
+  }
+  const addWhere = () => {
+    if (joinWithInclude) {
+      const includeTable = runFirstInclude.result.table;
+      const joinColumn = runFirstInclude.result.joinColumn;
+      const parentColumn = runFirstInclude.result.parentColumn;
+      sql += ` left join ${includeTable} on ${includeTable}.${joinColumn} = ${table}.${parentColumn}`;
+      const parentClauses = toWhere(verify, table, query);
+      const includeVerify = makeVerify(includeTable, db.columnSets[includeTable]);
+      const includeWhere = runFirstInclude.result.where;
+      const includeClauses = toWhere(includeVerify, includeWhere);
+      if (parentClauses.whereClauses || includeClauses.whereClauses) {
+        sql += ` where`;
+        if (parentClauses.whereClauses) {
+          sql += ` ${parentClauses.whereClauses}`;
+        }
+        if (includeClauses.whereClauses) {
+          if (parentClauses.whereClauses) {
+            sql += ' and';
+          }
+          sql += ` ${includeClauses.whereClauses}`;
+        }
+      }
+    }
+    else {
+      sql += addClauses(verify, table, query);
+    }
+  }
   if (partitionBy) {
     let orderBy;
     if (keywords.orderBy) {
@@ -1163,7 +1232,7 @@ const all = async (db, table, query, columns, first, tx, dbClient, partitionBy, 
       i++;
       alias = `rn${i}`;
     }
-    select.clause += `, row_number() over (partition by ${partitionBy} order by ${orderBy}${desc}) as ${alias}`;
+    select.clause += `, row_number() over (partition by ${table}.${partitionBy} order by ${table}.${orderBy}${desc}) as ${alias}`;
     const wrapQuery = (sql) => {
       let statement = `with rankedQuery as (${sql}) select ${select.names.join(', ')} from rankedQuery where ${alias}`;
       if (singleRow) {
@@ -1197,7 +1266,7 @@ const all = async (db, table, query, columns, first, tx, dbClient, partitionBy, 
       sql += 'distinct ';
     }
     sql += `${select.clause} from ${table}`;
-    sql += addClauses(verify, table, query);
+    addWhere();
     sql = wrapQuery(sql);
   }
   else {
@@ -1205,17 +1274,16 @@ const all = async (db, table, query, columns, first, tx, dbClient, partitionBy, 
       sql += 'distinct ';
     }
     sql += `${select.clause} from ${table}`;
-    if (runFirst) {
-      const include = includeResults.find(r => r.column === runFirst);
-      const result = await include.result.runQuery(dbClient);
-      include.postProcess = result.postProcess;
+    if (runFirst && !joinWithInclude) {
+      const result = await runFirstInclude.result.runQuery(dbClient);
+      runFirstInclude.postProcess = result.postProcess;
       const mapped = result.raw.map(r => r[result.whereKey]);
       query = {
-        [include.result.proxyColumn]: mapped
+        [runFirstInclude.result.parentColumn]: mapped
       };
     }
-    sql += addClauses(verify, table, query);
-    if (!runFirst) {
+    addWhere();
+    if (!runFirst || joinWithInclude) {
       sql += toKeywords(verify, keywords, query, customFields);
     }
   }
@@ -1247,7 +1315,13 @@ const all = async (db, table, query, columns, first, tx, dbClient, partitionBy, 
             created[key] = value;
             continue;
           }
-          created[key] = db.convertToJs(table, key, value);
+          const other = otherTableColumns.get(key);
+          if (other) {
+            created[key] = db.convertToJs(other.table, other.column, value);
+          }
+          else {
+            created[key] = db.convertToJs(table, key, value);
+          }
         }
         adjusted.push(created);
       }
@@ -1292,8 +1366,10 @@ const all = async (db, table, query, columns, first, tx, dbClient, partitionBy, 
       }
       else {
         const runQuery = include.result.runQuery;
-        const result = await runQuery(dbClient, adjusted);
-        result.postProcess(adjusted);
+        if (runQuery) {
+          const result = await runQuery(dbClient, adjusted);
+          result.postProcess(adjusted);
+        }
       }
       if (columnsToRemove.length === 0) {
         continue;
@@ -1315,8 +1391,10 @@ const all = async (db, table, query, columns, first, tx, dbClient, partitionBy, 
       }
       else {
         const runQuery = include.result.runQuery;
-        const result = await runQuery(dbClient, adjusted);
-        result.postProcess(adjusted);
+        if (runQuery) {
+          const result = await runQuery(dbClient, adjusted);
+          result.postProcess(adjusted);
+        }
       }
       if (columnsToRemove.length === 0) {
         continue;
