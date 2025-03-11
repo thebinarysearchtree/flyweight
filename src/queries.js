@@ -760,11 +760,31 @@ const aggregate = async (db, table, query, tx, method, groupKey, parentQuery) =>
   if (!query) {
     query = {};
   }
-  const { where, column } = query;
-  const distinct = query.distinct ? 'distinct ' : '';
+  const { where, column, distinct } = query;
   const columnSet = db.columnSets[table];
   const verify = makeVerify(table, columnSet);
+  const clauses = toWhere(verify, table, where);
   const primaryKey = db.getPrimaryKey(table);
+  const alias = `${method}_result`;
+  const actualMethod = method === 'sum' ? 'total' : method;
+  let expression;
+  if (!column && !distinct) {
+    if (method !== 'count') {
+      throw Error('Aggregate needs to specify a column');
+    }
+    if (clauses.fromClauses && method === 'count') {
+      expression = `count(distinct ${table}.${primaryKey}) as ${alias}`;
+    }
+    else {
+      expression = `count(${table}.${primaryKey}) as ${alias}`;
+    }
+  }
+  else if (distinct) {
+    expression = `${actualMethod}(distinct ${table}.${distinct}) as ${alias}`;
+  }
+  else {
+    expression = `${actualMethod}(${table}.${column}) as ${alias}`;
+  }
   let sql;
   if (groupKey) {
     if (parentQuery) {
@@ -775,7 +795,7 @@ const aggregate = async (db, table, query, tx, method, groupKey, parentQuery) =>
       if (clauses.fromClauses || parentClauses.fromClauses) {
         throw Error('Queries that order by included fields cannot contain array searches.');
       }
-      sql = `select ${method === 'sum' ? 'total' : method}(${column ? `${distinct}${table}.${column}` : '*'}) as ${method}_result, ${table}.${groupKey} from ${parentQuery.table} left join ${table} on ${parentQuery.table}.${parentQuery.joinColumn} = ${table}.${groupKey}`;
+      sql = `select ${expression}, ${table}.${groupKey} from ${parentQuery.table} left join ${table} on ${parentQuery.table}.${parentQuery.joinColumn} = ${table}.${groupKey}`;
       if (clauses.whereClauses || parentClauses.whereClauses) {
         sql += ' where ';
         if (parentClauses.whereClauses) {
@@ -791,17 +811,7 @@ const aggregate = async (db, table, query, tx, method, groupKey, parentQuery) =>
     }
     else {
       const { whereClauses, fromClauses } = toWhere(verify, table, where);
-      let expression;
-      if (fromClauses && !column && method === 'count') {
-        expression = `distinct ${table}.${primaryKey}`;
-      }
-      else if (column) {
-        expression = `${distinct}${table}.${column}`;
-      }
-      else {
-        expression = '*';
-      }
-      sql = `select ${method === 'sum' ? 'total' : method}(${expression}) as ${method}_result, ${table}.${groupKey} from ${table}`;
+      sql = `select ${expression}, ${table}.${groupKey} from ${table}`;
       if (fromClauses) {
         sql += `, ${fromClauses}`;
       }
@@ -812,17 +822,7 @@ const aggregate = async (db, table, query, tx, method, groupKey, parentQuery) =>
   }
   else {
     const { whereClauses, fromClauses } = toWhere(verify, table, where);
-    let expression;
-    if (fromClauses && !column && method === 'count') {
-      expression = `distinct ${table}.${primaryKey}`;
-    }
-    else if (column) {
-      expression = `${distinct}${table}.${column}`;
-    }
-    else {
-      expression = '*';
-    }
-    sql = `select ${method === 'sum' ? 'total' : method}(${expression}) as ${method}_result from ${table}`;
+    sql = `select ${expression} from ${table}`;
     if (fromClauses) {
       sql += `, ${fromClauses}`;
     }

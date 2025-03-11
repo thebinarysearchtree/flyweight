@@ -58,13 +58,13 @@ export interface VirtualQuerySelector<W, T, N> extends VirtualQuery<W, T> {
 export interface CountQuery<W, K> {
   where?: W;
   column?: K;
-  distinct?: boolean;
+  distinct?: K;
 }
 
 export interface AggregateQuery<W, K> {
   where?: W;
-  column: K;
-  distinct?: boolean;
+  column?: K;
+  distinct?: K;
 }
 
 export interface ComplexQuery<W, T> extends Keywords<Array<keyof T> | keyof T> {
@@ -79,13 +79,13 @@ export interface ComplexQueryInclude<W, T, U> extends Keywords<Array<keyof T | E
   include: U;
 }
 
-export interface ComplexQueryObject<W, A extends string, K, T, N> extends Keywords<T & Record<A, null>> {
+export interface ComplexQueryObject<W, A extends string, K, T, N> extends Keywords<keyof T | keyof Record<A, null> | Array<keyof T | keyof Record<A, null>>> {
   where?: W;
   select: (Alias<T, A, N> | K)[] | (keyof T)[];
   include?: undefined;
 }
 
-export interface ComplexQueryObjectInclude<W, A extends string, K, T, N, U> extends Keywords<T & Record<A, null>> {
+export interface ComplexQueryObjectInclude<W, A extends string, K, T, N, U> extends Keywords<keyof T | ExtractIncludedKeys<U> | keyof Record<A, null> | Array<keyof T | ExtractIncludedKeys<U> | keyof Record<A, null>>> {
   where?: W;
   select: (Alias<T, A, N> | K)[] | (keyof T)[];
   include: U;

@@ -288,7 +288,7 @@ All of these functions take three arguments:
 
 ```where```: the where clause
 ```column```: the column to aggregate. This is optional for ```count```.
-```distinct```: an optional boolean value indicating whether only distinct values should be used in the calculations.
+```distinct```: the same as ```column``` but it adds ```distinct``` to the front.
 
 ```js
 const count = await db.fighters.count({
