@@ -81,7 +81,7 @@ const getConditions = (verify, table, column, query, params) => {
   const columnTarget = {};
   const columnProxy = new Proxy(columnTarget, columnHandler);
   const chain = query(operatorProxy, columnProxy);
-  if (columnTarget.name) {
+  if (columnTarget.name && verify) {
     verify(columnTarget.name);
   }
   const value = chain.pop();
@@ -94,9 +94,11 @@ const getConditions = (verify, table, column, query, params) => {
   if (path) {
     params[placeholder] = path;
   }
-  const selector = path ? `json_extract(${table}.${column}, $${placeholder})` : `${table}.${column}`;
+  const select = table ? `${table}.${column}` : column;
+  const selector = path ? `json_extract(${select}, $${placeholder})` : select;
   const conditions = [];
   const fromClauses = [];
+  const expression = table ? `${table}.${columnTarget.name}` : columnTarget.name;
   if (method === 'not') {
     if (Array.isArray(value)) {
       const placeholder = getPlaceholder();
@@ -107,7 +109,7 @@ const getConditions = (verify, table, column, query, params) => {
       conditions.push(`${selector} is not null`);
     }
     else if (value === columnProxy) {
-      conditions.push(`${selector} != ${table}.${columnTarget.name}`);
+      conditions.push(`${selector} != ${expression}`);
     }
     else {
       const placeholder = getPlaceholder();
@@ -122,7 +124,7 @@ const getConditions = (verify, table, column, query, params) => {
       }
       const operator = methods.get(method);
       if (param === columnProxy) {
-        conditions.push(`${selector} ${operator} ${table}.${columnTarget.name}`);
+        conditions.push(`${selector} ${operator} ${expression}`);
       }
       else {
         const placeholder = getPlaceholder();
@@ -134,7 +136,7 @@ const getConditions = (verify, table, column, query, params) => {
   else if (method === 'includes') {
     const alias = `${table}_${column.replace('.', '_')}_json`;
     if (value === columnProxy) {
-      conditions.push(`${alias}.value = ${table}.${columnTarget.name}`);
+      conditions.push(`${alias}.value = ${expression}`);
     }
     else {
       const placeholder = getPlaceholder();
@@ -153,7 +155,7 @@ const getConditions = (verify, table, column, query, params) => {
   else {
     const operator = methods.get(method);
     if (value === columnProxy) {
-      conditions.push(`${selector} ${operator} ${table}.${columnTarget.name}`);
+      conditions.push(`${selector} ${operator} ${expression}`);
     }
     else {
       const placeholder = getPlaceholder();
@@ -349,10 +351,13 @@ const toWhere = (verify, table, query, params) => {
     if (/^p_\d+$/.test(column)) {
       continue;
     }
-    verify(column);
+    if (verify) {
+      verify(column);
+    }
     if (param === undefined) {
       continue;
     }
+    const selector = table ? `${table}.${column}` : column;
     if (typeof param === 'function') {
       const result = getConditions(verify, table, column, param, params);
       conditions.push(...result.conditions);
@@ -361,15 +366,15 @@ const toWhere = (verify, table, query, params) => {
     else if (Array.isArray(param)) {
       const placeholder = getPlaceholder();
       params[placeholder] = param;
-      conditions.push(`${table}.${column} in (select json_each.value from json_each($${placeholder}))`);
+      conditions.push(`${selector} in (select json_each.value from json_each($${placeholder}))`);
     }
     else if (param === null) {
-      conditions.push(`${table}.${column} is null`);
+      conditions.push(`${selector} is null`);
     }
     else {
       const placeholder = getPlaceholder();
       params[placeholder] = param;
-      conditions.push(`${table}.${column} = $${placeholder}`);
+      conditions.push(`${selector} = $${placeholder}`);
     }
   }
   return {
@@ -568,10 +573,37 @@ const getOrderBy = (verify, keywords, customFields) => {
   return orderBy;
 }
 
-const toKeywords = (verify, keywords, params, customFields) => {
+const shouldSort = (keywords, included) => {
+  const orderBy = keywords.orderBy;
+  if (!orderBy) {
+    return false;
+  }
+  if (!included) {
+    return true;
+  }
+  if (keywords.offset !== undefined || keywords.limit !== undefined) {
+    return true;
+  }
+  if (typeof orderBy === 'string') {
+    if (included.hasOwnProperty(orderBy)) {
+      return false;
+    }
+  }
+  else {
+    for (const column of orderBy) {
+      if (included.hasOwnProperty(orderBy)) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+const toKeywords = (verify, keywords, params, customFields, included) => {
   let sql = '';
   if (keywords) {
-    if (keywords.orderBy) {
+    const sort = shouldSort(keywords, included);
+    if (sort) {
       const orderBy = getOrderBy(verify, keywords, customFields);
       sql += ` order by ${orderBy}`;
       if (keywords.desc) {
@@ -760,12 +792,25 @@ const aggregate = async (db, table, query, tx, method, groupKey, parentQuery) =>
   if (!query) {
     query = {};
   }
+  const params = {};
+  let parentWhere = {};
+  let parentHaving = {};
+  if (parentQuery) {
+    for (const [key, value] of Object.entries(parentQuery.query)) {
+      if (parentQuery.include && parentQuery.include.hasOwnProperty(key)) {
+        parentHaving[key] = value;
+      }
+      else {
+        parentWhere[key] = value;
+      }
+    }
+  }
   const { where, column, distinct } = query;
   const columnSet = db.columnSets[table];
   const verify = makeVerify(table, columnSet);
-  const clauses = toWhere(verify, table, where);
+  const clauses = toWhere(verify, table, where, params);
   const primaryKey = db.getPrimaryKey(table);
-  const alias = `${method}_result`;
+  const alias = parentQuery ? parentQuery.includeName : `${method}_result`;
   const actualMethod = method === 'sum' ? 'total' : method;
   let expression;
   if (!column && !distinct) {
@@ -788,10 +833,10 @@ const aggregate = async (db, table, query, tx, method, groupKey, parentQuery) =>
   let sql;
   if (groupKey) {
     if (parentQuery) {
-      const clauses = toWhere(verify, table, where);
+      const clauses = toWhere(verify, table, where, params);
       const columnSet = db.columnSets[parentQuery.table];
       const parentVerify = makeVerify(parentQuery.table, columnSet);
-      const parentClauses = toWhere(parentVerify, parentQuery.table, parentQuery.query, parentQuery.params);
+      const parentClauses = toWhere(parentVerify, parentQuery.table, parentWhere, params);
       if (clauses.fromClauses || parentClauses.fromClauses) {
         throw Error('Queries that order by included fields cannot contain array searches.');
       }
@@ -810,7 +855,7 @@ const aggregate = async (db, table, query, tx, method, groupKey, parentQuery) =>
       }
     }
     else {
-      const { whereClauses, fromClauses } = toWhere(verify, table, where);
+      const { whereClauses, fromClauses } = toWhere(verify, table, where, params);
       sql = `select ${expression}, ${table}.${groupKey} from ${table}`;
       if (fromClauses) {
         sql += `, ${fromClauses}`;
@@ -821,7 +866,7 @@ const aggregate = async (db, table, query, tx, method, groupKey, parentQuery) =>
     }
   }
   else {
-    const { whereClauses, fromClauses } = toWhere(verify, table, where);
+    const { whereClauses, fromClauses } = toWhere(verify, table, where, params);
     sql = `select ${expression} from ${table}`;
     if (fromClauses) {
       sql += `, ${fromClauses}`;
@@ -833,26 +878,32 @@ const aggregate = async (db, table, query, tx, method, groupKey, parentQuery) =>
   if (groupKey) {
     sql += ` group by ${table}.${groupKey}`;
     if (parentQuery) {
-      sql += ` order by ${method}_result`;
-      const { offset, limit, desc } = parentQuery.keywords;
+      const clauses = toWhere(null, null, parentHaving, params);
+      if (clauses.whereClauses) {
+        sql += ` having ${clauses.whereClauses}`;
+      }
+      const { orderBy, offset, limit, desc } = parentQuery.keywords;
+      if (offset !== undefined || limit !== undefined || orderBy === parentQuery.includeName) {
+        sql += ` order by ${parentQuery.includeName}`;
+      }
       if (desc) {
         sql += ` desc`;
       }
       if (offset) {
         const placeholder = getPlaceholder();
-        where[placeholder] = offset;
+        params[placeholder] = offset;
         sql += ` offset $${placeholder}`;
       }
       if (limit) {
         const placeholder = getPlaceholder();
-        where[placeholder] = limit;
+        params[placeholder] = limit;
         sql += ` limit $${placeholder}`;
       }
     }
   }
   const options = {
     query: sql,
-    params: cleanse(where),
+    params,
     tx
   };
   const post = (results) => {
@@ -987,7 +1038,12 @@ const processInclude = (key, query, parentQuery) => {
       if (method === 'exists' || aggregateMethods.includes(method)) {
         group = true;
         tableTarget.args.push(whereKey, parentQuery);
-        returnToValues = `${method}_result`;
+        if (parentQuery) {
+          returnToValues = parentQuery.includeName;
+        }
+        else {
+          returnToValues = `${method}_result`;
+        }
       }
       else if (method === 'get') {
         if (tableTarget.args.length === 1) {
@@ -1122,9 +1178,10 @@ const all = async (db, table, query, columns, first, tx, dbClient, partitionBy, 
   const returnValue = ['string', 'function'].includes(typeof columns);
   const includeResults = [];
   let columnsToRemove = [];
-  let runFirst;
+  const runWhere = [];
+  const runSort = [];
   let orderByIncludes;
-  if (included && !returnValue) {
+  if (included) {
     const extraColumns = new Set();
     const includeNames = [];
     const maybeIncludeSort = keywords && keywords.orderBy && (keywords.limit !== undefined || keywords.offset !== undefined);
@@ -1137,17 +1194,27 @@ const all = async (db, table, query, columns, first, tx, dbClient, partitionBy, 
         orderBy.push(...keywords.orderBy);
       }
     }
-    for (const [column, query] of Object.entries(included)) {
+    for (const [column, handler] of Object.entries(included)) {
       let parentQuery;
-      if (maybeIncludeSort && orderBy.includes(column)) {
+      const inSort = maybeIncludeSort && orderBy.includes(column);
+      const inWhere = query.hasOwnProperty(column);
+      if (inSort || inWhere) {
         parentQuery = {
           table,
           query,
           columns,
-          keywords
+          include: included,
+          keywords,
+          includeName: column
         };
       }
-      const result = processInclude(column, query, parentQuery);
+      if (inSort) {
+        runSort.push(column);
+      }
+      else if (inWhere) {
+        runWhere.push(column);
+      }
+      const result = processInclude(column, handler, parentQuery);
       extraColumns.add(result.parentColumn);
       includeResults.push({ column, result });
       includeNames.push(column);
@@ -1156,11 +1223,8 @@ const all = async (db, table, query, columns, first, tx, dbClient, partitionBy, 
       columnsToRemove = Array.from(extraColumns.values()).filter(c => !columns.includes(c));
       columns.push(...columnsToRemove);
     }
-    if (keywords && keywords.orderBy && (keywords.limit !== undefined || keywords.offset !== undefined)) {
-      runFirst = includeNames.find(n => orderBy.includes(n));
-    }
-    if (runFirst) {
-      orderByIncludes = runFirst;
+    if (runSort.length > 0) {
+      orderByIncludes = runSort.at(0);
     }
     else if (keywords && keywords.orderBy) {
       orderByIncludes = includeNames.find(n => orderBy.includes(n));
@@ -1177,9 +1241,10 @@ const all = async (db, table, query, columns, first, tx, dbClient, partitionBy, 
   let runFirstInclude;
   let joinWithInclude = false;
   const otherTableColumns = new Map();
-  if (runFirst) {
-    runFirstInclude = includeResults.find(r => r.column === runFirst);
-    const { table, column, where } = runFirstInclude.result;
+  if (runSort.length > 0) {
+    const name = runSort.at(0);
+    runFirstInclude = includeResults.find(r => r.column === name);
+    const { table, column } = runFirstInclude.result;
     if (table !== undefined) {
       joinWithInclude = true;
       sql += `${table}.${column} as ${runFirstInclude.column}, `;
@@ -1277,7 +1342,18 @@ const all = async (db, table, query, columns, first, tx, dbClient, partitionBy, 
       sql += 'distinct ';
     }
     sql += `${select.clause} from ${table}`;
-    if (runFirst && !joinWithInclude) {
+    if (runWhere.length > 0) {
+      for (const key of runWhere) {
+        const include = includeResults.find(r => r.column === key);
+        const result = await include.result.runQuery(dbClient);
+        include.postProcess = result.postProcess;
+        const mapped = result.raw.map(r => r[result.whereKey]);
+        query = {
+          [include.result.parentColumn]: mapped
+        };
+      }
+    }
+    if (runSort.length > 0 && !joinWithInclude) {
       const result = await runFirstInclude.result.runQuery(dbClient);
       runFirstInclude.postProcess = result.postProcess;
       const mapped = result.raw.map(r => r[result.whereKey]);
@@ -1286,8 +1362,8 @@ const all = async (db, table, query, columns, first, tx, dbClient, partitionBy, 
       };
     }
     addWhere();
-    if (!runFirst || joinWithInclude) {
-      sql += toKeywords(verify, keywords, query, customFields);
+    if (runSort.length === 0 || joinWithInclude) {
+      sql += toKeywords(verify, keywords, query, customFields, included);
     }
   }
   if (first) {
@@ -1333,9 +1409,6 @@ const all = async (db, table, query, columns, first, tx, dbClient, partitionBy, 
       adjusted = rows;
     }
     if (returnValue) {
-      if (keywords && keywords.count) {
-        return adjusted[0].count;
-      }
       const key = keys[0];
       const mapped = adjusted.map(item => item[key]);
       if (first) {

@@ -238,6 +238,23 @@ const run = async () => {
     }
   });
   assert.equal(singleCount.eventsCount, 18);
+  const whereIncludes = await db.locations.query({
+    select: ['id', 'name'],
+    where: {
+      name: n => n.like('P%'),
+      count: c => c.gt(4)
+    },
+    include: {
+      count: (t, c) => t.events.count({
+        where: {
+          locationId: c.id
+        }
+      })
+    },
+    orderBy: 'count',
+    desc: true
+  });
+  assert.equal(whereIncludes.at(0).count, 18);
 }
 
 const cleanUp = async () => {

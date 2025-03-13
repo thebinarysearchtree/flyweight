@@ -16,6 +16,11 @@ type MergeIncludes<T, U extends Record<string, (arg: T) => any>> =
   T & { [K in keyof U]: ReturnType<U[K]> extends Promise<infer R> ? R : never;
 };
 
+type IncludeWhere<T, U extends Record<string, (arg: T) => any>> = {
+  [K in keyof U]: ReturnType<U[K]> extends Promise<infer R>
+    ? R extends string | number | Date | boolean ? R | Array<R> | WhereFunction<R> | null : never : never;
+}
+
 export interface VirtualKeywords<T> {
   rank?: true;
   bm25?: Record<keyof Omit<T, "rowid">, number>;
@@ -74,7 +79,7 @@ export interface ComplexQuery<W, T> extends Keywords<Array<keyof T> | keyof T> {
 }
 
 export interface ComplexQueryInclude<W, T, U> extends Keywords<Array<keyof T | ExtractIncludedKeys<U>> | keyof T | ExtractIncludedKeys<U>> {
-  where?: W;
+  where?: W | IncludeWhere<T, U>;
   select?: undefined;
   include: U;
 }
@@ -86,7 +91,7 @@ export interface ComplexQueryObject<W, A extends string, K, T, N> extends Keywor
 }
 
 export interface ComplexQueryObjectInclude<W, A extends string, K, T, N, U> extends Keywords<keyof T | ExtractIncludedKeys<U> | keyof Record<A, null> | Array<keyof T | ExtractIncludedKeys<U> | keyof Record<A, null>>> {
-  where?: W;
+  where?: W | IncludeWhere<T, U>;
   select: (Alias<T, A, N> | K)[] | (keyof T)[];
   include: U;
 }
