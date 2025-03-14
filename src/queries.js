@@ -9,20 +9,6 @@ const getPlaceholder = () => {
   return `p_${count}`;
 }
 
-const cleanse = (params) => {
-  if (!params) {
-    return params;
-  }
-  const adjusted = {};
-  for (const [key, value] of Object.entries(params)) {
-    if (value === undefined || !/^p_\d+$/.test(key)) {
-      continue;
-    }
-    adjusted[key] = value;
-  }
-  return adjusted;
-}
-
 const reservedWords = [
   'where',
   'select',
@@ -169,11 +155,11 @@ const getConditions = (verify, table, column, query, params) => {
   }
 }
 
-const getPlaceholders = (supports, params, columnTypes) => {
-  const columns = Object.keys(params);
+const getPlaceholders = (supports, query, params, columnTypes) => {
+  const columns = Object.keys(query);
   return columns.map(columnName => {
     const placeholder = getPlaceholder();
-    params[placeholder] = params[columnName];
+    params[placeholder] = query[columnName];
     if (supports.jsonb && columnTypes[columnName] === 'json') {
       return `jsonb($${placeholder})`;
     }
@@ -196,10 +182,10 @@ const adjust = (db, table, params) => {
   return processed;
 }
 
-const makeInsertSql = (db, table, params) => {
-  const columns = Object.keys(params);
+const makeInsertSql = (db, table, query, params) => {
+  const columns = Object.keys(query);
   const columnTypes = db.columnSets[table];
-  const placeholders = getPlaceholders(db.supports, params, columnTypes);
+  const placeholders = getPlaceholders(db.supports, query, params, columnTypes);
   return `insert into ${table}(${columns.join(', ')}) values(${placeholders.join(', ')})`;
 }
 
@@ -218,7 +204,7 @@ const processBatch = async (db, options, post) => {
 const processInsert = async (db, sql, params, primaryKey, tx) => {
   const options = {
     query: sql,
-    params: cleanse(params),
+    params,
     tx,
     write: true,
     adjusted: true
@@ -238,49 +224,51 @@ const upsert = async (db, table, options, tx) => {
   const { values, target, set } = options;
   const columnSet = db.columnSets[table];
   const verify = makeVerify(table, columnSet);
-  const params = adjust(db, table, values);
-  let sql = makeInsertSql(db, table, params);
+  const params = {};
+  const query = adjust(db, table, values);
+  let sql = makeInsertSql(db, table, query, params);
   let allParams = { ...params };
   verify(Object.keys(values));
   if (target && set) {
     verify([target]);
     verify(Object.keys(set));
-    const params = adjust(db, table, set);
-    const setClause = createSetClause(db, table, params);
+    const query = adjust(db, table, set);
+    const setClause = createSetClause(db, table, query, params);
     sql += ` on conflict(${target}) do update set ${setClause}`;
-    allParams = { ...allParams, ...params };
   }
   else {
     sql += ' on conflict do nothing';
   }
   const primaryKey = db.getPrimaryKey(table);
   sql += ` returning ${primaryKey}`;
-  return await processInsert(db, sql, allParams, primaryKey, tx);
+  return await processInsert(db, sql, params, primaryKey, tx);
 }
 
-const insert = async (db, table, params, tx) => {
+const insert = async (db, table, values, tx) => {
   if (!db.initialized) {
     await db.initialize();
   }
   const columnSet = db.columnSets[table];
   const verify = makeVerify(table, columnSet);
-  const columns = Object.keys(params);
+  const columns = Object.keys(values);
   verify(columns);
-  const adjusted = adjust(db, table, params);
-  const sql = makeInsertSql(db, table, adjusted);
+  const adjusted = adjust(db, table, values);
+  const params = {};
+  const sql = makeInsertSql(db, table, adjusted, params);
   const primaryKey = db.getPrimaryKey(table);
   const query = `${sql} returning ${primaryKey}`;
-  return await processInsert(db, query, adjusted, primaryKey, tx);
+  return await processInsert(db, query, params, primaryKey, tx);
 }
 
 const batchInserts = async (tx, db, table, items) => {
   const inserts = [];
   for (const item of items) {
+    const params = {};
     const adjusted = adjust(db, table, item);
-    const sql = makeInsertSql(db, table, adjusted);
+    const sql = makeInsertSql(db, table, adjusted, params);
     inserts.push({
       query: sql,
-      params: cleanse(adjusted),
+      params,
       tx,
       adjusted: true
     });
@@ -383,10 +371,10 @@ const toWhere = (verify, table, query, params) => {
   }
 }
 
-const createSetClause = (db, table, params) => {
+const createSetClause = (db, table, query, params) => {
   const statements = [];
   const columnTypes = db.columns[table];
-  for (const [column, param] of Object.entries(params)) {
+  for (const [column, param] of Object.entries(query)) {
     const placeholder = getPlaceholder();
     params[placeholder] = param;
     if (columnTypes[column] === 'json' && db.supports.jsonb) {
@@ -408,15 +396,16 @@ const update = async (db, table, options, tx) => {
   const verify = makeVerify(table, columnSet);
   const keys = Object.keys(set);
   verify(keys);
-  const params = adjust(db, table, set);
-  const setString = createSetClause(db, table, params);
+  const params = {};
+  const query = adjust(db, table, set);
+  const setString = createSetClause(db, table, query, params);
   let sql = `update ${table} set ${setString}`;
   if (where) {
     sql += addClauses(verify, table, where, params);
   }
   const runOptions = {
     query: sql,
-    params: cleanse(params),
+    params,
     tx
   };
   return await db.run(runOptions);
@@ -706,7 +695,7 @@ const getVirtual = async (db, table, query, tx, keywords, select, returnValue, v
   sql += toKeywords(verify, keywords, params);
   const options = {
     query: sql,
-    params: cleanse(params),
+    params,
     tx
   };
   const post = (results) => {
@@ -752,12 +741,13 @@ const exists = async (db, table, query, tx, groupKey, parentQuery) => {
   }
   const columnSet = db.columnSets[table];
   const verify = makeVerify(table, columnSet);
+  const params = {};
   let sql = `select exists(select 1 from ${table}`;
-  sql += addClauses(verify, table, query);
+  sql += addClauses(verify, table, query, params);
   sql += ') as exists_result';
   const options = {
     query: sql,
-    params: cleanse(query),
+    params,
     tx
   };
   const post = (results) => {
@@ -1166,6 +1156,7 @@ const all = async (db, table, query, columns, first, tx, dbClient, partitionBy, 
   if (!query) {
     query = {};
   }
+  const params = {};
   let included;
   let keywords;
   if (reservedWords.some(k => query.hasOwnProperty(k))) {
@@ -1233,7 +1224,7 @@ const all = async (db, table, query, columns, first, tx, dbClient, partitionBy, 
   const columnSet = db.columnSets[table];
   const verify = makeVerify(table, columnSet, included);
   const customFields = {};
-  const select = toSelect(db, table, columns, verify, query, customFields);
+  const select = toSelect(db, table, columns, verify, params, customFields);
   if (db.virtualSet.has(table)) {
     return await getVirtual(db, table, query, tx, keywords, select.clause, returnValue, verify, false);
   }
@@ -1261,10 +1252,17 @@ const all = async (db, table, query, columns, first, tx, dbClient, partitionBy, 
       const joinColumn = runFirstInclude.result.joinColumn;
       const parentColumn = runFirstInclude.result.parentColumn;
       sql += ` left join ${includeTable} on ${includeTable}.${joinColumn} = ${table}.${parentColumn}`;
-      const parentClauses = toWhere(verify, table, query);
+      const parentClauses = toWhere(verify, table, query, params);
       const includeVerify = makeVerify(includeTable, db.columnSets[includeTable]);
       const includeWhere = runFirstInclude.result.where;
-      const includeClauses = toWhere(includeVerify, includeWhere);
+      const adjusted = {};
+      for (const [key, value] of Object.entries(includeWhere)) {
+        if (key === runFirstInclude.result.joinColumn) {
+          continue;
+        }
+        adjusted[key] = value;
+      }
+      const includeClauses = toWhere(includeVerify, null, adjusted, params);
       if (parentClauses.whereClauses || includeClauses.whereClauses) {
         sql += ` where`;
         if (parentClauses.whereClauses) {
@@ -1279,7 +1277,7 @@ const all = async (db, table, query, columns, first, tx, dbClient, partitionBy, 
       }
     }
     else {
-      sql += addClauses(verify, table, query);
+      sql += addClauses(verify, table, query, params);
     }
   }
   if (partitionBy) {
@@ -1314,18 +1312,18 @@ const all = async (db, table, query, columns, first, tx, dbClient, partitionBy, 
         const end = keywords.offset + keywords.limit;
         const startPlaceholder = getPlaceholder();
         const endPlaceholder = getPlaceholder();
-        query[startPlaceholder] = start;
-        query[endPlaceholder] = end;
+        params[startPlaceholder] = start;
+        params[endPlaceholder] = end;
         statement += ` > $${startPlaceholder} and ${alias} <= $${endPlaceholder}`;
       }
       else if (hasLimit && !hasOffset) {
         const placeholder = getPlaceholder();
-        query[placeholder] = keywords.limit;
+        params[placeholder] = keywords.limit;
         statement += ` <= $${placeholder}`;
       }
       else if (hasOffset && !hasLimit) {
         const placeholder = getPlaceholder();
-        query[placeholder] = keywords.limit;
+        params[placeholder] = keywords.limit;
         statement += ` > $${placeholder}`;
       }
       return statement;
@@ -1363,7 +1361,7 @@ const all = async (db, table, query, columns, first, tx, dbClient, partitionBy, 
     }
     addWhere();
     if (runSort.length === 0 || joinWithInclude) {
-      sql += toKeywords(verify, keywords, query, customFields, included);
+      sql += toKeywords(verify, keywords, params, customFields, included);
     }
   }
   if (first) {
@@ -1371,7 +1369,7 @@ const all = async (db, table, query, columns, first, tx, dbClient, partitionBy, 
   }
   const options = {
     query: sql,
-    params: cleanse(query),
+    params,
     tx
   };
   const post = (rows) => {
@@ -1574,10 +1572,11 @@ const remove = async (db, table, query, tx) => {
   const columnSet = db.columnSets[table];
   const verify = makeVerify(table, columnSet);
   let sql = `delete from ${table}`;
-  sql += addClauses(verify, table, query);
+  const params = {};
+  sql += addClauses(verify, table, query, params);
   const options = {
     query: sql,
-    params: cleanse(query),
+    params,
     tx
   };
   return await db.run(options);
