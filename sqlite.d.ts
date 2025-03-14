@@ -3,15 +3,15 @@ type Unwrap<T extends any[]> = {
 };
 
 interface TypedDb {
-  [key: string]: any,
-  exec(sql: string): Promise<void>,
-  begin(): Promise<void>,
-  commit(): Promise<void>,
-  rollback(): Promise<void>,
-  pragma(sql: string): Promise<any[]>,
-  deferForeignKeys(): Promise<void>,
-  getTransaction(): Promise<TypedDb>,
-  batch:<T extends any[]> (batcher: (bx: TypedDb) => T) => Promise<Unwrap<T>>
+  [key: string]: any;
+  exec(sql: string): Promise<void>;
+  begin(): Promise<void>;
+  commit(): Promise<void>;
+  rollback(): Promise<void>;
+  pragma(sql: string): Promise<any[]>;
+  deferForeignKeys(): Promise<void>;
+  getTransaction(): Promise<TypedDb>;
+  batch:<T extends any[]> (batcher: (bx: TypedDb) => T) => Promise<Unwrap<T>>;
 }
 
 declare const database: any;

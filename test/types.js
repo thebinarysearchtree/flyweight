@@ -1,8 +1,14 @@
-import { database, paths } from './db.js';
+import {db, database, paths } from './db.js';
 import { compareTypes } from './utils.js';
 import { writeFile, rm } from 'fs/promises';
 import { join } from 'path';
 import fileSystem from './files.js';
+
+db.locations.define({
+  events: (t, c) => t.events.where({
+    locationId: c.id
+  })
+});
 
 const run = async () => {
   await database.makeTypes(fileSystem, paths, database.getSample.bind(database));

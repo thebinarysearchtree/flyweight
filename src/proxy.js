@@ -214,6 +214,9 @@ const makeQueryHandler = (table, db, tx, dbClient) => {
   let write;
   return {
     get: function(target, query) {
+      if (query === 'define') {
+        return (args) => db.define(table, args);
+      }
       if (!target[query]) {
         if (basic[query]) {
           const makeQuery = basic[query];

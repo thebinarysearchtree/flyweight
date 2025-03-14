@@ -255,6 +255,22 @@ const run = async () => {
     desc: true
   });
   assert.equal(whereIncludes.at(0).count, 18);
+  db.locations.define({
+    events: (t, c) => t.events.where({
+      locationId: c.id
+    })
+  });
+  const withTest = await db.locations.query({
+    where: {
+      id: [1, 2, 3]
+    },
+    with: {
+      events: e => e.query({ 
+        startTime: s => s.gt(new Date())
+      })
+    },
+    orderBy: 'name'
+  });
 }
 
 const cleanUp = async () => {

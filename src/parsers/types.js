@@ -395,12 +395,25 @@ const createTypes = async (options) => {
   catch {
     jsonTypes = new Map();
   }
+  const defineTypes = [];
   for (const table of tables) {
     const singular = pluralize.singular(table.name);
     const capitalized = capitalize(singular);
     const interfaceName = makeUnique(capitalized, typeSet, i);
     const insertInterfaceName = makeUnique(`Insert${interfaceName}`, typeSet, i);
     const whereInterfaceName = makeUnique(`Where${interfaceName}`, typeSet, i);
+    defineTypes.push([table.name, whereInterfaceName]);
+    const defined = db.includes.get(table.name);
+    let withName;
+    if (defined) {
+      withName = makeUnique(`${interfaceName}With`, typeSet, i);
+      types += `export interface ${withName} {\n`;
+      const properties = [];
+      for (const [key, value] of Object.entries(defined)) {
+        types += `  ${key}?: (queries: TypedDb['${value.table}']) => any;\n`;
+      }
+      types += '}\n\n';
+    }
     let returnType;
     const primaryKey = table.columns.find(c => c.primaryKey !== undefined);
     let tsType;
@@ -429,6 +442,8 @@ const createTypes = async (options) => {
         returnType += ` & ${queries.interfaceName}`;
       }
     }
+    returnType += ` & DefineQuery<DefineJoin, ${interfaceName}>`;
+    returnType += ';\n';
     returnTypes.push(returnType);
     const jsonInterfaces = [];
     types += `export interface ${interfaceName} {\n`;
@@ -499,8 +514,6 @@ const createTypes = async (options) => {
         type,
         notNull: true
       }, db.customTypes);
-      const customType = db.customTypes[type];
-      const dbType = customType ? customType.dbType : type;
       let property = `  ${name}`;
       property += '?: ';
       if (tsType === 'Json') {
@@ -531,10 +544,15 @@ const createTypes = async (options) => {
       types += '\n';
     }
   }
+  types += `export interface DefineJoin {\n`;
+  for (const [table, where] of defineTypes) {
+    types += `  ${table}: DefineWhere<${where}>;\n`;
+  }
+  types += '}\n\n';
   types = types.replaceAll(/^export /gm, '');
+  types = types.replace('getClient(): any;', 'getClient(): TypedDb;');
   const exportSection = files[features.types];
-  const customTypes = returnTypes.join(',\n');
-  const replaced = exportSection.replace(/(\[key: string\]: any,\s)/, `$1${customTypes},\n`);
+  const replaced = exportSection.replace(/(\[key: string\]: any;\s)/, `$1${returnTypes.join('')}`);
   types += replaced;
 
   await fileSystem.writeFile(destinationPath, types, 'utf8');

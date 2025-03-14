@@ -121,6 +121,18 @@ export interface UpsertQuery<T, K> {
   set?: Partial<MakeOptionalNullable<T>>;
 }
 
+export interface DefineWhere<W> {
+  where: (query: W) => void;
+}
+
+export interface DefineProperties<T, C> {
+  [key: string]: (table: T, columns: C) => void;
+}
+
+export interface DefineQuery<T, C> {
+  define: (properties: DefineProperties<T, C>) => void;
+}
+
 export interface VirtualQueries<T, W> {
   [key: string]: any;
   get(params?: W | null): Promise<T | undefined>;

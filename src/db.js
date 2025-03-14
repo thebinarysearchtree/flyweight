@@ -37,6 +37,7 @@ class Database {
     this.customTypes = {};
     this.columns = {};
     this.hasJson = {};
+    this.includes = new Map();
     this.statements = new Map();
     this.viewSet = new Set();
     this.virtualSet = new Set();
@@ -90,6 +91,42 @@ class Database {
 
   getClient() {
     return makeClient(this);
+  }
+
+  define(table, includes) {
+    const tableTarget = {};
+    const tableHandler = {
+      get: function(target, property) {
+        if (!target.table) {
+          target.table = property;
+          return tableProxy;
+        }
+        if (property === 'where') {
+          return (args) => {
+            target.where = args;
+            return tableProxy;
+          }
+        }
+      }
+    };
+    const tableProxy = new Proxy(tableTarget, tableHandler);
+    const columnHandler = {
+      get: function(target, property) {
+        target.name = property;
+        return columnProxy;
+      }
+    }
+    const columnTarget = {};
+    const columnProxy = new Proxy(columnTarget, columnHandler);
+    const include = {};
+    for (const [key, query] of Object.entries(includes)) {
+      query(tableProxy, columnProxy);
+      include[key] = {
+        table: tableTarget.table,
+        where: tableTarget.where
+      };
+    }
+    this.includes.set(table, include);
   }
 
   async getTables() {

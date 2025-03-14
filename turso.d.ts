@@ -3,13 +3,13 @@ type Unwrap<T extends any[]> = {
 };
 
 interface TypedDb {
-  [key: string]: any,
-  begin(): Promise<void>,
-  commit(): Promise<void>,
-  rollback(): Promise<void>,
-  getTransaction(type: ('read' | 'write' | 'deferred')): Promise<TypedDb>,
-  batch:<T extends any[]> (batcher: (bx: TypedDb) => T) => Promise<Unwrap<T>>,
-  sync(): Promise<void>
+  [key: string]: any;
+  begin(): Promise<void>;
+  commit(): Promise<void>;
+  rollback(): Promise<void>;
+  getTransaction(type: ('read' | 'write' | 'deferred')): Promise<TypedDb>;
+  batch:<T extends any[]> (batcher: (bx: TypedDb) => T) => Promise<Unwrap<T>>;
+  sync(): Promise<void>;
 }
 
 interface Config {
