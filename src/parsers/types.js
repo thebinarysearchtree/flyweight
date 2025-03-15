@@ -427,13 +427,13 @@ const createTypes = async (options) => {
       tsType = 'undefined';
     }
     if (db.viewSet.has(table.name)) {
-      returnType = `  ${table.name}: Pick<Queries<${interfaceName}, ${insertInterfaceName}, ${whereInterfaceName}, undefined, TypedDb>, 'get' | 'many' | 'query' | 'first'>`;
+      returnType = `  ${table.name}: Pick<Queries<${interfaceName}, ${insertInterfaceName}, ${whereInterfaceName}, undefined, TypedDb, ${withName ? withName : 'undefined'}>, 'get' | 'many' | 'query' | 'first'>`;
     }
     else if (db.virtualSet.has(table.name)) {
       returnType = `  ${table.name}: VirtualQueries<${interfaceName}, ${whereInterfaceName}>`;
     }
     else {
-      returnType = `  ${table.name}: Queries<${interfaceName}, ${insertInterfaceName}, ${whereInterfaceName}, ${tsType}, TypedDb>`;
+      returnType = `  ${table.name}: Queries<${interfaceName}, ${insertInterfaceName}, ${whereInterfaceName}, ${tsType}, TypedDb, ${withName ? withName : 'undefined'}>`;
     }
     let queries;
     if (sqlDir) {

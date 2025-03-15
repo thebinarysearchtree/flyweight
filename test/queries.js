@@ -265,7 +265,7 @@ const run = async () => {
       id: [1, 2, 3]
     },
     with: {
-      events: e => e.query({ 
+      events: e => e.many({ 
         startTime: s => s.gt(new Date())
       })
     },
