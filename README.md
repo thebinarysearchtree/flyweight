@@ -290,11 +290,11 @@ const orderBy = await db.fighters.query({
 You can also include additional relations:
 
 ```js
-  const locations = await db.locations.query({
-    include: {
-      events: (t, c) => t.events.many({ locationId: c.id })
-    }
-  });
+const locations = await db.locations.query({
+  include: {
+    events: (t, c) => t.events.many({ locationId: c.id })
+  }
+});
 ```
 
 While the default interpretation of the query parameters is ```=```, you can pass in a function to use ```not```, ```gt```, ```gte```, ```lt```, ```lte```, ```like```, ```range```, ```match``` and ```glob```.
