@@ -191,7 +191,7 @@ const id = await db.coaches.upsert({
 });
 ```
 
-### Get
+### Get and Many
 
 ```get``` and ```many``` take two optional arguments. The first is ```params``` - an object representing the where clause. For example:
 
@@ -237,13 +237,19 @@ const instagram = await db.fighters.get({ id: 3 }, c => c.social.instagram);
 
 In this case, ```social``` is a JSON object with an ```instagram``` property.
 
-3. an array of strings or selector objects, representing the columns to select.
+3. an array of strings, representing the columns to select.
 
 ```js
-const fighter = await db.fighters.get({ id: 3 }, ['id', 'born', { select: c => c.social.instagram, as: 'instagram' }]);
+const fighter = await db.fighters.get({ id: 3 }, ['id', 'born']);
 ```
 
-Alternatively, you can use the ```query``` or ```first``` syntax to access additional keywords. ```query``` returns an array in the same way as ```many```, and ```first``` returns an object or ```undefined``` if nothing is found. The additional keywords are:
+### Query and First
+
+You can use the ```query``` or ```first``` syntax for more complex queries. ```query``` returns an array in the same way as ```many```, and ```first``` returns an object or ```undefined``` if nothing is found. The additional keywords are:
+
+```include```: include other tables in the result
+
+```alias```: create an alias for columns, such as when selecting inside of JSON objects.
 
 ```orderBy```: a string representing the column to order the result by, or an array of columns to order the result by.
 
@@ -264,6 +270,31 @@ const fighters = await db.fighters.query({
   orderBy: 'reachCm',
   limit: 10
 });
+```
+
+You can select inside JSON objects and create an alias for the result:
+
+```js
+const orderBy = await db.fighters.query({
+  where: {
+    id: n => n.lt(10)
+  },
+  select: ['id', 'born'],
+  alias: {
+    instagram: s => s.social.instagram
+  },
+  orderBy: 'instagram'
+});
+```
+
+You can also include additional relations:
+
+```js
+  const locations = await db.locations.query({
+    include: {
+      events: (t, c) => t.events.many({ locationId: c.id })
+    }
+  });
 ```
 
 While the default interpretation of the query parameters is ```=```, you can pass in a function to use ```not```, ```gt```, ```gte```, ```lt```, ```lte```, ```like```, ```range```, ```match``` and ```glob```.
@@ -310,18 +341,6 @@ const exists = await db.fighters.exists({ name: 'Israel Adesanya' });
 
 ```js
 const changes = await db.fighters.remove({ id: 100 });
-```
-
-### Includes
-
-Using either the ```first``` or ```query``` API, you can include data from other tables.
-
-```js
-  const locations = await db.locations.query({
-    include: {
-      events: (t, c) => t.events.many({ locationId: c.id })
-    }
-  });
 ```
 
 ## Creating SQL queries

@@ -1160,11 +1160,22 @@ const all = async (db, table, query, columns, first, tx, dbClient, partitionBy, 
   let included;
   let keywords;
   if (reservedWords.some(k => query.hasOwnProperty(k))) {
-    const { where, select, include, ...rest } = query;
+    const { where, select, include, alias, ...rest } = query;
     query = where || {};
     columns = select;
     included = include;
     keywords = rest;
+    if (alias) {
+      if (!columns) {
+        columns = [];
+      }
+      else if (typeof columns === 'string') {
+        columns = [columns];
+      }
+      for (const [key, value] of Object.entries(alias)) {
+        columns.push({ select: value, as: key });
+      }
+    }
   }
   const returnValue = ['string', 'function'].includes(typeof columns);
   const includeResults = [];

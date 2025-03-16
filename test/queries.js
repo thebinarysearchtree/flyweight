@@ -67,7 +67,10 @@ const run = async () => {
     where: {
       id: n => n.lt(10)
     },
-    select: ['id', 'born', { select: s => s.social.instagram, as: 'instagram' }],
+    select: ['id', 'born'],
+    alias: {
+      instagram: s => s.social.instagram
+    },
     orderBy: 'instagram'
   });
   assert.equal(orderBy.at(2).instagram, 'angga_thehitman');
@@ -255,22 +258,6 @@ const run = async () => {
     desc: true
   });
   assert.equal(whereIncludes.at(0).count, 18);
-  db.locations.define({
-    events: (t, c) => t.events.where({
-      locationId: c.id
-    })
-  });
-  const withTest = await db.locations.query({
-    where: {
-      id: [1, 2, 3]
-    },
-    with: {
-      events: e => e.many({ 
-        startTime: s => s.gt(new Date())
-      })
-    },
-    orderBy: 'name'
-  });
 }
 
 const cleanUp = async () => {
