@@ -403,6 +403,16 @@ const createTypes = async (options) => {
     const insertInterfaceName = makeUnique(`Insert${interfaceName}`, typeSet, i);
     const whereInterfaceName = makeUnique(`Where${interfaceName}`, typeSet, i);
     defineTypes.push([table.name, whereInterfaceName]);
+    const defined = db.includes.get(table.name);
+    let withName;
+    if (defined) {
+      withName = makeUnique(`${interfaceName}With`, typeSet, i);
+      types += `export interface ${withName} {\n`;
+      for (const [key, value] of Object.entries(defined)) {
+        types += `  ${key}?: (queries: TypedDb['${value.table}']) => any;\n`;
+      }
+      types += '}\n\n';
+    }
     let returnType;
     const primaryKey = table.columns.find(c => c.primaryKey !== undefined);
     let tsType;
@@ -416,13 +426,13 @@ const createTypes = async (options) => {
       tsType = 'undefined';
     }
     if (db.viewSet.has(table.name)) {
-      returnType = `  ${table.name}: Pick<Queries<${interfaceName}, ${insertInterfaceName}, ${whereInterfaceName}, undefined, TypedDb>, 'get' | 'many' | 'query' | 'first'>`;
+      returnType = `  ${table.name}: Pick<Queries<${interfaceName}, ${insertInterfaceName}, ${whereInterfaceName}, undefined, TypedDb, ${withName ? withName : 'undefined'}>, 'get' | 'many' | 'query' | 'first'>`;
     }
     else if (db.virtualSet.has(table.name)) {
       returnType = `  ${table.name}: VirtualQueries<${interfaceName}, ${whereInterfaceName}>`;
     }
     else {
-      returnType = `  ${table.name}: Queries<${interfaceName}, ${insertInterfaceName}, ${whereInterfaceName}, ${tsType}, TypedDb>`;
+      returnType = `  ${table.name}: Queries<${interfaceName}, ${insertInterfaceName}, ${whereInterfaceName}, ${tsType}, TypedDb, ${withName ? withName : 'undefined'}>`;
     }
     let queries;
     if (sqlDir) {

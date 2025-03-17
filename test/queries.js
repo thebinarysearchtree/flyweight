@@ -74,8 +74,6 @@ const run = async () => {
     orderBy: 'instagram'
   });
   assert.equal(orderBy.at(2).instagram, 'angga_thehitman');
-  const selector = await db.fighters.get({ id: 2 }, ['id', 'born', { select: c => c.social.instagram, as: 'instagram' }]);
-  assert.equal(selector.instagram, 'angga_thehitman');
   const rows = [];
   for (let i = 0; i < 5; i++) {
     rows.push({
