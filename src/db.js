@@ -118,15 +118,33 @@ class Database {
     }
     const columnTarget = {};
     const columnProxy = new Proxy(columnTarget, columnHandler);
-    const include = {};
-    for (const [key, query] of Object.entries(includes)) {
-      query(tableProxy, columnProxy);
-      include[key] = {
-        table: tableTarget.table,
-        where: tableTarget.where
+    let defined = this.includes.get(table);
+    if (!defined) {
+      defined = {
+        with: new Map(),
+        include: new Map()
       };
+      this.includes.set(table, defined);
     }
-    this.includes.set(table, include);
+    if (typeof includes === 'function') {
+      includes(tableProxy, columnProxy);
+      defined.include.set(tableTarget.table, {
+        where: tableTarget.where,
+        columnProxy,
+        columnTarget
+      });
+    }
+    else {
+      for (const [key, query] of Object.entries(includes)) {
+        query(tableProxy, columnProxy);
+        defined.with.set(key, {
+          table: tableTarget.table,
+          where: tableTarget.where,
+          columnProxy,
+          columnTarget
+        });
+      }
+    }
   }
 
   async getTables() {

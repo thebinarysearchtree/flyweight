@@ -256,6 +256,15 @@ const run = async () => {
     desc: true
   });
   assert.equal(whereIncludes.at(0).count, 18);
+  const defined = await db.locations.query({
+    include: {
+      events: t => t.events.query({
+        limit: 3
+      })
+    },
+    limit: 3
+  });
+  console.log(defined.at(0));
 }
 
 const cleanUp = async () => {

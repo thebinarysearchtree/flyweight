@@ -912,8 +912,17 @@ const aggregate = async (db, table, query, tx, method, groupKey, parentQuery) =>
   return post(results);
 }
 
-const processInclude = (key, query, parentQuery) => {
+const processInclude = (key, handler, parentQuery, defined) => {
   const tableTarget = {};
+  if (handler.type === 'with') {
+    tableTarget.table = defined.table;
+  }
+  let existingWhere;
+  if (defined && handler.type === 'with') {
+    existingWhere = defined.where;
+  }
+  let otherProxy;
+  let otherTarget;
   const tableHandler = {
     get: function(target, property) {
       if (!target.table) {
@@ -923,6 +932,37 @@ const processInclude = (key, query, parentQuery) => {
       if (!target.method) {
         target.method = property;
         return (...args) => {
+          let where;
+          if (defined) {
+            if (handler.type === 'include') {
+              const options = defined.get(target.table);;
+              where = options.where;
+              otherProxy = options.columnProxy;
+              otherTarget = options.columnTarget;
+            }
+            else {
+              where = defined.where;
+              otherProxy = defined.columnProxy;
+              otherTarget = defined.otherTarget;
+            }
+          }
+          if (where) {
+            if (args.length === 0) {
+              args.push({});
+            }
+            const options = args.at(0);
+            if (['get', 'many', 'exists'].includes(target.method)) {
+              args[0] = { ...where, ...options };
+            }
+            else {
+              if (!options.where) {
+                options.where = where;
+              }
+              else {
+                options.where = { ...options.where, ...where };
+              }
+            }
+          }
           target.args = args;
           return tableProxy;
         }
@@ -938,9 +978,9 @@ const processInclude = (key, query, parentQuery) => {
   }
   const columnTarget = {};
   const columnProxy = new Proxy(columnTarget, columnHandler);
-  query(tableProxy, columnProxy);
+  handler.query(tableProxy, columnProxy);
   if (parentQuery) {
-    parentQuery.joinColumn = columnTarget.name;
+    parentQuery.joinColumn = columnTarget.name || otherTarget.name;
   }
   const method = tableTarget.method;
   let where;
@@ -953,7 +993,7 @@ const processInclude = (key, query, parentQuery) => {
   }
   let whereKey;
   for (const [key, value] of Object.entries(where)) {
-    if (value === columnProxy) {
+    if (value === columnProxy || value === otherProxy) {
       whereKey = key;
       break;
     }
@@ -977,7 +1017,7 @@ const processInclude = (key, query, parentQuery) => {
       throw Error('Cannot order by object types');
     }
     return {
-      parentColumn: columnTarget.name,
+      parentColumn: columnTarget.name || otherTarget.name,
       joinColumn: whereKey,
       table: tableTarget.table,
       column,
@@ -990,7 +1030,8 @@ const processInclude = (key, query, parentQuery) => {
     let group = false;
     let values;
     if (!parentQuery) {
-      values = singleResult ? result[columnTarget.name] : result.map(item => item[columnTarget.name]);
+      const name = columnTarget.name || otherTarget.name;
+      values = singleResult ? result[name] : result.map(item => item[name]);
     }
     if (whereKey) {
       where[whereKey] = values;
@@ -1107,7 +1148,7 @@ const processInclude = (key, query, parentQuery) => {
       }
       else {
         for (const item of result) {
-          const itemKey = item[columnTarget.name];
+          const itemKey = item[columnTarget.name || otherTarget.name];
           if (whereKey !== undefined) {
             item[key] = included.filter(value => value[whereKey] === itemKey);
           }
@@ -1160,10 +1201,12 @@ const all = async (db, table, query, columns, first, tx, dbClient, partitionBy, 
   let included;
   let keywords;
   if (reservedWords.some(k => query.hasOwnProperty(k))) {
-    const { where, select, include, alias, ...rest } = query;
+    const { where, select, include, alias, with: includeWith, ...rest } = query;
     query = where || {};
     columns = select;
-    included = include;
+    if (include || includeWith) {
+      included = {};
+    }
     keywords = rest;
     if (alias) {
       if (!columns) {
@@ -1174,6 +1217,22 @@ const all = async (db, table, query, columns, first, tx, dbClient, partitionBy, 
       }
       for (const [key, value] of Object.entries(alias)) {
         columns.push({ select: value, as: key });
+      }
+    }
+    if (include) {
+      for (const [key, value] of Object.entries(include)) {
+        included[key] = {
+          type: 'include',
+          query: value
+        };
+      }
+    }
+    if (includeWith) {
+      for (const [key, value] of Object.entries(includeWith)) {
+        included[key] = {
+          type: 'with',
+          query: value
+        };
       }
     }
   }
@@ -1196,6 +1255,7 @@ const all = async (db, table, query, columns, first, tx, dbClient, partitionBy, 
         orderBy.push(...keywords.orderBy);
       }
     }
+    const options = db.includes.get(table);
     for (const [column, handler] of Object.entries(included)) {
       let parentQuery;
       const inSort = maybeIncludeSort && orderBy.includes(column);
@@ -1216,7 +1276,23 @@ const all = async (db, table, query, columns, first, tx, dbClient, partitionBy, 
       else if (inWhere) {
         runWhere.push(column);
       }
-      const result = processInclude(column, handler, parentQuery);
+      let defined;
+      if (handler.type === 'with') {
+        const message = `No predefined field named ${column}`;
+        if (!options.with) {
+          throw Error(message);
+        }
+        defined = options.with.get(column);
+        if (!defined) {
+          throw Error(message);
+        }
+      }
+      else {
+        if (options) {
+          defined = options.include;
+        }
+      }
+      const result = processInclude(column, handler, parentQuery, defined);
       extraColumns.add(result.parentColumn);
       includeResults.push({ column, result });
       includeNames.push(column);
