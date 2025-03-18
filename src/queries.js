@@ -979,8 +979,9 @@ const processInclude = (key, handler, parentQuery, defined) => {
   const columnTarget = {};
   const columnProxy = new Proxy(columnTarget, columnHandler);
   handler.query(tableProxy, columnProxy);
+  const targetName = otherTarget ? otherTarget.name : columnTarget.name;
   if (parentQuery) {
-    parentQuery.joinColumn = columnTarget.name || otherTarget.name;
+    parentQuery.joinColumn = targetName;
   }
   const method = tableTarget.method;
   let where;
@@ -1017,7 +1018,7 @@ const processInclude = (key, handler, parentQuery, defined) => {
       throw Error('Cannot order by object types');
     }
     return {
-      parentColumn: columnTarget.name || otherTarget.name,
+      parentColumn: targetName,
       joinColumn: whereKey,
       table: tableTarget.table,
       column,
@@ -1030,8 +1031,7 @@ const processInclude = (key, handler, parentQuery, defined) => {
     let group = false;
     let values;
     if (!parentQuery) {
-      const name = columnTarget.name || otherTarget.name;
-      values = singleResult ? result[name] : result.map(item => item[name]);
+      values = singleResult ? result[targetName] : result.map(item => item[targetName]);
     }
     if (whereKey) {
       where[whereKey] = values;
@@ -1148,7 +1148,7 @@ const processInclude = (key, handler, parentQuery, defined) => {
       }
       else {
         for (const item of result) {
-          const itemKey = item[columnTarget.name || otherTarget.name];
+          const itemKey = item[targetName];
           if (whereKey !== undefined) {
             item[key] = included.filter(value => value[whereKey] === itemKey);
           }
@@ -1185,7 +1185,7 @@ const processInclude = (key, handler, parentQuery, defined) => {
     }
   }
   return {
-    parentColumn: columnTarget.name,
+    parentColumn: targetName,
     runQuery
   }
 }
