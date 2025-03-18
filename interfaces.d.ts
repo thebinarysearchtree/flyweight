@@ -300,15 +300,17 @@ export interface Queries<T, I, W, R, Y, P> {
   many<K extends keyof T>(params: W | null, column: K): Promise<Array<T[K]>>;
   many<N>(params: W | null, column: (selector: T) => N): Promise<Array<N>>;
   query<K extends keyof T>(query: ComplexQueryObject<W, K, T>): Promise<Array<Pick<T, K>>>;
-  query<K extends keyof T, C extends P>(query: ComplexQueryObjectWith<W, K, T, C>): Promise<Array<MergeIncludes<Pick<T, K>>, C>>;
+  query<K extends keyof T, C extends P>(query: ComplexQueryObjectWith<W, K, T, C>): Promise<Array<MergeIncludes<Pick<T, K>, C>>>;
   query<K extends keyof T, N extends Alias<T>>(query: ComplexQueryObjectAlias<W, K, T, N>): Promise<Array<Pick<T, K> & ReturnTypes<N>>>;
   query<K extends keyof T, N extends Alias<T>, C extends P>(query: ComplexQueryObjectAliasWith<W, K, T, N, C>): Promise<Array<MergeIncludes<Pick<T, K>, C> & ReturnTypes<N>>>;
   query<K extends keyof T, U extends Includes<Y, T>>(query: ComplexQueryObjectInclude<W, K, T, U>): Promise<Array<MergeIncludes<Pick<T, K>, U>>>;
+  query<K extends keyof T, U extends Includes<Y, T>, C extends P>(query: ComplexQueryObjectIncludeWith<W, K, T, U, C>): Promise<Array<MergeIncludes<Pick<T, K>, U & C>>>;
   query<K extends keyof T, U extends Includes<Y, T>, N extends Alias<T>>(query: ComplexQueryObjectIncludeAlias<W, K, T, U, N>): Promise<Array<MergeIncludes<Pick<T, K>, U> & ReturnTypes<N>>>;
   query<K extends keyof T>(query: ComplexQueryValue<W, K, T>): Promise<Array<T[K]>>;
   query(query: ComplexQuery<W, T>): Promise<Array<T>>;
   query<C extends P>(query: ComplexQueryWith<W, T, C>): Promise<Array<MergeIncludes<T, C>>>;
   query<U extends Includes<Y, T>>(query: ComplexQueryInclude<W, T, U>): Promise<Array<MergeIncludes<T, U>>>;
+  query<U extends Includes<Y, T>, C extends P>(query: ComplexQueryIncludeWith<W, T, U, C>): Promise<Array<MergeIncludes<T, U & C>>>;
   query<U extends Includes<Y, T>, N extends Alias<T>>(query: ComplexQueryIncludeAlias<W, T, U, N>): Promise<Array<MergeIncludes<T, U> & ReturnTypes<N>>>;
   query<U extends Includes<Y, T>, N extends Alias<T>, C extends P>(query: ComplexQueryIncludeAliasWith<W, T, U, N, C>): Promise<Array<MergeIncludes<T, U & C> & ReturnTypes<N>>>;
   query<N extends Alias<T>>(query: ComplexQueryAlias<W, T, N>): Promise<Array<T & ReturnTypes<N>>>;
