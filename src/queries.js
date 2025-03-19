@@ -914,13 +914,6 @@ const aggregate = async (db, table, query, tx, method, groupKey, parentQuery) =>
 
 const processInclude = (key, handler, parentQuery, defined) => {
   const tableTarget = {};
-  if (handler.type === 'with') {
-    tableTarget.table = defined.table;
-  }
-  let existingWhere;
-  if (defined && handler.type === 'with') {
-    existingWhere = defined.where;
-  }
   let otherProxy;
   let otherTarget;
   const tableHandler = {
@@ -934,16 +927,11 @@ const processInclude = (key, handler, parentQuery, defined) => {
         return (...args) => {
           let where;
           if (defined) {
-            if (handler.type === 'include') {
-              const options = defined.get(target.table);;
+            const options = defined.get(target.table);
+            if (options) {
               where = options.where;
               otherProxy = options.columnProxy;
               otherTarget = options.columnTarget;
-            }
-            else {
-              where = defined.where;
-              otherProxy = defined.columnProxy;
-              otherTarget = defined.otherTarget;
             }
           }
           if (where) {
@@ -978,7 +966,7 @@ const processInclude = (key, handler, parentQuery, defined) => {
   }
   const columnTarget = {};
   const columnProxy = new Proxy(columnTarget, columnHandler);
-  handler.query(tableProxy, columnProxy);
+  handler(tableProxy, columnProxy);
   const targetName = otherTarget ? otherTarget.name : columnTarget.name;
   if (parentQuery) {
     parentQuery.joinColumn = targetName;
@@ -1201,12 +1189,10 @@ const all = async (db, table, query, columns, first, tx, dbClient, partitionBy, 
   let included;
   let keywords;
   if (reservedWords.some(k => query.hasOwnProperty(k))) {
-    const { where, select, include, alias, with: includeWith, ...rest } = query;
+    const { where, select, include, alias, ...rest } = query;
     query = where || {};
     columns = select;
-    if (include || includeWith) {
-      included = {};
-    }
+    included = include;
     keywords = rest;
     if (alias) {
       if (!columns) {
@@ -1217,22 +1203,6 @@ const all = async (db, table, query, columns, first, tx, dbClient, partitionBy, 
       }
       for (const [key, value] of Object.entries(alias)) {
         columns.push({ select: value, as: key });
-      }
-    }
-    if (include) {
-      for (const [key, value] of Object.entries(include)) {
-        included[key] = {
-          type: 'include',
-          query: value
-        };
-      }
-    }
-    if (includeWith) {
-      for (const [key, value] of Object.entries(includeWith)) {
-        included[key] = {
-          type: 'with',
-          query: value
-        };
       }
     }
   }
@@ -1255,7 +1225,6 @@ const all = async (db, table, query, columns, first, tx, dbClient, partitionBy, 
         orderBy.push(...keywords.orderBy);
       }
     }
-    const options = db.includes.get(table);
     for (const [column, handler] of Object.entries(included)) {
       let parentQuery;
       const inSort = maybeIncludeSort && orderBy.includes(column);
@@ -1276,22 +1245,7 @@ const all = async (db, table, query, columns, first, tx, dbClient, partitionBy, 
       else if (inWhere) {
         runWhere.push(column);
       }
-      let defined;
-      if (handler.type === 'with') {
-        const message = `No predefined field named ${column}`;
-        if (!options.with) {
-          throw Error(message);
-        }
-        defined = options.with.get(column);
-        if (!defined) {
-          throw Error(message);
-        }
-      }
-      else {
-        if (options) {
-          defined = options.include;
-        }
-      }
+      const defined = db.includes.get(table);
       const result = processInclude(column, handler, parentQuery, defined);
       extraColumns.add(result.parentColumn);
       includeResults.push({ column, result });

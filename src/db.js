@@ -26,6 +26,39 @@ const typeMap = {
   any: 'Number | String | Buffer | null'
 }
 
+const makeProxies = () => {
+  const tableTarget = {};
+  const tableHandler = {
+    get: function(target, property) {
+      if (!target.table) {
+        target.table = property;
+        return tableProxy;
+      }
+      if (property === 'where') {
+        return (args) => {
+          target.where = args;
+          return tableProxy;
+        }
+      }
+    }
+  };
+  const tableProxy = new Proxy(tableTarget, tableHandler);
+  const columnHandler = {
+    get: function(target, property) {
+      target.name = property;
+      return columnProxy;
+    }
+  }
+  const columnTarget = {};
+  const columnProxy = new Proxy(columnTarget, columnHandler);
+  return {
+    tableTarget,
+    tableProxy,
+    columnTarget,
+    columnProxy
+  };
+}
+
 class Database {
   constructor(props) {
     this.read = null;
@@ -94,57 +127,18 @@ class Database {
   }
 
   define(table, includes) {
-    const tableTarget = {};
-    const tableHandler = {
-      get: function(target, property) {
-        if (!target.table) {
-          target.table = property;
-          return tableProxy;
-        }
-        if (property === 'where') {
-          return (args) => {
-            target.where = args;
-            return tableProxy;
-          }
-        }
-      }
-    };
-    const tableProxy = new Proxy(tableTarget, tableHandler);
-    const columnHandler = {
-      get: function(target, property) {
-        target.name = property;
-        return columnProxy;
-      }
-    }
-    const columnTarget = {};
-    const columnProxy = new Proxy(columnTarget, columnHandler);
     let defined = this.includes.get(table);
     if (!defined) {
-      defined = {
-        with: new Map(),
-        include: new Map()
-      };
+      defined = new Map();
       this.includes.set(table, defined);
     }
-    if (typeof includes === 'function') {
-      includes(tableProxy, columnProxy);
-      defined.include.set(tableTarget.table, {
-        where: tableTarget.where,
-        columnProxy,
-        columnTarget
-      });
-    }
-    else {
-      for (const [key, query] of Object.entries(includes)) {
-        query(tableProxy, columnProxy);
-        defined.with.set(key, {
-          table: tableTarget.table,
-          where: tableTarget.where,
-          columnProxy,
-          columnTarget
-        });
-      }
-    }
+    const { tableTarget, tableProxy, columnTarget, columnProxy } = makeProxies();
+    includes(tableProxy, columnProxy);
+    defined.set(tableTarget.table, {
+      where: tableTarget.where,
+      columnProxy,
+      columnTarget
+    });
   }
 
   async getTables() {

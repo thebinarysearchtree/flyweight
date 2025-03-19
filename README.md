@@ -297,6 +297,29 @@ const locations = await db.locations.query({
 });
 ```
 
+If you want to predefine the join clause for two tables, you can call ```define```. This should be done in the ```db.js``` file before exporting.
+
+```js
+db.locations.define((t, c) => t.events.where({
+  locationId: c.id
+}));
+```
+
+Now you no longer have to specify the join in queries.
+
+```js
+const defined = await db.locations.query({
+  include: {
+    events: t => t.events.query({
+      limit: 3,
+      orderBy: 'startTime',
+      desc: true
+    })
+  },
+  limit: 3
+});
+```
+
 While the default interpretation of the query parameters is ```=```, you can pass in a function to use ```not```, ```gt```, ```gte```, ```lt```, ```lte```, ```like```, ```range```, ```match``` and ```glob```.
 
 For example:

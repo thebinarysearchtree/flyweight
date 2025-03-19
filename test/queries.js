@@ -259,12 +259,14 @@ const run = async () => {
   const defined = await db.locations.query({
     include: {
       events: t => t.events.query({
-        limit: 3
+        limit: 3,
+        orderBy: 'startTime',
+        desc: true
       })
     },
     limit: 3
   });
-  console.log(defined.at(0));
+  assert.equal(defined.at(1).events.length, 2);
 }
 
 const cleanUp = async () => {
