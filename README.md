@@ -1,67 +1,7 @@
 # Flyweight
-Flyweight is a NodeJS and edge ORM for databases that are compatible with SQLite.
+Flyweight is a NodeJS and edge ORM with first-class support for databases that are compatible with SQLite, including Cloudflare D1 and Turso.
 
-Other ORMS try to create an abstraction that covers as many of the features of SQL as possible, while leaving you with no support when you drop down into SQL itself. Flyweight takes a different approach by providing a very simple API for basic functions, such as the following:
-
-```js
-const fights = await db.fights.many({ cardId: [1, 2, 3] });
-```
-
-while providing types, autocomplete, and other features for the results of SQL queries by being able to understand the queries themselves.
-
-For example, if you create a query in ```./database/sql/users/roles.sql``` that looks like this:
-
-```sql
-select
-    u.id,
-    u.name,
-    groupArray(r.name) as roles
-from
-    users u join
-    userRoles ur on ur.userId = u.id join
-    roles r on ur.roleId = r.id
-where 
-    u.name = $name
-group by 
-    u.id
-```
-
-A function ```db.users.roles``` will be available in the API with the correct types.
-
-![auto-completed code](hero.png)
-
-## Shorthand JSON functions
-
-```sql
-object(
-    u.id, 
-    u.name, 
-    u.social) as user
-``` 
-
-is just shorthand for 
-
-```sql
-json_object(
-    'id', u.id, 
-    'name', u.name, 
-    'social', u.social) as user
-```
-
-Other commands available are ```groupArray``` which is shorthand for ```json_group_array```, and ```array```, which is shorthand for ```json_array```.
-
-## Alias stars
-
-Normally, SQLite doesn't support aliased stars, but this syntax is now available when writing SQL statements with Flyweight.
-
-```sql
-select
-    e.*,
-    l.name as locationName
-from 
-    events e join
-    locations l on e.locationId = l.id
-```
+Features include a comprehensive API, the ability to automatically type and query inside JSON, and advanced typing of raw SQL queries so that you are not without TypeScript support in any situation.
 
 ## Creating tables
 
@@ -334,6 +274,29 @@ const count = await db.users.count({
 });
 ```
 
+### Complex filtering
+
+If you need to perform complex logic in the ```where``` clause, you can use the ```and``` or ```or``` properties. For example:
+
+```js
+const events = await db.events.query({
+  where: {
+    or: [
+      { name: n => n.like('UFC 1_: The%') },
+      { id: n => n.lt(10) },
+      {
+        and: [
+          { startTime: n => n.gt(time) },
+          { name: n => n.like('%Japan%') }
+        ]
+      }
+    ]
+  }
+});
+```
+
+You should only include one condition per object.
+
 ### Aggregate functions
 
 There are multiple functions that aggregate the results into a single value. These include ```count```, ```avg```, ```min```, ```max```, and ```sum```. Despite its name, ```sum``` uses the SQLite function ```total``` to determine the results.
@@ -368,7 +331,28 @@ const changes = await db.fighters.remove({ id: 100 });
 
 ## Creating SQL queries
 
-When the basic API doesn't do what you need it to do, you can create SQL queries. You can do this by creating a folder with the same name as the table, such as ```./database/sql/users```. You can then put SQL files in this folder that will be available in the API.
+When the API doesn't do what you need it to do, you can create SQL queries. You can do this by creating a folder with the same name as the table, such as ```./database/sql/users```. You can then put SQL files in this folder that will be available in the API.
+
+For example, if you create a query in ```./database/sql/users/roles.sql``` that looks like this:
+
+```sql
+select
+    u.id,
+    u.name,
+    groupArray(r.name) as roles
+from
+    users u join
+    userRoles ur on ur.userId = u.id join
+    roles r on ur.roleId = r.id
+where 
+    u.name = $name
+group by 
+    u.id
+```
+
+A function ```db.users.roles``` will be available in the API with the correct types.
+
+![auto-completed code](hero.png)
 
 When creating SQL queries, make sure you give an alias to any columns in the select statement that don't have a name. For example, do not do:
 
@@ -417,6 +401,39 @@ Nulls are automatically removed from all ```groupArray``` results. When all of t
 ```
 
 the entire object will be null.
+
+## Shorthand JSON functions
+
+```sql
+object(
+    u.id, 
+    u.name, 
+    u.social) as user
+``` 
+
+is just shorthand for 
+
+```sql
+json_object(
+    'id', u.id, 
+    'name', u.name, 
+    'social', u.social) as user
+```
+
+Other commands available are ```groupArray``` which is shorthand for ```json_group_array```, and ```array```, which is shorthand for ```json_array```.
+
+## Alias stars
+
+Normally, SQLite doesn't support aliased stars, but this syntax is now available when writing SQL statements with Flyweight.
+
+```sql
+select
+    e.*,
+    l.name as locationName
+from 
+    events e join
+    locations l on e.locationId = l.id
+```
 
 ## Transactions
 

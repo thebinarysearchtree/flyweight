@@ -267,6 +267,24 @@ const run = async () => {
     limit: 3
   });
   assert.equal(defined.at(1).events.length, 2);
+  const time = new Date();
+  time.setFullYear(1997);
+  const conditions = await db.events.query({
+    where: {
+      id: n => n.lt(29),
+      or: [
+        { name: n => n.like('UFC 1_: The%') },
+        { id: n => n.lt(10) },
+        {
+          and: [
+            { startTime: n => n.gt(time) },
+            { name: n => n.like('%Japan%') }
+          ]
+        }
+      ]
+    }
+  });
+  assert.equal(conditions.at(12).id, 18);
 }
 
 const cleanUp = async () => {

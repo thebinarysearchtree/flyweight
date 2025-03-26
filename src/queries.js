@@ -316,7 +316,7 @@ const insertMany = async (db, table, items, tx) => {
   return await db.run(options);
 }
 
-const toWhere = (verify, table, query, params) => {
+const toWhere = (verify, table, query, params, type = 'and') => {
   if (!query) {
     return {
       whereClauses: '',
@@ -336,17 +336,28 @@ const toWhere = (verify, table, query, params) => {
   const conditions = [];
   const fromClauses = [];
   for (const [column, param] of entries) {
-    if (/^p_\d+$/.test(column)) {
-      continue;
-    }
-    if (verify) {
+    if (verify && column !== 'and' && column !== 'or') {
       verify(column);
     }
     if (param === undefined) {
       continue;
     }
     const selector = table ? `${table}.${column}` : column;
-    if (typeof param === 'function') {
+    if (column === 'and' || column === 'or') {
+      if (!Array.isArray(param)) {
+        throw Error(`The "${column}" property value must be an array of conditions`);
+      }
+      const filters = [];
+      for (const query of param) {
+        const results = toWhere(verify, table, query, params, column);
+        filters.push(results.whereClauses);
+        if (results.fromClauses) {
+          fromClauses.push(results.fromClauses);
+        }
+      }
+      conditions.push(`(${filters.join(` ${column} `)})`);
+    }
+    else if (typeof param === 'function') {
       const result = getConditions(verify, table, column, param, params);
       conditions.push(...result.conditions);
       fromClauses.push(...result.fromClauses);
@@ -366,7 +377,7 @@ const toWhere = (verify, table, query, params) => {
     }
   }
   return {
-    whereClauses: conditions.join(' and '),
+    whereClauses: conditions.join(` ${type} `),
     fromClauses: fromClauses.join(', ')
   }
 }

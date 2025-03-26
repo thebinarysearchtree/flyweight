@@ -523,6 +523,8 @@ const createTypes = async (options) => {
     if (db.virtualSet.has(table.name)) {
       types += `  ${table.name}?: string;\n`;
     }
+    types += ` and?: Array<${whereInterfaceName}>;\n`;
+    types += ` or?: Array<${whereInterfaceName}>;\n`;
     types += '}\n\n';
     if (queries) {
       for (const queryInterface of queries.queryInterfaces) {
