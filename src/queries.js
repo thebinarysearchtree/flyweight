@@ -12,6 +12,7 @@ const getPlaceholder = () => {
 const reservedWords = [
   'where',
   'select',
+  'omit',
   'include',
   'orderBy',
   'desc',
@@ -1200,9 +1201,15 @@ const all = async (db, table, query, columns, first, tx, dbClient, partitionBy, 
   let included;
   let keywords;
   if (reservedWords.some(k => query.hasOwnProperty(k))) {
-    const { where, select, include, alias, ...rest } = query;
+    const { where, select, omit, include, alias, ...rest } = query;
     query = where || {};
-    columns = select;
+    if (omit) {
+      const remove = typeof omit === 'string' ? [omit] : omit;
+      columns = Object.keys(db.columns[table]).filter(t => !remove.includes(t));
+    }
+    else {
+      columns = select;
+    }
     included = include;
     keywords = rest;
     if (alias) {

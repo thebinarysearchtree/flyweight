@@ -187,7 +187,11 @@ const fighter = await db.fighters.get({ id: 3 }, ['id', 'born']);
 
 You can use the ```query``` or ```first``` syntax for more complex queries. ```query``` returns an array in the same way as ```many```, and ```first``` returns an object or ```undefined``` if nothing is found. The additional keywords are:
 
-```include```: include other tables in the result
+```select```: a string or array of strings representing the columns to select.
+
+```omit```: a s tring or array of strings representing the columns to omit. All of the other columns will be selected.
+
+```include```: include other tables in the result.
 
 ```alias```: create an alias for columns, such as when selecting inside of JSON objects.
 

@@ -132,9 +132,27 @@ export interface ComplexQueryObject<W, K, T> extends Keywords<keyof T | Array<ke
   with?: undefined;
 }
 
+export interface ComplexQueryObjectOmit<W, K, T> extends Keywords<keyof T | Array<keyof T>> {
+  where?: W;
+  select?: undefined;
+  omit: (keyof T)[] | K[] | K;
+  include?: undefined;
+  alias?: undefined;
+  with?: undefined;
+}
+
 export interface ComplexQueryObjectAlias<W, K, T, N> extends Keywords<keyof T | ExtractIncludedKeys<N> | Array<keyof T | ExtractIncludedKeys<N>>> {
   where?: W;
   select: (keyof T)[] | K[];
+  include?: undefined;
+  alias: N;
+  with?: undefined;
+}
+
+export interface ComplexQueryObjectAliasOmit<W, K, T, N> extends Keywords<keyof T | ExtractIncludedKeys<N> | Array<keyof T | ExtractIncludedKeys<N>>> {
+  where?: W;
+  select?: undefined;
+  omit: (keyof T)[] | K[] | K;
   include?: undefined;
   alias: N;
   with?: undefined;
@@ -148,9 +166,27 @@ export interface ComplexQueryObjectInclude<W, K, T, U> extends Keywords<keyof T 
   with?: undefined;
 }
 
+export interface ComplexQueryObjectIncludeOmit<W, K, T, U> extends Keywords<keyof T | ExtractIncludedKeys<U> | Array<keyof T | ExtractIncludedKeys<U>>> {
+  where?: W | IncludeWhere<T, U>;
+  select?: undefined;
+  omit: (keyof T)[] | K[] | K;
+  include: U;
+  alias?: undefined;
+  with?: undefined;
+}
+
 export interface ComplexQueryObjectIncludeAlias<W, K, T, U, N> extends Keywords<keyof T | ExtractIncludedKeys<U & N> | Array<keyof T | ExtractIncludedKeys<U & N>>> {
   where?: W | IncludeWhere<T, U>;
   select: (keyof T)[] | K[];
+  include: U;
+  alias: N;
+  with?: undefined;
+}
+
+export interface ComplexQueryObjectIncludeAliasOmit<W, K, T, U, N> extends Keywords<keyof T | ExtractIncludedKeys<U & N> | Array<keyof T | ExtractIncludedKeys<U & N>>> {
+  where?: W | IncludeWhere<T, U>;
+  select?: undefined;
+  omit: (keyof T)[] | K[] | K;
   include: U;
   alias: N;
   with?: undefined;
@@ -228,9 +264,13 @@ export interface Queries<T, I, W, R, Y> {
   many<K extends keyof T>(params: W | null, column: K): Promise<Array<T[K]>>;
   many<N>(params: W | null, column: (selector: T) => N): Promise<Array<N>>;
   query<K extends keyof T>(query: ComplexQueryObject<W, K, T>): Promise<Array<Pick<T, K>>>;
+  query<K extends keyof T>(query: ComplexQueryObjectOmit<W, K, T>): Promise<Array<Omit<T, K>>>;
   query<K extends keyof T, N extends Alias<T>>(query: ComplexQueryObjectAlias<W, K, T, N>): Promise<Array<Pick<T, K> & ReturnTypes<N>>>;
+  query<K extends keyof T, N extends Alias<T>>(query: ComplexQueryObjectAliasOmit<W, K, T, N>): Promise<Array<Omit<T, K> & ReturnTypes<N>>>;
   query<K extends keyof T, U extends Includes<Y, T>>(query: ComplexQueryObjectInclude<W, K, T, U>): Promise<Array<MergeIncludes<Pick<T, K>, U>>>;
+  query<K extends keyof T, U extends Includes<Y, T>>(query: ComplexQueryObjectIncludeOmit<W, K, T, U>): Promise<Array<MergeIncludes<Omit<T, K>, U>>>;
   query<K extends keyof T, U extends Includes<Y, T>, N extends Alias<T>>(query: ComplexQueryObjectIncludeAlias<W, K, T, U, N>): Promise<Array<MergeIncludes<Pick<T, K>, U> & ReturnTypes<N>>>;
+  query<K extends keyof T, U extends Includes<Y, T>, N extends Alias<T>>(query: ComplexQueryObjectIncludeAliasOmit<W, K, T, U, N>): Promise<Array<MergeIncludes<Omit<T, K>, U> & ReturnTypes<N>>>;
   query<K extends keyof T>(query: ComplexQueryValue<W, K, T>): Promise<Array<T[K]>>;
   query(query: ComplexQuery<W, T>): Promise<Array<T>>;
   query<U extends Includes<Y, T>>(query: ComplexQueryInclude<W, T, U>): Promise<Array<MergeIncludes<T, U>>>;
@@ -238,9 +278,13 @@ export interface Queries<T, I, W, R, Y> {
   query<N extends Alias<T>>(query: ComplexQueryAlias<W, T, N>): Promise<Array<T & ReturnTypes<N>>>;
   query<N>(query: ComplexQuerySelector<W, T, N>): Promise<Array<N>>;
   first<K extends keyof T>(query: ComplexQueryObject<W, K, T>): Promise<Pick<T, K> | undefined>;
+  first<K extends keyof T>(query: ComplexQueryObjectOmit<W, K, T>): Promise<Omit<T, K> | undefined>;
   first<K extends keyof T, N extends Alias<T>>(query: ComplexQueryObjectAlias<W, K, T, N>): Promise<(Pick<T, K> & ReturnTypes<N>) | undefined>;
+  first<K extends keyof T, N extends Alias<T>>(query: ComplexQueryObjectAliasOmit<W, K, T, N>): Promise<(Omit<T, K> & ReturnTypes<N>) | undefined>;
   first<K extends keyof T, U extends Includes<Y, T>>(query: ComplexQueryObjectInclude<W, K, T, U>): Promise<MergeIncludes<Pick<T, K>, U> | undefined>;
+  first<K extends keyof T, U extends Includes<Y, T>>(query: ComplexQueryObjectIncludeOmit<W, K, T, U>): Promise<MergeIncludes<Omit<T, K>, U> | undefined>;
   first<K extends keyof T, U extends Includes<Y, T>, N extends Alias<T>>(query: ComplexQueryObjectIncludeAlias<W, K, T, U, N>): Promise<(MergeIncludes<Pick<T, K>, U> & ReturnTypes<N>) | undefined>;
+  first<K extends keyof T, U extends Includes<Y, T>, N extends Alias<T>>(query: ComplexQueryObjectIncludeAliasOmit<W, K, T, U, N>): Promise<(MergeIncludes<Omit<T, K>, U> & ReturnTypes<N>) | undefined>;
   first<K extends keyof T>(query: ComplexQueryValue<W, K, T>): Promise<T[K] | undefined>;
   first(query: ComplexQuery<W, T>): Promise<T | undefined>;
   first<N extends Alias<T>>(query: ComplexQueryAlias<W, T, N>): Promise<(T & ReturnTypes<N>) | undefined>;

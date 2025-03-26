@@ -285,6 +285,13 @@ const run = async () => {
     }
   });
   assert.equal(conditions.at(12).id, 18);
+  const omit = await db.events.first({
+    where: {
+      id: 1
+    },
+    omit: 'locationId'
+  });
+  assert.equal(omit.locationId, undefined);
 }
 
 const cleanUp = async () => {
