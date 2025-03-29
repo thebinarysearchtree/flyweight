@@ -203,6 +203,8 @@ You can use the ```query``` or ```first``` syntax for more complex queries. ```q
 
 ```distinct```: adds the ```distinct``` keywords to the start of the select clause.
 
+```debug```: when set to true, the result will include debug information such as the raw SQL used in the query.
+
 For example:
 
 ```js

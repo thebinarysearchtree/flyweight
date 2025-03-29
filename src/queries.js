@@ -738,12 +738,21 @@ const getVirtual = async (db, table, query, tx, keywords, select, returnValue, v
   return post(results);
 }
 
-const exists = async (db, table, query, tx, groupKey, parentQuery) => {
+const exists = async (config) => {
+  const {
+    db,
+    table,
+    tx,
+    groupKey,
+    parentQuery,
+    debugResult
+  } = config;
   if (!db.initialized) {
     await db.initialize();
   }
+  const query = config.query || {};
   if (groupKey) {
-    const result = await aggregate(db, table, query, tx, 'count', groupKey, parentQuery);
+    const result = await aggregate({ db, table, query, tx, method: 'count', groupKey, parentQuery });
     return result.map(r => {
       return {
         result: r.countResult > 0,
@@ -762,6 +771,12 @@ const exists = async (db, table, query, tx, groupKey, parentQuery) => {
     params,
     tx
   };
+  if (debugResult) {
+    debugResult.queries.push({
+      sql,
+      params
+    });
+  }
   const post = (results) => {
     if (results.length > 0) {
       return Boolean(results[0].exists_result);
@@ -787,14 +802,21 @@ const addClauses = (verify, table, query, params) => {
   return sql;
 }
 
-const aggregate = async (db, table, query, tx, method, groupKey, parentQuery) => {
+const aggregate = async (config) => {
+  const {
+    db,
+    table,
+    tx,
+    method,
+    groupKey,
+    parentQuery,
+    debugResult
+  } = config;
   if (!db.initialized) {
     await db.initialize();
   }
-  if (!query) {
-    query = {};
-  }
   const params = {};
+  const query = config.query || {};
   let parentWhere = {};
   let parentHaving = {};
   if (parentQuery) {
@@ -908,6 +930,12 @@ const aggregate = async (db, table, query, tx, method, groupKey, parentQuery) =>
     params,
     tx
   };
+  if (debugResult) {
+    debugResult.queries.push({
+      sql,
+      params
+    });
+  }
   const post = (results) => {
     if (groupKey) {
       return results;
@@ -924,7 +952,7 @@ const aggregate = async (db, table, query, tx, method, groupKey, parentQuery) =>
   return post(results);
 }
 
-const processInclude = (key, handler, parentQuery, defined) => {
+const processInclude = (key, handler, parentQuery, defined, debugResult) => {
   const tableTarget = {};
   let otherProxy;
   let otherTarget;
@@ -1030,6 +1058,7 @@ const processInclude = (key, handler, parentQuery, defined) => {
     const singleInclude = ['first', 'get', 'exists'].includes(method) || aggregateMethods.includes(method);
     let group = false;
     let values;
+    const config = { debugResult };
     if (!parentQuery) {
       values = singleResult ? result[targetName] : result.map(item => item[targetName]);
     }
@@ -1068,19 +1097,14 @@ const processInclude = (key, handler, parentQuery, defined) => {
       }
       if (method === 'exists' || aggregateMethods.includes(method)) {
         group = true;
-        tableTarget.args.push(whereKey, parentQuery);
+        config.groupKey = whereKey;
+        config.parentQuery = parentQuery;
         if (parentQuery) {
           returnToValues = parentQuery.includeName;
         }
         else {
           returnToValues = `${method}_result`;
         }
-      }
-      else if (method === 'get') {
-        if (tableTarget.args.length === 1) {
-          tableTarget.args.push(undefined);
-        }
-        tableTarget.args.push(parentQuery);
       }
     }
     else if (whereKey !== undefined) {
@@ -1105,12 +1129,20 @@ const processInclude = (key, handler, parentQuery, defined) => {
     }
     if (['first', 'query'].includes(method)) {
       if (tableTarget.args[0].limit !== undefined) {
-        tableTarget.args.push(whereKey);
+        config.partitionBy = whereKey;
       }
       else if (tableTarget.args[0].orderBy !== undefined && method === 'first' && queryMethod === 'query') {
-        tableTarget.args.push(whereKey, true);
+        config.partitionBy = whereKey;
+        config.singleRow = true;
       }
     }
+    if (tableTarget.args.length === 0) {
+      tableTarget.args.push(undefined);
+    }
+    if (['get', 'many'].includes(method) && tableTarget.args.length === 1) {
+      tableTarget.args.push(undefined);
+    }
+    tableTarget.args.push(config);
     const included = await db[tableTarget.table][queryMethod](...tableTarget.args);
     const postProcess = (result) => {
       if (singleResult) {
@@ -1190,18 +1222,27 @@ const processInclude = (key, handler, parentQuery, defined) => {
   }
 }
 
-const all = async (db, table, query, columns, first, tx, dbClient, partitionBy, singleRow) => {
+const all = async (config) => {
+  const { 
+    db, 
+    table, 
+    first, 
+    tx, 
+    dbClient, 
+    partitionBy, 
+    singleRow 
+  } = config;
   if (!db.initialized) {
     await db.initialize();
   }
-  if (!query) {
-    query = {};
-  }
   const params = {};
+  let query = config.query || {};
+  let columns = config.columns;
   let included;
   let keywords;
+  let debugResult;
   if (reservedWords.some(k => query.hasOwnProperty(k))) {
-    const { where, select, omit, include, alias, ...rest } = query;
+    const { where, select, omit, include, alias, debug, ...rest } = query;
     query = where || {};
     if (omit) {
       const remove = typeof omit === 'string' ? [omit] : omit;
@@ -1222,6 +1263,12 @@ const all = async (db, table, query, columns, first, tx, dbClient, partitionBy, 
       for (const [key, value] of Object.entries(alias)) {
         columns.push({ select: value, as: key });
       }
+    }
+    if (debug) {
+      debugResult = {
+        result: undefined,
+        queries: []
+      };
     }
   }
   const returnValue = ['string', 'function'].includes(typeof columns);
@@ -1264,7 +1311,7 @@ const all = async (db, table, query, columns, first, tx, dbClient, partitionBy, 
         runWhere.push(column);
       }
       const defined = db.includes.get(table);
-      const result = processInclude(column, handler, parentQuery, defined);
+      const result = processInclude(column, handler, parentQuery, defined, debugResult);
       extraColumns.add(result.parentColumn);
       includeResults.push({ column, result });
       includeNames.push(column);
@@ -1431,6 +1478,23 @@ const all = async (db, table, query, columns, first, tx, dbClient, partitionBy, 
     params,
     tx
   };
+  const debugReturn = (result) => {
+    if (config.debugResult) {
+      config.debugResult.queries.push({
+        sql,
+        params
+      });
+    }
+    if (debugResult) {
+      debugResult.queries.push({
+        sql,
+        params
+      });
+      debugResult.result = result;
+      return debugResult;
+    }
+    return result;
+  }
   const post = (rows) => {
     if (rows.length === 0) {
       if (first) {
@@ -1490,7 +1554,7 @@ const all = async (db, table, query, columns, first, tx, dbClient, partitionBy, 
   const rows = await db.all(options);
   const adjusted = post(rows);
   if (!included || !adjusted || returnValue) {
-    return adjusted;
+    return debugReturn(adjusted);
   }
   if (first) {
     for (const include of includeResults) {
@@ -1514,7 +1578,7 @@ const all = async (db, table, query, columns, first, tx, dbClient, partitionBy, 
         adjusted[key] = value;
       }
     }
-    return adjusted;
+    return debugReturn(adjusted);
   }
   else {
     let result = adjusted;
@@ -1620,7 +1684,7 @@ const all = async (db, table, query, columns, first, tx, dbClient, partitionBy, 
         result.sort(sorter);
       }
     }
-    return result;
+    return debugReturn(result);
   }
 }
 
