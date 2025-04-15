@@ -2,7 +2,7 @@ type Unwrap<T extends any[]> = {
   [K in keyof T]: T[K] extends Promise<infer U> ? U : T[K];
 };
 
-interface TypedDb {
+export interface TypedDb {
   [key: string]: any;
   exec(sql: string): Promise<void>;
   begin(): Promise<void>;
@@ -14,10 +14,5 @@ interface TypedDb {
   batch:<T extends any[]> (batcher: (bx: TypedDb) => T) => Promise<Unwrap<T>>;
 }
 
-declare const database: any;
-declare const db: TypedDb;
-
-export {
-  database,
-  db
-}
+export const database: any;
+export const db: TypedDb;

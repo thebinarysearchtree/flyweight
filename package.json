@@ -1,6 +1,6 @@
 {
   "name": "flyweightjs",
-  "version": "3.0.72",
+  "version": "3.0.73",
   "description": "An ORM for SQLite",
   "types": "index.d.ts",
   "type": "module",
@@ -9,16 +9,13 @@
     "require": "./index.cjs"
   },
   "scripts": {
-    "test": "node ./test/test.js",
     "build": "./node_modules/.bin/esbuild index.js --bundle --platform=node --format=cjs --packages=external --outfile=index.cjs",
     "files": "node createFiles.js"
   },
   "author": "Andrew Jones",
   "license": "MIT",
   "devDependencies": {
-    "better-sqlite3": "^11.8.1",
-    "esbuild": "0.25.0",
-    "flyweight-client": "^1.0.22"
+    "esbuild": "0.25.2"
   },
   "dependencies": {
     "pluralize": "^8.0.0"

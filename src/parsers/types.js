@@ -540,7 +540,6 @@ const createTypes = async (options) => {
     types += `  ${table}: DefineWhere<${where}>;\n`;
   }
   types += '}\n\n';
-  types = types.replaceAll(/^export /gm, '');
   types = types.replace('getClient(): any;', 'getClient(): TypedDb;');
   const exportSection = files[features.types];
   const replaced = exportSection.replace(/(\[key: string\]: any;\s)/, `$1${returnTypes.join('')}`);

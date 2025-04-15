@@ -5,7 +5,7 @@ import { isWrite } from './parsers/queries.js';
 class TursoDatabase extends Database {
   constructor(props) {
     const supports = {
-      jsonb: false,
+      jsonb: true,
       migrations: true,
       files: false,
       closing: false,
@@ -51,7 +51,7 @@ class TursoDatabase extends Database {
   }
 
   async getSample(table, column) {
-    const sql = `select ${column} from ${table} order by rowid desc limit 100`;
+    const sql = `select json(${column}) as ${column} from ${table} order by rowid desc limit 100`;
     const statement = {
       sql,
       args: {}

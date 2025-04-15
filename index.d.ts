@@ -1,12 +1,12 @@
-interface QueryOptions {
+export interface QueryOptions {
   parse: boolean;
 }
 
-interface DatabaseConfig {
+export interface DatabaseConfig {
   debug?: boolean;
 }
 
-interface SQLiteConfig extends DatabaseConfig {
+export interface SQLiteConfig extends DatabaseConfig {
   db: string | URL;
   sql: string | URL;
   tables: string | URL;
@@ -15,18 +15,18 @@ interface SQLiteConfig extends DatabaseConfig {
   adaptor: any;
 }
 
-interface TursoConfig extends DatabaseConfig {
+export interface TursoConfig extends DatabaseConfig {
   db: any;
   files: any;
 }
 
-interface D1Config extends DatabaseConfig {
+export interface D1Config extends DatabaseConfig {
   db: any;
   files: any;
   getSample?: any;
 }
 
-interface FileSystem {
+export interface FileSystem {
   readFile: (path: string, encoding: string) => Promise<string>;
   writeFile: (path: string, content: string) => Promise<void>;
   readdir: (path: string) => Promise<string[]>;
@@ -34,7 +34,7 @@ interface FileSystem {
   readSql: (path: string) => Promise<string>;
 }
 
-interface Paths {
+export interface Paths {
   tables: string;
   views: string;
   sql: string;
@@ -44,7 +44,7 @@ interface Paths {
   files?: string;
 }
 
-declare class Database {
+export class Database {
   constructor(options: DatabaseConfig);
   runMigration(sql: string): Promise<void>;
   makeTypes(fileSystem: FileSystem, paths: Paths, sampleData?: boolean): Promise<void>;
@@ -56,7 +56,7 @@ declare class Database {
   exec(query: string): Promise<void>;
 }
 
-declare class SQLiteDatabase extends Database {
+export class SQLiteDatabase extends Database {
   constructor(options: SQLiteConfig);
   begin(): Promise<void>;
   commit(): Promise<void>;
@@ -64,7 +64,7 @@ declare class SQLiteDatabase extends Database {
   close(): Promise<void>;
 }
 
-declare class TursoDatabase extends Database {
+export class TursoDatabase extends Database {
   constructor(options: TursoConfig);
   begin(): Promise<void>;
   commit(): Promise<void>;
@@ -72,14 +72,7 @@ declare class TursoDatabase extends Database {
   batch(handler: (batcher: any) => any[]): Promise<any[]>;
 }
 
-declare class D1Database extends Database {
+export class D1Database extends Database {
   constructor(options: D1Config);
   batch(handler: (batcher: any) => any[]): Promise<any[]>;
-}
-
-export {
-  Database,
-  SQLiteDatabase,
-  TursoDatabase,
-  D1Database
 }

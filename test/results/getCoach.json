@@ -1,1 +1,0 @@
-{"id":1,"name":"Test User","city":"Brisbane","profile":{"medical":{"age":21,"fit":true,"testDate":"2022-09-30T14:00:00.000Z","nested":{"test":["2022-10-01T14:00:00.000Z","2022-07-01T14:00:00.000Z"]}},"tests":[{"id":1,"testDate":"2022-01-11T14:00:00.000Z","result":100},{"id":2,"testDate":"2022-10-02T14:00:00.000Z","result":200}]}}

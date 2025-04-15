@@ -2,7 +2,7 @@ type Unwrap<T extends any[]> = {
   [K in keyof T]: T[K] extends Promise<infer U> ? U : T[K];
 };
 
-interface TypedDb {
+export interface TypedDb {
   [key: string]: any;
   begin(): Promise<void>;
   commit(): Promise<void>;
@@ -12,7 +12,7 @@ interface TypedDb {
   sync(): Promise<void>;
 }
 
-interface Config {
+export interface Config {
     url: string;
     authToken?: string;
     encryptionKey?: string;
@@ -24,6 +24,4 @@ interface Config {
     concurrency?: number | undefined;
 }
 
-declare function makeClient(options: Config, internal?: boolean): TypedDb;
-
-export default makeClient;
+export function makeClient(options: Config, internal?: boolean): TypedDb;
