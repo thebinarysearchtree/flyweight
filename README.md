@@ -189,7 +189,7 @@ You can use the ```query``` or ```first``` syntax for more complex queries. ```q
 
 ```select```: a string or array of strings representing the columns to select.
 
-```omit```: a s tring or array of strings representing the columns to omit. All of the other columns will be selected.
+```omit```: a string or array of strings representing the columns to omit. All of the other columns will be selected.
 
 ```include```: include other tables in the result.
 
@@ -310,7 +310,9 @@ There are multiple functions that aggregate the results into a single value. The
 All of these functions take three arguments:
 
 ```where```: the where clause
+
 ```column```: the column to aggregate. This is optional for ```count```.
+
 ```distinct```: the same as ```column``` but it adds ```distinct``` to the front.
 
 ```js
