@@ -324,10 +324,10 @@ class Database {
   }
 
   needsParsing(table, keys) {
+    if (typeof keys === 'string') {
+      keys = [keys];
+    }
     for (const key of keys) {
-      if (key === 'count' || key === 'json_result') {
-        continue;
-      }
       const type = this.columns[table][key];
       if (!dbTypes[type]) {
         return true;

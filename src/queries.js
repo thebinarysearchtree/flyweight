@@ -802,6 +802,259 @@ const addClauses = (verify, table, query, params) => {
   return sql;
 }
 
+const makeJsonArray = (columns) => {
+  let sql = `json_group_array(json_object(`;
+  sql += columns.map(c => `'${c}', ${c}`).join(',');
+  sql += `))`;
+  return sql;
+}
+
+const group = async (config) => {
+  const {
+    db,
+    table,
+    query,
+    tx
+  } = config;
+  if (!db.initialized) {
+    await db.initialize();
+  }
+  const { alias, where, debug, ...keywords } = query;
+  let by = query.by;
+  by = Array.isArray(by) ? by : [by];
+  const params = {};
+  let debugResult;
+  if (debug) {
+    debugResult = {
+      result: undefined,
+      queries: []
+    };
+  }
+  const debugReturn = (result) => {
+    if (config.debugResult) {
+      config.debugResult.queries.push({
+        sql,
+        params
+      });
+    }
+    if (debugResult) {
+      debugResult.queries.push({
+        sql,
+        params
+      });
+      debugResult.result = result;
+      return debugResult;
+    }
+    return result;
+  }
+  const needsParsing = new Map();
+  const columnSet = db.columnSets[table];
+  const verify = makeVerify(table, columnSet);
+  verify(by);
+  const byClause = by.join(', ');
+  for (const column of by) {
+    if (db.needsParsing(table, column)) {
+      needsParsing.set(column, { type: 'value' });
+    }
+  }
+  let sql = `select ${byClause}, `;
+  const setParse = (alias, columns) => {
+    if (typeof columns === 'string') {
+      let map = false;
+      if (db.needsParsing(table, columns)) {
+        map = true;
+      }
+      needsParsing.set(alias, { jsonParse: true, field: columns });
+      return;
+    }
+    const fields = new Map();
+    for (const column of columns) {
+      if (db.needsParsing(table, column)) {
+        fields.set(column, true);
+      }
+    }
+    needsParsing.set(alias, { jsonParse: true, fields });
+  }
+  const havingKeys = [];
+  const arrayKeys = [];
+  if (!alias) {
+    const columns = Object.keys(db.tables[table]);
+    sql += makeJsonArray(columns);
+    sql += `as group from ${table}`;
+    setParse('group', columns);
+  }
+  else {
+    const aggregates = [];
+    for (const [key, selector] of Object.entries(alias)) {
+      const target = {};
+      const handler = {
+        get: function(target, property) {
+          target.method = property;
+          return (args) => {
+            target.args = args;
+            return proxy;
+          }
+        }
+      };
+      const proxy = new Proxy(target, handler);
+      selector(proxy);
+      aggregates.push({ alias: key, method: target.method, args: target.args });
+      if (target.method !== 'array') {
+        havingKeys.push(key);
+      }
+      else {
+        arrayKeys.push(key);
+      }
+    }
+    const clauses = aggregates.map(aggregate => {
+      const { alias, method, args } = aggregate;
+      if (!aggregateMethods.includes(method) && !method === 'array') {
+        throw Error('Invalid aggregate method');
+      }
+      if (method !== 'array') {
+        if (method !== 'count' && !args) {
+          throw Error(`No arguments provided to ${method}`);
+        }
+        let body = '';
+        if (args) {
+          const { distinct, column } = args;
+          const field = distinct || column;
+          if (!field) {
+            throw Error(`Invalid arguments to ${method}`);
+          }
+          if (distinct) {
+            body += 'distinct ';
+          }
+          verify(field);
+          body += field;
+        }
+        else {
+          body = '*';
+        }
+        return `${method}(${body}) as ${alias}`;
+      }
+      else {
+        let sql = '';
+        const columns = Object.keys(db.tables[table]);
+        if (!args) {
+          sql += makeJsonArray(columns);
+          setParse(alias, columns);
+        }
+        else {
+          if (Array.isArray(args)) {
+            sql += makeJsonArray(args);
+            setParse(alias, args);
+          }
+          else if (typeof args === 'string') {
+            sql += `json_group_array(${args})`;
+            setParse(alias, args);
+          }
+          else {
+            throw Error(`Invalid arguments to ${method}`);
+          }
+        }
+        sql += ` as ${alias}`;
+        return sql;
+      }
+    }).join(',');
+    sql += clauses;
+    sql += ` from ${table}`;
+  }
+  let having = {};
+  if (where) {
+    let adjusted = where;
+    if (alias) {
+      adjusted = {};
+      for (const [key, value] of Object.entries(where)) {
+        if (havingKeys.includes(key)) {
+          having[key] = value;
+          continue;
+        }
+        else if (arrayKeys.includes(key)) {
+          continue;
+        }
+        adjusted[key] = value;
+      }
+    }
+    const { whereClauses } = toWhere(verify, table, adjusted, params);
+    if (whereClauses) {
+      sql += ` where ${whereClauses}`;
+    }
+  }
+  sql += ` group by ${byClause}`;
+  if (Object.keys(having).length > 0) {
+    const { whereClauses } = toWhere(null, null, having, params);
+    if (whereClauses) {
+      sql += ` having ${whereClauses}`;
+    }
+  }
+  if (keywords) {
+    sql += toKeywords(verify, keywords, params, alias);
+  }
+  const options = {
+    query: sql,
+    params,
+    tx
+  };
+  if (debugResult) {
+    debugResult.queries.push({
+      sql,
+      params
+    });
+  }
+  const post = (rows) => {
+    if (rows.length === 0 || needsParsing.size === 0) {
+      return rows;
+    }
+    const adjusted = [];
+    for (const row of rows) {
+      const created = {};
+      for (const [key, value] of Object.entries(row)) {
+        const parse = needsParsing.get(key);
+        if (!parse) {
+          created[key] = value;
+        }
+        else {
+          if (parse.jsonParse) {
+            const items = JSON.parse(value);
+            if (parse.field) {
+              created[key] = items.map(item => db.convertToJs(table, parse.field, value));
+            }
+            else if (parse.fields) {
+              created[key] = items.map(item => {
+                const adjusted = {};
+                for (const [key, value] of Object.entries(item)) {
+                  if (parse.fields.has(key)) {
+                    adjusted[key] = db.convertToJs(table, key, value);
+                  }
+                  else {
+                    adjusted[key] = value;
+                  }
+                }
+                return adjusted;
+              });
+            }
+            else {
+              created[key] = items;
+            }
+          }
+          else {
+            created[key] = db.convertToJs(table, key, value);
+          }
+        }
+      }
+      adjusted.push(created);
+    }
+    return adjusted;
+  };
+  if (tx && tx.isBatch) {
+    return await processBatch(db, options, post);
+  }
+  const results = await db.all(options);
+  const adjusted = post(results);
+  return debugReturn(adjusted);
+}
+
 const aggregate = async (config) => {
   const {
     db,
@@ -1711,6 +1964,7 @@ export {
   update,
   upsert,
   exists,
+  group,
   aggregate,
   all,
   remove

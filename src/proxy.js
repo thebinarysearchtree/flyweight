@@ -4,6 +4,7 @@ import {
   update,
   upsert,
   exists,
+  group,
   aggregate,
   all,
   remove
@@ -17,6 +18,7 @@ const basic = {
   update: (database, table, tx) => async (options) => await update(database, table, options, tx),
   upsert: (database, table, tx) => async (options) => await upsert(database, table, options, tx),
   exists: (database, table, tx) => async (query, config) => await exists({ db: database, table, query, tx, ...config }),
+  group: (database, table, tx) => async (query, config) => await group({ db: database, table, query, tx, ...config }),
   count: (database, table, tx) => async (query, config) => await aggregate({ db: database, table, query, tx, method: 'count', ...config }),
   avg: (database, table, tx) => async (query, config) => await aggregate({ db: database, table, query, tx, method: 'avg', ...config }),
   min: (database, table, tx) => async (query, config) => await aggregate({ db: database, table, query, tx, method: 'min', ...config }),
