@@ -802,9 +802,19 @@ const addClauses = (verify, table, query, params) => {
   return sql;
 }
 
-const makeJsonArray = (columns) => {
+const makeJsonArray = (types, columns) => {
   let sql = `json_group_array(json_object(`;
-  sql += columns.map(c => `'${c}', ${c}`).join(',');
+  const mapped = columns.map(column => {
+    let selector;
+    if (types && types[column] === 'json') {
+      selector = `json(${column})`;
+    }
+    else {
+      selector = column;
+    }
+    return `'${column}', ${selector}`;
+  });
+  sql += mapped.join(',');
   sql += `))`;
   return sql;
 }
@@ -851,6 +861,7 @@ const group = async (config) => {
   const columnSet = db.columnSets[table];
   const verify = makeVerify(table, columnSet);
   verify(by);
+  const columnTypes = db.supports.jsonb ? db.columns[table] : null;
   const byClause = by.join(', ');
   for (const column of by) {
     if (db.needsParsing(table, column)) {
@@ -859,9 +870,10 @@ const group = async (config) => {
   }
   let sql = `select ${byClause}, `;
   const setParse = (alias, columns) => {
+    const types = db.columns[table];
     if (typeof columns === 'string') {
       let map = false;
-      if (db.needsParsing(table, columns)) {
+      if (db.needsParsing(table, columns) && types[columns] !== 'json') {
         map = true;
       }
       needsParsing.set(alias, { jsonParse: true, field: columns });
@@ -869,7 +881,7 @@ const group = async (config) => {
     }
     const fields = new Map();
     for (const column of columns) {
-      if (db.needsParsing(table, column)) {
+      if (db.needsParsing(table, column) && types[column] !== 'json') {
         fields.set(column, true);
       }
     }
@@ -878,8 +890,8 @@ const group = async (config) => {
   const havingKeys = [];
   const arrayKeys = [];
   if (!alias) {
-    const columns = Object.keys(db.tables[table]);
-    sql += makeJsonArray(columns);
+    const columns = Object.keys(db.columns[table]);
+    sql += makeJsonArray(columnTypes, columns);
     sql += `as group from ${table}`;
     setParse('group', columns);
   }
@@ -935,14 +947,14 @@ const group = async (config) => {
       }
       else {
         let sql = '';
-        const columns = Object.keys(db.tables[table]);
+        const columns = Object.keys(db.columns[table]);
         if (!args) {
-          sql += makeJsonArray(columns);
-          setParse(alias, columns);
+          sql += makeJsonArray(columnTypes, columns);
+          setParse(alias, columns, db.columns);
         }
         else {
           if (Array.isArray(args)) {
-            sql += makeJsonArray(args);
+            sql += makeJsonArray(columnTypes, args);
             setParse(alias, args);
           }
           else if (typeof args === 'string') {

@@ -329,6 +329,26 @@ There is also an ```exists``` function that takes one argument representing the 
 const exists = await db.fighters.exists({ name: 'Israel Adesanya' });
 ```
 
+### Group
+
+You can write ```group by``` statements like this:
+
+```js
+const heights = await db.fighters.group({
+  by: 'hometown',
+  alias: {
+    height: agg => agg.avg({ column: 'heightCm' }),
+    sample: agg => agg.count()
+  },
+  where: {
+    sample: s => s.gt(1)
+  },
+  orderBy: 'height',
+  desc: true,
+  limit: 5
+});
+```
+
 ### Remove
 
 ```remove``` takes one argument representing the where clause and returns the number of rows affected by the query.
@@ -571,9 +591,3 @@ export default {
   }
 };
 ```
-
-
-
-## Running tests
-
-To run the tests, first go into the ```test``` folder and run ```node setup.js``` to move the test database to the right location. You can then run the tests with ```node test.js``` or ```npm test```.
