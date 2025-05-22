@@ -215,29 +215,29 @@ const getResultType = (columns) => {
 const makeQueryHandler = (table, db, tx, dbClient) => {
   let write;
   return {
-    get: function(target, query) {
-      if (query === 'define') {
+    get: function(target, method) {
+      if (method === 'define') {
         return (args) => db.define(table, args);
       }
-      if (!target[query]) {
-        if (basic[query]) {
-          const makeQuery = basic[query];
-          const method = makeQuery(db, table, tx, dbClient);
-          target[query] = async (...args) => {
-            return await method(...args);
+      if (!target[method]) {
+        if (basic[method]) {
+          const makeQuery = basic[method];
+          const run = makeQuery(db, table, tx, dbClient);
+          target[method] = async (...args) => {
+            return await run(...args);
           }
-          return target[query];
+          return target[method];
         }
         let cachedFunction;
-        target[query] = async (params, queryOptions, keywords) => {
+        target[method] = async (query, config) => {
           if (cachedFunction) {
-            return await cachedFunction(params, queryOptions);
+            return await cachedFunction(query, config);
           }
           let sql;
           if (!db.initialized) {
             await db.initialize();
           }
-          sql = await db.readQuery(table, query);
+          sql = await db.readQuery(table, method);
           sql = preprocess(sql, db.tables);
           write = isWrite(sql);
           const columns = parseQuery(sql, db.tables);
@@ -251,19 +251,20 @@ const makeQueryHandler = (table, db, tx, dbClient) => {
             run = db.all;
           }
           run = run.bind(db);
-          cachedFunction = async (params, queryOptions) => {
-            if (queryOptions && queryOptions.unsafe) {
-              const query = insertUnsafe(sql, queryOptions.unsafe);
-              let cachedOptions = db.queryVariations.get(query);
+          cachedFunction = async (query, config) => {
+            const { params, unsafe } = query || {};
+            if (unsafe) {
+              const sql = insertUnsafe(sql, unsafe);
+              let cachedOptions = db.queryVariations.get(sql);
               if (!cachedOptions) {
-                const columns = parseQuery(query, db.tables);
+                const columns = parseQuery(sql, db.tables);
                 const options = makeOptions(columns, db);
                 options.result = getResultType(columns);
-                db.queryVariations.set(query, { ...options });
+                db.queryVariations.set(sql, { ...options });
                 cachedOptions = options;
               }
               const options = {
-                query,
+                query: sql,
                 params,
                 options: cachedOptions,
                 tx,
@@ -304,10 +305,10 @@ const makeQueryHandler = (table, db, tx, dbClient) => {
             }
             return await run(props);
           };
-          return await cachedFunction(params, queryOptions);
+          return await cachedFunction(query, config);
         }
       }
-      return target[query];
+      return target[method];
     }
   }
 }

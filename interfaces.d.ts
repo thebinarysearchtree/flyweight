@@ -142,7 +142,42 @@ export interface ComplexQuery<W, T> extends Keywords<Array<keyof T> | keyof T> {
   select?: undefined;
   include?: undefined;
   alias?: undefined;
-  with?: undefined;
+}
+
+export interface ComplexSqlQueryParamsUnsafe<P, U, W, T> extends ComplexQuery<W, T> {
+  params: P;
+  unsafe: U;
+}
+
+export interface ComplexSqlQueryParams<P, W, T> extends ComplexQuery<W, T> {
+  params: P;
+  unsafe?: undefined;
+}
+
+export interface ComplexSqlQueryUnsafe<U, W, T> extends ComplexQuery<W, T> {
+  params?: undefined;
+  unsafe: U;
+}
+
+export interface ComplexSqlQuery<W, T> extends ComplexQuery<W, T> {
+  params?: undefined;
+  unsafe?: undefined;
+}
+
+export interface ComplexSqlQueryParamsUnsafeDebug<P, W, T, U> extends ComplexSqlQueryParamsUnsafe<P, W, T, U> {
+  debug: true;
+}
+
+export interface ComplexSqlQueryParamsDebug<P, W, T> extends ComplexSqlQueryParams<P, W, T> {
+  debug: true;
+}
+
+export interface ComplexSqlQueryUnsafeDebug<U, W, T> extends ComplexSqlQueryUnsafe<U, W, T> {
+  debug: true;
+}
+
+export interface ComplexSqlQueryDebug<W, T> extends ComplexSqlQuery<W, T> {
+  debug: true;
 }
 
 export interface ComplexQueryDebug<W, T> extends ComplexQuery<W, T> {
@@ -154,7 +189,42 @@ export interface ComplexQueryAlias<W, T, N extends ObjectFunction> extends Keywo
   select?: undefined;
   include?: undefined;
   alias: N;
-  with?: undefined;
+}
+
+export interface ComplexSqlQueryAliasParamsUnsafe<P, U, W, T, N extends ObjectFunction> extends ComplexQueryAlias<W, T, N> {
+  params: P;
+  unsafe: U;
+}
+
+export interface ComplexSqlQueryAliasParams<P, W, T, N extends ObjectFunction> extends ComplexQueryAlias<W, T, N> {
+  params: P;
+  unsafe?: undefined;
+}
+
+export interface ComplexSqlQueryAliasUnsafe<U, W, T, N extends ObjectFunction> extends ComplexQueryAlias<W, T, N> {
+  params?: undefined;
+  unsafe: U;
+}
+
+export interface ComplexSqlQueryAlias<W, T, N extends ObjectFunction> extends ComplexQueryAlias<W, T, N> {
+  params?: undefined;
+  unsafe?: undefined;
+}
+
+export interface ComplexSqlQueryAliasParamsUnsafeDebug<P, U, W, T, N extends ObjectFunction> extends ComplexSqlQueryAliasParamsUnsafe<P, U, W, T, N> {
+  debug: true;
+}
+
+export interface ComplexSqlQueryAliasParamsDebug<P, W, T, N extends ObjectFunction> extends ComplexSqlQueryAliasParams<P, W, T, N> {
+  debug: true;
+}
+
+export interface ComplexSqlQueryAliasUnsafeDebug<U, W, T, N extends ObjectFunction> extends ComplexSqlQueryAliasUnsafe<U, W, T, N> {
+  debug: true;
+}
+
+export interface ComplexSqlQueryAliasDebug<W, T, N extends ObjectFunction> extends ComplexSqlQueryAlias<W, T, N> {
+  debug: true;
 }
 
 export interface ComplexQueryAliasDebug<W, T, N> extends ComplexQueryAlias<W, T, N> {
@@ -166,7 +236,42 @@ export interface ComplexQueryInclude<W, T, U extends ObjectFunction> extends Key
   select?: undefined;
   include: U;
   alias?: undefined;
-  with?: undefined;
+}
+
+export interface ComplexSqlQueryIncludeParamsUnsafe<P, U, W, T, R extends ObjectFunction> extends ComplexQueryInclude<W, T, R> {
+  params: P;
+  unsafe: U;
+}
+
+export interface ComplexSqlQueryIncludeParams<P, W, T, R extends ObjectFunction> extends ComplexQueryInclude<W, T, R> {
+  params: P;
+  unsafe?: undefined;
+}
+
+export interface ComplexSqlQueryIncludeUnsafe<U, W, T, R extends ObjectFunction> extends ComplexQueryInclude<W, T, R> {
+  params?: undefined;
+  unsafe: U;
+}
+
+export interface ComplexSqlQueryInclude<W, T, R extends ObjectFunction> extends ComplexQueryInclude<W, T, R> {
+  params?: undefined;
+  unsafe?: undefined;
+}
+
+export interface ComplexSqlQueryIncludeParamsUnsafeDebug<P, U, W, T, R extends ObjectFunction> extends ComplexSqlQueryIncludeParamsUnsafe<P, U, W, T, R> {
+  debug: true;
+}
+
+export interface ComplexSqlQueryIncludeParamsDebug<P, W, T, R extends ObjectFunction> extends ComplexSqlQueryIncludeParams<P, W, T, R> {
+  debug: true;
+}
+
+export interface ComplexSqlQueryIncludeUnsafeDebug<U, W, T, R extends ObjectFunction> extends ComplexSqlQueryIncludeUnsafe<U, W, T, R> {
+  debug: true;
+}
+
+export interface ComplexSqlQueryIncludeDebug<W, T, R extends ObjectFunction> extends ComplexSqlQueryInclude<W, T, R> {
+  debug: true;
 }
 
 export interface ComplexQueryIncludeDebug<W, T, U extends ObjectFunction> extends ComplexQueryInclude<W, T, U> {
@@ -178,7 +283,42 @@ export interface ComplexQueryIncludeAlias<W, T, U extends ObjectFunction, N exte
   select?: undefined;
   include: U;
   alias: N;
-  with?: undefined;
+}
+
+export interface ComplexSqlQueryIncludeAliasParamsUnsafe<P, U, W, T, R extends ObjectFunction, N extends ObjectFunction> extends ComplexQueryIncludeAlias<W, T, R, N> {
+  params: P;
+  unsafe: U;
+}
+
+export interface ComplexSqlQueryIncludeAliasParams<P, W, T, R extends ObjectFunction, N extends ObjectFunction> extends ComplexQueryIncludeAlias<W, T, R, N> {
+  params: P;
+  unsafe?: undefined;
+}
+
+export interface ComplexSqlQueryIncludeAliasUnsafe<U, W, T, R extends ObjectFunction, N extends ObjectFunction> extends ComplexQueryIncludeAlias<W, T, R, N> {
+  params?: undefined;
+  unsafe: U;
+}
+
+export interface ComplexSqlQueryIncludeAlias<W, T, R extends ObjectFunction, N extends ObjectFunction> extends ComplexQueryIncludeAlias<W, T, R, N> {
+  params?: undefined;
+  unsafe?: undefined;
+}
+
+export interface ComplexSqlQueryIncludeAliasParamsUnsafeDebug<P, U, W, T, R extends ObjectFunction, N extends ObjectFunction> extends ComplexSqlQueryIncludeAliasParamsUnsafe<P, U, W, T, R, N> {
+  debug: true;
+}
+
+export interface ComplexSqlQueryIncludeAliasParamsDebug<P, W, T, R extends ObjectFunction, N extends ObjectFunction> extends ComplexSqlQueryIncludeAliasParams<P, W, T, R, N> {
+  debug: true;
+}
+
+export interface ComplexSqlQueryIncludeAliasUnsafeDebug<U, W, T, R extends ObjectFunction, N extends ObjectFunction> extends ComplexSqlQueryIncludeAliasUnsafe<U, W, T, R, N> {
+  debug: true;
+}
+
+export interface ComplexSqlQueryIncludeAliasDebug<W, T, R extends ObjectFunction, N extends ObjectFunction> extends ComplexSqlQueryIncludeAlias<W, T, R, N> {
+  debug: true;
 }
 
 export interface ComplexQueryIncludeAliasDebug<W, T, U extends ObjectFunction, N extends ObjectFunction> extends ComplexQueryIncludeAlias<W, T, U, N> {
@@ -190,7 +330,42 @@ export interface ComplexQueryAlias<W, T, N> extends Keywords<Array<keyof T | Ext
   select?: undefined;
   include?: undefined;
   alias: N;
-  with?: undefined;
+}
+
+export interface ComplexSqlQueryAliasParamsUnsafe<P, U, W, T, N> extends ComplexQueryAlias<W, T, N> {
+  params: P;
+  unsafe: U;
+}
+
+export interface ComplexSqlQueryAliasParams<P, W, T, N> extends ComplexQueryAlias<W, T, N> {
+  params: P;
+  unsafe?: undefined;
+}
+
+export interface ComplexSqlQueryAliasUnsafe<U, W, T, N> extends ComplexQueryAlias<W, T, N> {
+  params?: undefined;
+  unsafe: U;
+}
+
+export interface ComplexSqlQueryAlias<W, T, N> extends ComplexQueryAlias<W, T, N> {
+  params?: undefined;
+  unsafe?: undefined;
+}
+
+export interface ComplexSqlQueryAliasParamsUnsafeDebug<P, U, W, T, N extends ObjectFunction> extends ComplexSqlQueryAliasParamsUnsafe<P, U, W, T, N> {
+  debug: true;
+}
+
+export interface ComplexSqlQueryAliasParamsDebug<P, W, T, N extends ObjectFunction> extends ComplexSqlQueryAliasParams<P, W, T, N> {
+  debug: true;
+}
+
+export interface ComplexSqlQueryAliasUnsafeDebug<U, W, T, N extends ObjectFunction> extends ComplexSqlQueryAliasUnsafe<U, W, T, N> {
+  debug: true;
+}
+
+export interface ComplexSqlQueryAliasDebug<W, T, N extends ObjectFunction> extends ComplexSqlQueryAlias<W, T, N> {
+  debug: true;
 }
 
 export interface ComplexQueryAliasDebug<W, T, N extends ObjectFunction> extends ComplexQueryAlias<W, T, N> {
@@ -202,7 +377,42 @@ export interface ComplexQueryObject<W, K, T> extends Keywords<keyof T | Array<ke
   select: (keyof T)[] | K[];
   include?: undefined;
   alias?: undefined;
-  with?: undefined;
+}
+
+export interface ComplexSqlQueryObjectParamsUnsafe<P, U, W, K, T> extends ComplexQueryObject<W, K, T> {
+  params: P;
+  unsafe: U;
+}
+
+export interface ComplexSqlQueryObjectParams<P, W, K, T> extends ComplexQueryObject<W, K, T> {
+  params: P;
+  unsafe?: undefined;
+}
+
+export interface ComplexSqlQueryObjectUnsafe<U, W, K, T> extends ComplexQueryObject<W, K, T> {
+  params?: undefined;
+  unsafe: U;
+}
+
+export interface ComplexSqlQueryObject<W, K, T> extends ComplexQueryObject<W, K, T> {
+  params?: undefined;
+  unsafe?: undefined;
+}
+
+export interface ComplexSqlQueryObjectParamsUnsafeDebug<P, U, W, K, T> extends ComplexSqlQueryObjectParamsUnsafe<P, U, W, K, T> {
+  debug: true;
+}
+
+export interface ComplexSqlQueryObjectParamsDebug<P, W, K, T> extends ComplexSqlQueryObjectParams<P, W, K, T> {
+  debug: true;
+}
+
+export interface ComplexSqlQueryObjectUnsafeDebug<U, W, K, T> extends ComplexSqlQueryObjectUnsafe<U, W, K, T> {
+  debug: true;
+}
+
+export interface ComplexSqlQueryObjectDebug<W, K, T> extends ComplexSqlQueryObject<W, K, T> {
+  debug: true;
 }
 
 export interface ComplexQueryObjectDebug<W, K, T> extends ComplexQueryObject<W, K, T> {
@@ -215,7 +425,42 @@ export interface ComplexQueryObjectOmit<W, K, T> extends Keywords<keyof T | Arra
   omit: (keyof T)[] | K[] | K;
   include?: undefined;
   alias?: undefined;
-  with?: undefined;
+}
+
+export interface ComplexSqlQueryObjectOmitParamsUnsafe<P, U, W, K, T> extends ComplexQueryObjectOmit<W, K, T> {
+  params: P;
+  unsafe: U;
+}
+
+export interface ComplexSqlQueryObjectOmitParams<P, W, K, T> extends ComplexQueryObjectOmit<W, K, T> {
+  params: P;
+  unsafe?: undefined;
+}
+
+export interface ComplexSqlQueryObjectOmitUnsafe<U, W, K, T> extends ComplexQueryObjectOmit<W, K, T> {
+  params?: undefined;
+  unsafe: U;
+}
+
+export interface ComplexSqlQueryObjectOmit<W, K, T> extends ComplexQueryObjectOmit<W, K, T> {
+  params?: undefined;
+  unsafe?: undefined;
+}
+
+export interface ComplexSqlQueryObjectOmitParamsUnsafeDebug<P, U, W, K, T> extends ComplexSqlQueryObjectOmitParamsUnsafe<P, U, W, K, T> {
+  debug: true;
+}
+
+export interface ComplexSqlQueryObjectOmitParamsDebug<P, W, K, T> extends ComplexSqlQueryObjectOmitParams<P, W, K, T> {
+  debug: true;
+}
+
+export interface ComplexSqlQueryObjectOmitUnsafeDebug<U, W, K, T> extends ComplexSqlQueryObjectOmitUnsafe<U, W, K, T> {
+  debug: true;
+}
+
+export interface ComplexSqlQueryObjectOmitDebug<W, K, T> extends ComplexSqlQueryObjectOmit<W, K, T> {
+  debug: true;
 }
 
 export interface ComplexQueryObjectOmitDebug<W, K, T> extends ComplexQueryObjectOmit<W, K, T> {
@@ -227,7 +472,42 @@ export interface ComplexQueryObjectAlias<W, K, T, N extends ObjectFunction> exte
   select: (keyof T)[] | K[];
   include?: undefined;
   alias: N;
-  with?: undefined;
+}
+
+export interface ComplexSqlQueryObjectAliasParamsUnsafe<P, U, W, K, T, N extends ObjectFunction> extends ComplexQueryObjectAlias<W, K, T, N> {
+  params: P;
+  unsafe: U;
+}
+
+export interface ComplexSqlQueryObjectAliasParams<P, W, K, T, N extends ObjectFunction> extends ComplexQueryObjectAlias<W, K, T, N> {
+  params: P;
+  unsafe?: undefined;
+}
+
+export interface ComplexSqlQueryObjectAliasUnsafe<U, W, K, T, N extends ObjectFunction> extends ComplexQueryObjectAlias<W, K, T, N> {
+  params?: undefined;
+  unsafe: U;
+}
+
+export interface ComplexSqlQueryObjectAlias<W, K, T, N extends ObjectFunction> extends ComplexQueryObjectAlias<W, K, T, N> {
+  params?: undefined;
+  unsafe?: undefined;
+}
+
+export interface ComplexSqlQueryObjectAliasParamsUnsafeDebug<P, U, W, K, T, N extends ObjectFunction> extends ComplexSqlQueryObjectAliasParamsUnsafe<P, U, W, K, T, N> {
+  debug: true;
+}
+
+export interface ComplexSqlQueryObjectAliasParamsDebug<P, W, K, T, N extends ObjectFunction> extends ComplexSqlQueryObjectAliasParams<P, W, K, T, N> {
+  debug: true;
+}
+
+export interface ComplexSqlQueryObjectAliasUnsafeDebug<U, W, K, T, N extends ObjectFunction> extends ComplexSqlQueryObjectAliasUnsafe<U, W, K, T, N> {
+  debug: true;
+}
+
+export interface ComplexSqlQueryObjectAliasDebug<W, K, T, N extends ObjectFunction> extends ComplexSqlQueryObjectAlias<W, K, T, N> {
+  debug: true;
 }
 
 export interface ComplexQueryObjectAliasDebug<W, K, T, N extends ObjectFunction> extends ComplexQueryObjectAlias<W, K, T, N> {
@@ -240,7 +520,42 @@ export interface ComplexQueryObjectAliasOmit<W, K, T, N extends ObjectFunction> 
   omit: (keyof T)[] | K[] | K;
   include?: undefined;
   alias: N;
-  with?: undefined;
+}
+
+export interface ComplexSqlQueryObjectAliasOmitParamsUnsafe<P, U, W, K, T, N extends ObjectFunction> extends ComplexQueryObjectAliasOmit<W, K, T, N> {
+  params: P;
+  unsafe: U;
+}
+
+export interface ComplexSqlQueryObjectAliasOmitParams<P, W, K, T, N extends ObjectFunction> extends ComplexQueryObjectAliasOmit<W, K, T, N> {
+  params: P;
+  unsafe?: undefined;
+}
+
+export interface ComplexSqlQueryObjectAliasOmitUnsafe<U, W, K, T, N extends ObjectFunction> extends ComplexQueryObjectAliasOmit<W, K, T, N> {
+  params?: undefined;
+  unsafe: U;
+}
+
+export interface ComplexSqlQueryObjectAliasOmit<W, K, T, N extends ObjectFunction> extends ComplexQueryObjectAliasOmit<W, K, T, N> {
+  params?: undefined;
+  unsafe?: undefined;
+}
+
+export interface ComplexSqlQueryObjectAliasOmitParamsUnsafeDebug<P, U, W, K, T, N extends ObjectFunction> extends ComplexSqlQueryObjectAliasOmitParamsUnsafe<P, U, W, K, T, N> {
+  debug: true;
+}
+
+export interface ComplexSqlQueryObjectAliasOmitParamsDebug<P, W, K, T, N extends ObjectFunction> extends ComplexSqlQueryObjectAliasOmitParams<P, W, K, T, N> {
+  debug: true;
+}
+
+export interface ComplexSqlQueryObjectAliasOmitUnsafeDebug<U, W, K, T, N extends ObjectFunction> extends ComplexSqlQueryObjectAliasOmitUnsafe<U, W, K, T, N> {
+  debug: true;
+}
+
+export interface ComplexSqlQueryObjectAliasOmitDebug<W, K, T, N extends ObjectFunction> extends ComplexSqlQueryObjectAliasOmit<W, K, T, N> {
+  debug: true;
 }
 
 export interface ComplexQueryObjectAliasOmitDebug<W, K, T, N extends ObjectFunction> extends ComplexQueryObjectAliasOmit<W, K, T, N> {
@@ -252,7 +567,42 @@ export interface ComplexQueryObjectInclude<W, K, T, U extends ObjectFunction> ex
   select: (keyof T)[] | K[];
   include: U;
   alias?: undefined;
-  with?: undefined;
+}
+
+export interface ComplexSqlQueryObjectIncludeParamsUnsafe<P, U, W, K, T, R extends ObjectFunction> extends ComplexQueryObjectInclude<W, K, T, R> {
+  params: P;
+  unsafe: U;
+}
+
+export interface ComplexSqlQueryObjectIncludeParams<P, W, K, T, R extends ObjectFunction> extends ComplexQueryObjectInclude<W, K, T, R> {
+  params: P;
+  unsafe?: undefined;
+}
+
+export interface ComplexSqlQueryObjectIncludeUnsafe<U, W, K, T, R extends ObjectFunction> extends ComplexQueryObjectInclude<W, K, T, R> {
+  params?: undefined;
+  unsafe: U;
+}
+
+export interface ComplexSqlQueryObjectInclude<W, K, T, R extends ObjectFunction> extends ComplexQueryObjectInclude<W, K, T, R> {
+  params?: undefined;
+  unsafe?: undefined;
+}
+
+export interface ComplexSqlQueryObjectIncludeParamsUnsafeDebug<P, U, W, K, T, R extends ObjectFunction> extends ComplexSqlQueryObjectIncludeParamsUnsafe<P, U, W, K, T, R> {
+  debug: true;
+}
+
+export interface ComplexSqlQueryObjectIncludeParamsDebug<P, W, K, T, R extends ObjectFunction> extends ComplexSqlQueryObjectIncludeParams<P, W, K, T, R> {
+  debug: true;
+}
+
+export interface ComplexSqlQueryObjectIncludeUnsafeDebug<U, W, K, T, R extends ObjectFunction> extends ComplexSqlQueryObjectIncludeUnsafe<U, W, K, T, R> {
+  debug: true;
+}
+
+export interface ComplexSqlQueryObjectIncludeDebug<W, K, T, R extends ObjectFunction> extends ComplexSqlQueryObjectInclude<W, K, T, R> {
+  debug: true;
 }
 
 export interface ComplexQueryObjectIncludeDebug<W, K, T, U extends ObjectFunction> extends ComplexQueryObjectInclude<W, K, T, U> {
@@ -265,7 +615,42 @@ export interface ComplexQueryObjectIncludeOmit<W, K, T, U extends ObjectFunction
   omit: (keyof T)[] | K[] | K;
   include: U;
   alias?: undefined;
-  with?: undefined;
+}
+
+export interface ComplexSqlQueryObjectIncludeOmitParamsUnsafe<P, U, W, K, T, R extends ObjectFunction> extends ComplexQueryObjectIncludeOmit<W, K, T, R> {
+  params: P;
+  unsafe: U;
+}
+
+export interface ComplexSqlQueryObjectIncludeOmitParams<P, W, K, T, R extends ObjectFunction> extends ComplexQueryObjectIncludeOmit<W, K, T, R> {
+  params: P;
+  unsafe?: undefined;
+}
+
+export interface ComplexSqlQueryObjectIncludeOmitUnsafe<U, W, K, T, R extends ObjectFunction> extends ComplexQueryObjectIncludeOmit<W, K, T, R> {
+  params?: undefined;
+  unsafe: U;
+}
+
+export interface ComplexSqlQueryObjectIncludeOmit<W, K, T, R extends ObjectFunction> extends ComplexQueryObjectIncludeOmit<W, K, T, R> {
+  params?: undefined;
+  unsafe?: undefined;
+}
+
+export interface ComplexSqlQueryObjectIncludeOmitParamsUnsafeDebug<P, U, W, K, T, R extends ObjectFunction> extends ComplexSqlQueryObjectIncludeOmitParamsUnsafe<P, U, W, K, T, R> {
+  debug: true;
+}
+
+export interface ComplexSqlQueryObjectIncludeOmitParamsDebug<P, W, K, T, R extends ObjectFunction> extends ComplexSqlQueryObjectIncludeOmitParams<P, W, K, T, R> {
+  debug: true;
+}
+
+export interface ComplexSqlQueryObjectIncludeOmitUnsafeDebug<U, W, K, T, R extends ObjectFunction> extends ComplexSqlQueryObjectIncludeOmitUnsafe<U, W, K, T, R> {
+  debug: true;
+}
+
+export interface ComplexSqlQueryObjectIncludeOmitDebug<W, K, T, R extends ObjectFunction> extends ComplexSqlQueryObjectIncludeOmit<W, K, T, R> {
+  debug: true;
 }
 
 export interface ComplexQueryObjectIncludeOmitDebug<W, K, T, U extends ObjectFunction> extends ComplexQueryObjectIncludeOmit<W, K, T, U> {
@@ -277,7 +662,42 @@ export interface ComplexQueryObjectIncludeAlias<W, K, T, U extends ObjectFunctio
   select: (keyof T)[] | K[];
   include: U;
   alias: N;
-  with?: undefined;
+}
+
+export interface ComplexSqlQueryObjectIncludeAliasParamsUnsafe<P, U, W, K, T, R extends ObjectFunction, N extends ObjectFunction> extends ComplexQueryObjectIncludeAlias<W, K, T, R, N> {
+  params: P;
+  unsafe: U;
+}
+
+export interface ComplexSqlQueryObjectIncludeAliasParams<P, W, K, T, R extends ObjectFunction, N extends ObjectFunction> extends ComplexQueryObjectIncludeAlias<W, K, T, R, N> {
+  params: P;
+  unsafe?: undefined;
+}
+
+export interface ComplexSqlQueryObjectIncludeAliasUnsafe<U, W, K, T, R extends ObjectFunction, N extends ObjectFunction> extends ComplexQueryObjectIncludeAlias<W, K, T, R, N> {
+  params?: undefined;
+  unsafe: U;
+}
+
+export interface ComplexSqlQueryObjectIncludeAlias<W, K, T, R extends ObjectFunction, N extends ObjectFunction> extends ComplexQueryObjectIncludeAlias<W, K, T, R, N> {
+  params?: undefined;
+  unsafe?: undefined;
+}
+
+export interface ComplexSqlQueryObjectIncludeAliasParamsUnsafeDebug<P, U, W, K, T, R extends ObjectFunction, N extends ObjectFunction> extends ComplexSqlQueryObjectIncludeAliasParamsUnsafe<P, U, W, K, T, R, N> {
+  debug: true;
+}
+
+export interface ComplexSqlQueryObjectIncludeAliasParamsDebug<P, W, K, T, R extends ObjectFunction, N extends ObjectFunction> extends ComplexSqlQueryObjectIncludeAliasParams<P, W, K, T, R, N> {
+  debug: true;
+}
+
+export interface ComplexSqlQueryObjectIncludeAliasUnsafeDebug<U, W, K, T, R extends ObjectFunction, N extends ObjectFunction> extends ComplexSqlQueryObjectIncludeAliasUnsafe<U, W, K, T, R, N> {
+  debug: true;
+}
+
+export interface ComplexSqlQueryObjectIncludeAliasDebug<W, K, T, R extends ObjectFunction, N extends ObjectFunction> extends ComplexSqlQueryObjectIncludeAlias<W, K, T, R, N> {
+  debug: true;
 }
 
 export interface ComplexQueryObjectIncludeAliasDebug<W, K, T, U extends ObjectFunction, N extends ObjectFunction> extends ComplexQueryObjectIncludeAlias<W, K, T, U, N> {
@@ -290,7 +710,42 @@ export interface ComplexQueryObjectIncludeAliasOmit<W, K, T, U extends ObjectFun
   omit: (keyof T)[] | K[] | K;
   include: U;
   alias: N;
-  with?: undefined;
+}
+
+export interface ComplexSqlQueryObjectIncludeAliasOmitParamsUnsafe<P, U, W, K, T, R extends ObjectFunction, N extends ObjectFunction> extends ComplexQueryObjectIncludeAliasOmit<W, K, T, R, N> {
+  params: P;
+  unsafe: U;
+}
+
+export interface ComplexSqlQueryObjectIncludeAliasOmitParams<P, W, K, T, R extends ObjectFunction, N extends ObjectFunction> extends ComplexQueryObjectIncludeAliasOmit<W, K, T, R, N> {
+  params: P;
+  unsafe?: undefined;
+}
+
+export interface ComplexSqlQueryObjectIncludeAliasOmitUnsafe<U, W, K, T, R extends ObjectFunction, N extends ObjectFunction> extends ComplexQueryObjectIncludeAliasOmit<W, K, T, R, N> {
+  params?: undefined;
+  unsafe: U;
+}
+
+export interface ComplexSqlQueryObjectIncludeAliasOmit<W, K, T, R extends ObjectFunction, N extends ObjectFunction> extends ComplexQueryObjectIncludeAliasOmit<W, K, T, R, N> {
+  params?: undefined;
+  unsafe?: undefined;
+}
+
+export interface ComplexSqlQueryObjectIncludeAliasOmitParamsUnsafeDebug<P, U, W, K, T, R extends ObjectFunction, N extends ObjectFunction> extends ComplexSqlQueryObjectIncludeAliasOmitParamsUnsafe<P, U, W, K, T, R, N> {
+  debug: true;
+}
+
+export interface ComplexSqlQueryObjectIncludeAliasOmitParamsDebug<P, W, K, T, R extends ObjectFunction, N extends ObjectFunction> extends ComplexSqlQueryObjectIncludeAliasOmitParams<P, W, K, T, R, N> {
+  debug: true;
+}
+
+export interface ComplexSqlQueryObjectIncludeAliasOmitUnsafeDebug<U, W, K, T, R extends ObjectFunction, N extends ObjectFunction> extends ComplexSqlQueryObjectIncludeAliasOmitUnsafe<U, W, K, T, R, N> {
+  debug: true;
+}
+
+export interface ComplexSqlQueryObjectIncludeAliasOmitDebug<W, K, T, R extends ObjectFunction, N extends ObjectFunction> extends ComplexSqlQueryObjectIncludeAliasOmit<W, K, T, R, N> {
+  debug: true;
 }
 
 export interface ComplexQueryObjectIncludeAliasOmitDebug<W, K, T, U extends ObjectFunction, N extends ObjectFunction> extends ComplexQueryObjectIncludeAliasOmit<W, K, T, U, N> {
@@ -300,6 +755,45 @@ export interface ComplexQueryObjectIncludeAliasOmitDebug<W, K, T, U extends Obje
 export interface ComplexQueryValue<W, K, T> extends Keywords<Array<keyof T> | keyof T> {
   where?: W;
   select: K;
+  omit?: undefined;
+  include?: undefined;
+  alias?: undefined;
+}
+
+export interface ComplexSqlQueryValueParamsUnsafe<P, U, W, K, T> extends ComplexQueryValue<W, K, T> {
+  params: P;
+  unsafe: U;
+}
+
+export interface ComplexSqlQueryValueParams<P, W, K, T> extends ComplexQueryValue<W, K, T> {
+  params: P;
+  unsafe?: undefined;
+}
+
+export interface ComplexSqlQueryValueUnsafe<U, W, K, T> extends ComplexQueryValue<W, K, T> {
+  params?: undefined;
+  unsafe: U;
+}
+
+export interface ComplexSqlQueryValue<W, K, T> extends ComplexQueryValue<W, K, T> {
+  params?: undefined;
+  unsafe?: undefined;
+}
+
+export interface ComplexSqlQueryValueParamsUnsafeDebug<P, U, W, K, T> extends ComplexSqlQueryValueParamsUnsafe<P, U, W, K, T> {
+  debug: true;
+}
+
+export interface ComplexSqlQueryValueParamsDebug<P, W, K, T> extends ComplexSqlQueryValueParams<P, W, K, T> {
+  debug: true;
+}
+
+export interface ComplexSqlQueryValueUnsafeDebug<U, W, K, T> extends ComplexSqlQueryValueUnsafe<U, W, K, T> {
+  debug: true;
+}
+
+export interface ComplexSqlQueryValueDebug<W, K, T> extends ComplexSqlQueryValue<W, K, T> {
+  debug: true;
 }
 
 export interface ComplexQueryValueDebug<W, K, T> extends ComplexQueryValue<W, K, T> {
@@ -309,6 +803,42 @@ export interface ComplexQueryValueDebug<W, K, T> extends ComplexQueryValue<W, K,
 export interface ComplexQuerySelector<W, T, N> extends Keywords<Array<keyof T> | keyof T> {
   where?: W;
   select: (selector: T) => N;
+}
+
+export interface ComplexSqlQuerySelectorParamsUnsafe<P, U, W, T, N> extends ComplexQuerySelector<W, T, N> {
+  params: P;
+  unsafe: U;
+}
+
+export interface ComplexSqlQuerySelectorParams<P, W, T, N> extends ComplexQuerySelector<W, T, N> {
+  params: P;
+  unsafe?: undefined;
+}
+
+export interface ComplexSqlQuerySelectorUnsafe<U, W, T, N> extends ComplexQuerySelector<W, T, N> {
+  params?: undefined;
+  unsafe: U;
+}
+
+export interface ComplexSqlQuerySelector<W, T, N> extends ComplexQuerySelector<W, T, N> {
+  params?: undefined;
+  unsafe?: undefined;
+}
+
+export interface ComplexSqlQuerySelectorParamsUnsafeDebug<P, U, W, T, N> extends ComplexSqlQuerySelectorParamsUnsafe<P, U, W, T, N> {
+  debug: true;
+}
+
+export interface ComplexSqlQuerySelectorParamsDebug<P, W, T, N> extends ComplexSqlQuerySelectorParams<P, W, T, N> {
+  debug: true;
+}
+
+export interface ComplexSqlQuerySelectorUnsafeDebug<U, W, T, N> extends ComplexSqlQuerySelectorUnsafe<U, W, T, N> {
+  debug: true;
+}
+
+export interface ComplexSqlQuerySelectorDebug<W, T, N> extends ComplexSqlQuerySelector<W, T, N> {
+  debug: true;
 }
 
 export interface ComplexQuerySelectorDebug<W, T, N> extends ComplexQuerySelector<W, T, N> {
@@ -544,3 +1074,32 @@ type TableProperty = {
 type TableObject<T> = {
   [key in keyof T]: TableProperty;
 }
+
+export interface SqlQueryParamsUnsafe<P, U> {
+  params: P;
+  unsafe: U;
+}
+
+export interface SqlQueryParams<P> {
+  params: P;
+  unsafe?: undefined;
+}
+
+export interface SqlQueryUnsafe<U> {
+  params?: undefined;
+  unsafe: U;
+}
+
+type WhereField<T> = NonNullable<T> | Array<NonNullable<T>> | WhereFunction<NonNullable<T>>;
+
+type MaybeNullWhereField<T> = 
+  T extends null ? null :
+  null extends T ? WhereField<T> | null :
+  WhereField<T>;
+
+export type ToWhere<T> = {
+  [K in keyof T]?: MaybeNullWhereField<T[K]>;
+} & {
+  and?: Array<ToWhere<T>>;
+  or?: Array<ToWhere<T>>;
+};

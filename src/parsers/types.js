@@ -29,6 +29,52 @@ const functionTypes = {
   json_group_object: '{ [key: string]: any }'
 }
 
+const makeOverloads = (queryName, paramsName, unsafeName, returnName) => {
+  let append = '';
+  const items = [];
+  if (paramsName) {
+    items.push(paramsName);
+    append += 'Params';
+  }
+  if (unsafeName) {
+    items.push(unsafeName);
+    append += 'Unsafe';
+  }
+  const generics = items
+    .map(s => `${s}, `)
+    .join('');
+  const overloads = [];
+  overloads.push(`${queryName}<N extends Alias<${returnName}>>(query: ComplexSqlQueryAlias${append}<${generics}ToWhere<${returnName}>, ${returnName}, N>): Promise<Array<${returnName} & ReturnTypes<N>>>`);
+  overloads.push(`${queryName}<N extends Alias<${returnName}>>(query: ComplexSqlQueryAlias${append}Debug<${generics}ToWhere<${returnName}>, ${returnName}, N>): Promise<DebugResult<Array<${returnName} & ReturnTypes<N>>>>`);
+  overloads.push(`${queryName}<U extends Includes<TypedDb, ${returnName}>>(query: ComplexSqlQueryInclude${append}<${generics}ToWhere<${returnName}>, ${returnName}, U>): Promise<Array<MergeIncludes<${returnName}, U>>>`);
+  overloads.push(`${queryName}<U extends Includes<TypedDb, ${returnName}>>(query: ComplexSqlQueryInclude${append}Debug<${generics}ToWhere<${returnName}>, ${returnName}, U>): Promise<DebugResult<Array<MergeIncludes<${returnName}, U>>>>`);
+  overloads.push(`${queryName}<U extends Includes<TypedDb, ${returnName}>, N extends Alias<${returnName}>>(query: ComplexSqlQueryIncludeAlias${append}<${generics}ToWhere<${returnName}>, ${returnName}, U, N>): Promise<Array<MergeIncludes<${returnName}, U> & ReturnTypes<N>>>`);
+  overloads.push(`${queryName}<U extends Includes<TypedDb, ${returnName}>, N extends Alias<${returnName}>>(query: ComplexSqlQueryIncludeAlias${append}Debug<${generics}ToWhere<${returnName}>, ${returnName}, U, N>): Promise<DebugResult<Array<MergeIncludes<${returnName}, U> & ReturnTypes<N>>>>`);
+  overloads.push(`${queryName}<K extends keyof ${returnName}, N extends Alias<${returnName}>>(query: ComplexSqlQueryObjectAlias${append}<${generics}ToWhere<${returnName}>, K, ${returnName}, N>): Promise<Array<Pick<${returnName}, K> & ReturnTypes<N>>>`);
+  overloads.push(`${queryName}<K extends keyof ${returnName}, N extends Alias<${returnName}>>(query: ComplexSqlQueryObjectAlias${append}Debug<${generics}ToWhere<${returnName}>, K, ${returnName}, N>): Promise<DebugResult<Array<Pick<${returnName}, K> & ReturnTypes<N>>>>`);
+  overloads.push(`${queryName}<K extends keyof ${returnName}>(query: ComplexSqlQueryObject${append}<${generics}ToWhere<${returnName}>, K, ${returnName}>): Promise<Array<Pick<${returnName}, K>>>`);
+  overloads.push(`${queryName}<K extends keyof ${returnName}>(query: ComplexSqlQueryObject${append}Debug<${generics}ToWhere<${returnName}>, K, ${returnName}>): Promise<DebugResult<Array<Pick<${returnName}, K>>>>`);
+  overloads.push(`${queryName}<K extends keyof ${returnName}>(query: ComplexSqlQueryObjectOmit${append}<${generics}ToWhere<${returnName}>, K, ${returnName}>): Promise<Array<Omit<${returnName}, K>>>`);
+  overloads.push(`${queryName}<K extends keyof ${returnName}>(query: ComplexSqlQueryObjectOmit${append}Debug<${generics}ToWhere<${returnName}>, K, ${returnName}>): Promise<DebugResult<Array<Omit<${returnName}, K>>>>`);
+  overloads.push(`${queryName}<K extends keyof ${returnName}, N extends Alias<${returnName}>>(query: ComplexSqlQueryObjectAliasOmit${append}<${generics}ToWhere<${returnName}>, K, ${returnName}, N>): Promise<Array<Omit<${returnName}, K> & ReturnTypes<N>>>`);
+  overloads.push(`${queryName}<K extends keyof ${returnName}, N extends Alias<${returnName}>>(query: ComplexSqlQueryObjectAliasOmit${append}Debug<${generics}ToWhere<${returnName}>, K, ${returnName}, N>): Promise<DebugResult<Array<Omit<${returnName}, K> & ReturnTypes<N>>>>`);
+  overloads.push(`${queryName}<K extends keyof ${returnName}, U extends Includes<TypedDb, ${returnName}>>(query: ComplexSqlQueryObjectInclude${append}<${generics}ToWhere<${returnName}>, K, ${returnName}, U>): Promise<Array<MergeIncludes<Pick<${returnName}, K>, U>>>`);
+  overloads.push(`${queryName}<K extends keyof ${returnName}, U extends Includes<TypedDb, ${returnName}>>(query: ComplexSqlQueryObjectInclude${append}Debug<${generics}ToWhere<${returnName}>, K, ${returnName}, U>): Promise<DebugResult<Array<MergeIncludes<Pick<${returnName}, K>, U>>>>`);
+  overloads.push(`${queryName}<K extends keyof ${returnName}, U extends Includes<TypedDb, ${returnName}>>(query: ComplexSqlQueryObjectIncludeOmit${append}<${generics}ToWhere<${returnName}>, K, ${returnName}, U>): Promise<Array<MergeIncludes<Omit<${returnName}, K>, U>>>`);
+  overloads.push(`${queryName}<K extends keyof ${returnName}, U extends Includes<TypedDb, ${returnName}>>(query: ComplexSqlQueryObjectIncludeOmit${append}Debug<${generics}ToWhere<${returnName}>, K, ${returnName}, U>): Promise<DebugResult<Array<MergeIncludes<Omit<${returnName}, K>, U>>>>`);
+  overloads.push(`${queryName}<K extends keyof ${returnName}, U extends Includes<TypedDb, ${returnName}>, N extends Alias<${returnName}>>(query: ComplexSqlQueryObjectIncludeAlias${append}<${generics}ToWhere<${returnName}>, K, ${returnName}, U, N>): Promise<Array<MergeIncludes<Pick<${returnName}, K>, U> & ReturnTypes<N>>>`);
+  overloads.push(`${queryName}<K extends keyof ${returnName}, U extends Includes<TypedDb, ${returnName}>, N extends Alias<${returnName}>>(query: ComplexSqlQueryObjectIncludeAlias${append}Debug<${generics}ToWhere<${returnName}>, K, ${returnName}, U, N>): Promise<DebugResult<Array<MergeIncludes<Pick<${returnName}, K>, U> & ReturnTypes<N>>>>`);
+  overloads.push(`${queryName}<K extends keyof ${returnName}, U extends Includes<TypedDb, ${returnName}>, N extends Alias<${returnName}>>(query: ComplexSqlQueryObjectIncludeAliasOmit${append}<${generics}ToWhere<${returnName}>, K, ${returnName}, U, N>): Promise<Array<MergeIncludes<Omit<${returnName}, K>, U> & ReturnTypes<N>>>`);
+  overloads.push(`${queryName}<K extends keyof ${returnName}, U extends Includes<TypedDb, ${returnName}>, N extends Alias<${returnName}>>(query: ComplexSqlQueryObjectIncludeAliasOmit${append}Debug<${generics}ToWhere<${returnName}>, K, ${returnName}, U, N>): Promise<DebugResult<Array<MergeIncludes<Omit<${returnName}, K>, U> & ReturnTypes<N>>>>`);
+  overloads.push(`${queryName}<K extends keyof ${returnName}>(query: ComplexSqlQueryValue${append}<${generics}ToWhere<${returnName}>, K, ${returnName}>): Promise<Array<${returnName}[K]>>`);
+  overloads.push(`${queryName}<K extends keyof ${returnName}>(query: ComplexSqlQueryValue${append}Debug<${generics}ToWhere<${returnName}>, K, ${returnName}>): Promise<DebugResult<Array<${returnName}[K]>>>`);
+  overloads.push(`${queryName}(query: ComplexSqlQuery${append}<${generics}ToWhere<${returnName}>, ${returnName}>): Promise<Array<${returnName}>>`);
+  overloads.push(`${queryName}(query: ComplexSqlQuery${append}Debug<${generics}ToWhere<${returnName}>, ${returnName}>): Promise<DebugResult<Array<${returnName}>>>`);
+  overloads.push(`${queryName}<N>(query: ComplexSqlQuerySelector${append}<${generics}ToWhere<${returnName}>, ${returnName}, N>): Promise<Array<N>>`);
+  overloads.push(`${queryName}<N>(query: ComplexSqlQuerySelector${append}Debug<${generics}ToWhere<${returnName}>, ${returnName}, N>): Promise<DebugResult<Array<N>>>`);
+  return overloads;
+}
+
 const hasNull = (tsType) => {
   return tsType
     .split('|')
@@ -244,26 +290,40 @@ const getQueries = async (fileSystem, db, sqlDir, tableName, typeSet, i) => {
       const params = parseParams(sql);
       const unsafe = parseUnsafe(sql);
       const columns = parseQuery(sql, db.tables);
+      const singular = pluralize.singular(tableName);
+      const interfaceName = makeUnique(capitalize(singular) + capitalize(queryName), typeSet, i);
+      let paramsName;
+      let paramsString;
+      if (params.length > 0) {
+        paramsName = `${interfaceName}Params`;
+        paramsString = `export interface ${paramsName} {\n`;
+        for (const param of params) {
+          paramsString += `  ${param}: any;\n`;
+        }
+        paramsString += '}\n';
+      }
+      let unsafeName;
+      let unsafeString;
+      if (unsafe.length > 0) {
+        unsafeName = `${interfaceName}Unsafe`;
+        unsafeString = `export interface ${unsafeName} {\n`;
+        for (const param of unsafe) {
+          unsafeString += `  ${param}: any;\n`;
+        }
+        unsafeString += '}\n';
+      }
       if (columns.length === 0) {
         parsedQueries.push({
           queryName,
+          paramsName,
+          paramsString,
           params,
+          unsafeName,
+          unsafeString,
           unsafe
         });
         continue;
       }
-      if (columns.length === 1) {
-        const tsType = getTsType(columns[0], db.customTypes);
-        parsedQueries.push({
-          queryName,
-          interfaceName: convertOptional(tsType),
-          params,
-          unsafe
-        });
-        continue;
-      }
-      const singular = pluralize.singular(tableName);
-      const interfaceName = makeUnique(capitalize(singular) + capitalize(queryName), typeSet, i);
       let interfaceString = `export interface ${interfaceName} {\n`;
       const sample = {};
       for (const column of columns) {
@@ -306,7 +366,11 @@ const getQueries = async (fileSystem, db, sqlDir, tableName, typeSet, i) => {
         queryName,
         interfaceName,
         interfaceString,
+        paramsName,
+        paramsString,
         params,
+        unsafeName,
+        unsafeString,
         unsafe
       });
     }
@@ -332,35 +396,48 @@ const getQueries = async (fileSystem, db, sqlDir, tableName, typeSet, i) => {
     const {
       queryName,
       interfaceName,
+      paramsName,
       params,
+      unsafeName,
       unsafe
     } = query;
-    const returnType = interfaceName ? `Promise<Array<${interfaceName}>>` : 'Promise<void>';
-    let paramInterface = '';
-    if (params.length > 0) {
-      paramInterface += 'params: { ';
-      for (const param of params) {
-        paramInterface += `${param}: any; `;
+    if (!interfaceName) {
+      let argument = '';
+      if (params.length > 0 || unsafe.length > 0) {
+        argument += 'options: SqlQuery';
       }
-      paramInterface += '}';
-    }
-    if (unsafe.length > 0) {
-      paramInterface += ', options?: { unsafe?: { ';
-      for (const param of unsafe) {
-        paramInterface += `${param}?: any; `;
+      if (params.length > 0) {
+        argument += 'Params';
       }
-      paramInterface += '}}';
+      if (unsafe.length > 0) {
+        argument += 'Unsafe';
+      }
+      interfaceString += `  ${queryName}(${argument}): Promise<void>;\n`;
+      continue;
     }
-    interfaceString += `  ${queryName}(${paramInterface}): ${returnType};\n`;
+    else {
+      const overloads = makeOverloads(queryName, paramsName, unsafeName, interfaceName);
+      for (const overload of overloads) {
+        interfaceString += `  ${overload};\n`;
+      }
+    }
   }
   interfaceString += `}\n`;
   const queryInterfaces = parsedQueries
     .filter(q => q.interfaceString !== undefined)
     .map(q => q.interfaceString);
+  const paramsInterfaces = parsedQueries
+    .filter(p => p.paramsString !== undefined)
+    .map(p => p.paramsString);
+  const unsafeInterfaces = parsedQueries
+    .filter(p => p.unsafeString !== undefined)
+    .map(p => p.unsafeString);
   return {
     interfaceName,
     interfaceString,
-    queryInterfaces
+    queryInterfaces,
+    paramsInterfaces,
+    unsafeInterfaces
   }
 }
 
@@ -523,11 +600,12 @@ const createTypes = async (options) => {
     if (db.virtualSet.has(table.name)) {
       types += `  ${table.name}?: string;\n`;
     }
-    types += ` and?: Array<${whereInterfaceName}>;\n`;
-    types += ` or?: Array<${whereInterfaceName}>;\n`;
+    types += `  and?: Array<${whereInterfaceName}>;\n`;
+    types += `  or?: Array<${whereInterfaceName}>;\n`;
     types += '}\n\n';
     if (queries) {
-      for (const queryInterface of queries.queryInterfaces) {
+      const interfaces = [...queries.queryInterfaces, ...queries.paramsInterfaces, ...queries.unsafeInterfaces];
+      for (const queryInterface of interfaces) {
         types += queryInterface;
         types += '\n';
       }

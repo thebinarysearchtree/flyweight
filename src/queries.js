@@ -30,6 +30,20 @@ const aggregateMethods = [
   'total'
 ];
 
+const queryMethods = [
+  ...aggregateMethods,
+  'first',
+  'query',
+  'get',
+  'many',
+  'group',
+  'insert',
+  'update',
+  'upsert',
+  'remove'
+];
+
+
 const methods = new Map([
   ['not', '!='],
   ['gt', '>'],
@@ -1233,7 +1247,7 @@ const processInclude = (key, handler, parentQuery, defined, debugResult) => {
           let where;
           if (defined) {
             const options = defined.get(target.table);
-            if (options) {
+            if (options && queryMethods.includes(target.method)) {
               where = options.where;
               otherProxy = options.columnProxy;
               otherTarget = options.columnTarget;
@@ -1278,7 +1292,7 @@ const processInclude = (key, handler, parentQuery, defined, debugResult) => {
   }
   const method = tableTarget.method;
   let where;
-  const whereFirst = ['get', 'many', 'exists'].includes(method);
+  const whereFirst = ['get', 'many', 'exists'].includes(method) || !queryMethods.includes(method);
   if (whereFirst) {
     where = tableTarget.args[0] || {};
   }
