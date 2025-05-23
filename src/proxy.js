@@ -6,6 +6,7 @@ import {
   exists,
   group,
   aggregate,
+  custom,
   all,
   remove
 } from './queries.js';
@@ -213,7 +214,6 @@ const getResultType = (columns) => {
 }
 
 const makeQueryHandler = (table, db, tx, dbClient) => {
-  let write;
   return {
     get: function(target, method) {
       if (method === 'define') {
@@ -228,84 +228,10 @@ const makeQueryHandler = (table, db, tx, dbClient) => {
           }
           return target[method];
         }
-        let cachedFunction;
-        target[method] = async (query, config) => {
-          if (cachedFunction) {
-            return await cachedFunction(query, config);
-          }
-          let sql;
-          if (!db.initialized) {
-            await db.initialize();
-          }
-          sql = await db.readQuery(table, method);
-          sql = preprocess(sql, db.tables);
-          write = isWrite(sql);
-          const columns = parseQuery(sql, db.tables);
-          const options = makeOptions(columns, db);
-          options.result = getResultType(columns);
-          let run;
-          if (options.result === 'none') {
-            run = db.run;
-          }
-          else {
-            run = db.all;
-          }
-          run = run.bind(db);
-          cachedFunction = async (query, config) => {
-            const { params, unsafe } = query || {};
-            if (unsafe) {
-              const sql = insertUnsafe(sql, unsafe);
-              let cachedOptions = db.queryVariations.get(sql);
-              if (!cachedOptions) {
-                const columns = parseQuery(sql, db.tables);
-                const options = makeOptions(columns, db);
-                options.result = getResultType(columns);
-                db.queryVariations.set(sql, { ...options });
-                cachedOptions = options;
-              }
-              const options = {
-                query: sql,
-                params,
-                options: cachedOptions,
-                tx,
-                write
-              };
-              if (tx && tx.isBatch) {
-                if (options.result === 'none') {
-                  return await run(options);
-                }
-                const result = await run(options);
-                return {
-                  statement: result.statement,
-                  post: (meta) => {
-                    return result.post(meta);
-                  }
-                }
-              }
-              return await run(options);
-            }
-            const props = {
-              query: sql,
-              params,
-              options,
-              tx,
-              write
-            };
-            if (tx && tx.isBatch) {
-              if (options.result === 'none') {
-                return await run(props);
-              }
-              const result = await run(props);
-              return {
-                statement: result.statement,
-                post: (meta) => {
-                  return result.post(meta);
-                }
-              }
-            }
-            return await run(props);
-          };
-          return await cachedFunction(query, config);
+        const makeQuery = (database, table, tx, dbClient) => async (query, config) => await custom({ db: database, table, method, query, tx, dbClient, ...config });
+        const run = makeQuery(db, table, tx, dbClient);
+        return async (...args) => {
+          return await run(...args);
         }
       }
       return target[method];

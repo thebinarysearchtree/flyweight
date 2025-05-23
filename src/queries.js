@@ -1,3 +1,6 @@
+import { parseQuery, isWrite } from './parsers/queries.js';
+import { preprocess, insertUnsafe } from './parsers/preprocessor.js';
+
 let paramCount = 1;
 
 const getPlaceholder = () => {
@@ -1501,6 +1504,303 @@ const processInclude = (key, handler, parentQuery, defined, debugResult) => {
   }
 }
 
+const getConverters = (key, value, db, converters, keys = [], optional = []) => {
+  keys.push(key);
+  if (typeof value.type === 'string') {
+    optional.push(value.isOptional);
+    if (value.functionName && /^json_/i.test(value.functionName)) {
+      return;
+    }
+    const converter = db.getDbToJsConverter(value.type);
+    if (converter) {
+      converters.push({
+        keys: [...keys],
+        converter
+      });
+    }
+    return;
+  }
+  else {
+    for (const [k, v] of Object.entries(value.type)) {
+      getConverters(k, v, db, converters, [...keys], optional);
+    }
+  }
+}
+
+const allNulls = (item) => {
+  if (item === null) {
+    return true;
+  }
+  for (const value of Object.values(item)) {
+    if (value === null) {
+      continue;
+    }
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean' || value instanceof Date) {
+      return false;
+    }
+    const isNull = allNulls(value);
+    if (!isNull) {
+      return false;
+    }
+  }
+  return true;
+}
+
+const convertItem = (item, converters) => {
+  for (const converter of converters) {
+    const keys = converter.keys;
+    const count = keys.length;
+    let i = 0;
+    let actual = item;
+    for (const key of keys) {
+      if (i + 1 === count) {
+        if (actual[key] !== null) {
+          actual[key] = converter.converter(actual[key]);
+        }
+      }
+      actual = actual[key];
+      i++;
+    }
+  }
+}
+
+const getParsers = (columns, db) => {
+  const columnMap = {};
+  const typeMap = {};
+  for (const column of columns) {
+    const replaced = column.name.replace(/^flyweight\d+_/, '');
+    if (column.name !== replaced) {
+      columnMap[column.name] = replaced;
+    }
+    const converter = db.getDbToJsConverter(column.type);
+    let actualConverter = converter;
+    if (converter) {
+      const structured = column.structuredType;
+      if (structured) {
+        if (column.functionName === 'json_group_array') {
+          const structuredType = structured.type;
+          if (typeof structuredType === 'string') {
+            const structuredConverter = db.getDbToJsConverter(structuredType);
+            actualConverter = (v) => {
+              let converted = converter(v);
+              converted = converted.filter(v => v !== null);
+              if (structuredConverter && !(structured.functionName && /^json_/i.test(structured.functionName))) {
+                converted = converted.map(i => structuredConverter(i));
+              }
+              return converted;
+            }
+          }
+          else {
+            const converters = [];
+            const optional = [];
+            for (const [key, value] of Object.entries(structuredType)) {
+              getConverters(key, value, db, converters, [], optional);
+            }
+            const isOptional = !optional.some(o => o === false);
+            if (converters.length > 0) {
+              actualConverter = (v) => {
+                const converted = converter(v);
+                for (const item of converted) {
+                  convertItem(item, converters);
+                }
+                if (isOptional) {
+                  return converted.filter(c => !allNulls(c));
+                }
+                return converted;
+              }
+            }
+            else if (isOptional) {
+              actualConverter = (v) => {
+                const converted = converter(v);
+                return converted.filter(c => !allNulls(c));
+              }
+            }
+          }
+        }
+        else if (column.functionName === 'json_object') {
+          const structuredType = structured.type;
+          const converters = [];
+          const optional = [];
+          for (const [key, value] of Object.entries(structuredType)) {
+            getConverters(key, value, db, converters, [], optional);
+          }
+          const isOptional = !optional.some(o => o === false);
+          if (converters.length > 0) {
+            actualConverter = (v) => {
+              const converted = converter(v);
+              convertItem(converted, converters);
+              if (allNulls(converted)) {
+                return null;
+              }
+              return converted;
+            }
+          }
+          else if (isOptional) {
+            actualConverter = (v) => {
+              const converted = converter(v);
+              if (allNulls(converted)) {
+                return null;
+              }
+              return converted;
+            }
+          }
+        }
+        else if (column.functionName === 'json_array') {
+          const converters = [];
+          let i = 0;
+          for (const type of structured) {
+            getConverters(i, type, db, converters);
+            i++;
+          }
+          if (converters.length > 0) {
+            actualConverter = (v) => {
+              const converted = converter(v);
+              convertItem(converted, converters);
+              return converted;
+            }
+          }
+        }
+      }
+      typeMap[column.name] = actualConverter;
+    }
+  }
+  return {
+    names: columnMap,
+    types: typeMap
+  }
+}
+
+const renameColumns = (o, columns) => {
+  const result = {};
+  for (const [key, value] of Object.entries(o)) {
+    const column = columns[key];
+    if (column) {
+      result[column] = value;
+    }
+    else {
+      result[key] = value;
+    }
+  }
+  return result;
+}
+
+const parse = (o, types) => {
+  const result = {};
+  for (const [key, value] of Object.entries(o)) {
+    const parser = types[key];
+    if (parser) {
+      result[key] = parser(value);
+    }
+    else {
+      result[key] = value;
+    }
+  }
+  return result;
+}
+
+const custom = async (config) => {
+  const { 
+    db, 
+    table,
+    method,
+    tx, 
+    dbClient, 
+    partitionBy
+  } = config;
+  if (!db.initialized) {
+    await db.initialize();
+  }
+  let query = config.query || {};
+  let sql = await db.readQuery(table, method);
+  sql = preprocess(sql, db.tables);
+  const write = isWrite(sql);
+  const columns = parseQuery(sql, db.tables);
+  const { params, unsafe, where, select, omit, include, alias, debug, ...keywords } = query || {};
+  if (unsafe) {
+    sql = insertUnsafe(sql, unsafe);
+  }
+  if (columns.length === 0) {
+    return await db.run({
+      query: sql,
+      params,
+      tx,
+      write
+    });
+  }
+  let debugResult;
+  if (debug) {
+    debugResult = {
+      result: undefined,
+      queries: []
+    };
+  }
+  const debugReturn = (result) => {
+    if (config.debugResult) {
+      config.debugResult.queries.push({
+        sql,
+        params
+      });
+    }
+    if (debugResult) {
+      debugResult.queries.push({
+        sql,
+        params
+      });
+      debugResult.result = result;
+      return debugResult;
+    }
+    return result;
+  }
+  const post = (rows) => {
+    if (rows.length === 0) {
+      return rows;
+    }
+    const parsers = getParsers(columns, db);
+    const sample = Object.keys(rows.at(0));
+    const nameKeys = Object.keys(parsers.names);
+    const typeKeys = Object.keys(parsers.types);
+    const keys = [...nameKeys, ...typeKeys];
+    const needsParsing = keys
+      .filter(n => sample.includes(n))
+      .length > 0;
+    if (!needsParsing) {
+      return rows;
+    }
+    else {
+      const parsed = [];
+      for (const row of rows) {
+        const adjusted = {};
+        for (const [key, value] of Object.entries(row)) {
+          const parser = parsers.types[key];
+          const renamed = parsers.names[key] || key;
+          if (parser) {
+            adjusted[renamed] = parser(value);
+          }
+          else {
+            adjusted[renamed] = value;
+          }
+        }
+        parsed.push(adjusted);
+      }
+      return parsed;
+    }
+  }
+  const options = {
+    query: sql,
+    params,
+    tx,
+    write
+  };
+  if (!where && !select && !omit && !alias && Object.keys(keywords).length === 0) {
+    if (tx && tx.isBatch) {
+      return await processBatch(db, options, post);
+    }
+    const rows = await db.all(options);
+    const adjusted = post(rows);
+    return adjusted;
+  }
+}
+
 const all = async (config) => {
   const { 
     db, 
@@ -1992,6 +2292,7 @@ export {
   exists,
   group,
   aggregate,
+  custom,
   all,
   remove
 }
