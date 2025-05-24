@@ -515,13 +515,23 @@ const expandStar = (db, table) => {
   }
 }
 
-const toSelect = (db, table, columns, verify, params, customFields) => {
-  const columnTypes = db.columns[table];
+const makeSelectField = (table, column, db, types) => {
+  if (db.supports.jsonb && types[column] === 'json') {
+    return `json(${table}.${column}) as ${column}`;
+  }
+  else {
+    return `${table}.${column}`;
+  }
+}
+
+const toSelect = (db, table, columns, types, verify, params, customFields) => {
   if (columns) {
     if (typeof columns === 'string') {
+      if (verify) {
+        verify(columns);
+      }
       let clause;
-      verify(columns);
-      if (db.supports.jsonb && columnTypes[columns] === 'json') {
+      if (db.supports.jsonb && types[columns] === 'json') {
         clause = `json(${table}.${columns}) as ${columns}`;
       }
       else {
@@ -537,14 +547,18 @@ const toSelect = (db, table, columns, verify, params, customFields) => {
       const statements = [];
       for (const column of columns) {
         if (typeof column === 'string') {
-          verify(column);
+          if (verify) {
+            verify(column);
+          }
           names.push(column);
-          if (db.supports.jsonb && columnTypes[columns] === 'json') {
-            statements.push(`json(${table}.${columns}) as ${columns}`);
+          let statement;
+          if (db.supports.jsonb && types[column] === 'json') {
+            statement = `json(${table}.${column}) as ${column}`;
           }
           else {
-            statements.push(`${table}.${column}`);
+            statement = `${table}.${column}`;
           }
+          statements.push(statement);
         }
         else {
           const { select, as } = column;
@@ -553,7 +567,9 @@ const toSelect = (db, table, columns, verify, params, customFields) => {
           }
           names.push(as);
           const result = traverse(select);
-          verify(result.column);
+          if (verify) {
+            verify(result.column);
+          }
           const placeholder = getPlaceholder();
           params[placeholder] = result.path;
           customFields[as] = 'any';
@@ -567,7 +583,9 @@ const toSelect = (db, table, columns, verify, params, customFields) => {
     }
     else if (typeof columns === 'function') {
       const { column, path } = traverse(columns);
-      verify(column);
+      if (verify) {
+        verify(column);
+      }
       const placeholder = getPlaceholder();
       params[placeholder] = path;
       customFields['json_result'] = 'any';
@@ -584,7 +602,9 @@ const toSelect = (db, table, columns, verify, params, customFields) => {
 
 const getOrderBy = (verify, keywords, customFields) => {
   let orderBy = keywords.orderBy;
-  verify(orderBy, customFields);
+  if (verify) {
+    verify(orderBy, customFields);
+  }
   if (Array.isArray(orderBy)) {
     orderBy = orderBy.join(', ');
   }
@@ -847,6 +867,7 @@ const group = async (config) => {
     await db.initialize();
   }
   const { alias, where, debug, ...keywords } = query;
+  const hasKeywords = Object.keys(keywords).length > 0;
   let by = query.by;
   by = Array.isArray(by) ? by : [by];
   const params = {};
@@ -1017,7 +1038,7 @@ const group = async (config) => {
       sql += ` having ${whereClauses}`;
     }
   }
-  if (keywords) {
+  if (hasKeywords) {
     sql += toKeywords(verify, keywords, params, alias);
   }
   const options = {
@@ -1670,38 +1691,11 @@ const getParsers = (columns, db) => {
   }
 }
 
-const renameColumns = (o, columns) => {
-  const result = {};
-  for (const [key, value] of Object.entries(o)) {
-    const column = columns[key];
-    if (column) {
-      result[column] = value;
-    }
-    else {
-      result[key] = value;
-    }
-  }
-  return result;
-}
-
-const parse = (o, types) => {
-  const result = {};
-  for (const [key, value] of Object.entries(o)) {
-    const parser = types[key];
-    if (parser) {
-      result[key] = parser(value);
-    }
-    else {
-      result[key] = value;
-    }
-  }
-  return result;
-}
-
 const custom = async (config) => {
   const { 
     db, 
     table,
+    query,
     method,
     tx, 
     dbClient, 
@@ -1710,14 +1704,53 @@ const custom = async (config) => {
   if (!db.initialized) {
     await db.initialize();
   }
-  let query = config.query || {};
   let sql = await db.readQuery(table, method);
   sql = preprocess(sql, db.tables);
   const write = isWrite(sql);
   const columns = parseQuery(sql, db.tables);
-  const { params, unsafe, where, select, omit, include, alias, debug, ...keywords } = query || {};
+  const parsers = getParsers(columns, db);
+  let { params, unsafe, where, select, omit, include, alias, debug, ...keywords } = query || {};
+  if (!params) {
+    params = {};
+  }
+  const customFields = {};
   if (unsafe) {
     sql = insertUnsafe(sql, unsafe);
+  }
+  const hasKeywords = Object.keys(keywords).length > 0;
+  const wrap = where || select || omit || alias || hasKeywords;
+  if (wrap) {
+    sql = sql.replace(/;\s*$/, '');
+    const withTable = 'flyweight_wrapped';
+    sql = `with ${withTable} as (${sql})`;
+    if (!select && !omit) {
+      sql += ` select * from ${withTable}`;
+    }
+    else {
+      const fields = [];
+      if (omit) {
+        const all = Object.keys(columns);
+        fields.push(...invertOmit(all, omit));
+      }
+      else {
+        if (Array.isArray(select)) {
+          fields.push(...select);
+        }
+        else {
+          fields.push(select);
+        }
+      }
+      if (alias) {
+        for (const [key, value] of Object.entries(alias)) {
+          fields.push({ select: value, as: key });
+        }
+      }
+      const select = toSelect(db, table, fields, parsers.types, null, params, customFields);
+      sql += ` select ${select.clause} from ${withTable}`;
+    }
+    if (hasKeywords) {
+      sql += toKeywords(null, keywords, params, customFields);
+    }
   }
   if (columns.length === 0) {
     return await db.run({
@@ -1755,7 +1788,6 @@ const custom = async (config) => {
     if (rows.length === 0) {
       return rows;
     }
-    const parsers = getParsers(columns, db);
     const sample = Object.keys(rows.at(0));
     const nameKeys = Object.keys(parsers.names);
     const typeKeys = Object.keys(parsers.types);
@@ -1791,14 +1823,17 @@ const custom = async (config) => {
     tx,
     write
   };
-  if (!where && !select && !omit && !alias && Object.keys(keywords).length === 0) {
-    if (tx && tx.isBatch) {
-      return await processBatch(db, options, post);
-    }
-    const rows = await db.all(options);
-    const adjusted = post(rows);
-    return adjusted;
+  if (tx && tx.isBatch) {
+    return await processBatch(db, options, post);
   }
+  const rows = await db.all(options);
+  const adjusted = post(rows);
+  return debugReturn(adjusted);
+}
+
+const invertOmit = (all, omit) => {
+  const remove = typeof omit === 'string' ? [omit] : omit;
+  return all.filter(t => !remove.includes(t));
 }
 
 const all = async (config) => {
@@ -1824,8 +1859,8 @@ const all = async (config) => {
     const { where, select, omit, include, alias, debug, ...rest } = query;
     query = where || {};
     if (omit) {
-      const remove = typeof omit === 'string' ? [omit] : omit;
-      columns = Object.keys(db.columns[table]).filter(t => !remove.includes(t));
+      const all = Object.keys(db.columns[table]);
+      columns = invertOmit(all, omit);
     }
     else {
       columns = select;
@@ -1909,7 +1944,8 @@ const all = async (config) => {
   const columnSet = db.columnSets[table];
   const verify = makeVerify(table, columnSet, included);
   const customFields = {};
-  const select = toSelect(db, table, columns, verify, params, customFields);
+  const columnTypes = db.columns[table];
+  const select = toSelect(db, table, columns, columnTypes, verify, params, customFields);
   if (db.virtualSet.has(table)) {
     return await getVirtual(db, table, query, tx, keywords, select.clause, returnValue, verify, false);
   }

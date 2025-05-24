@@ -44,6 +44,8 @@ const makeOverloads = (queryName, paramsName, unsafeName, returnName) => {
     .map(s => `${s}, `)
     .join('');
   const overloads = [];
+  overloads.push(`${queryName}(query: ComplexSqlQuery${append}<${generics}ToWhere<${returnName}>, ${returnName}>): Promise<Array<${returnName}>>`);
+  overloads.push(`${queryName}(query: ComplexSqlQuery${append}Debug<${generics}ToWhere<${returnName}>, ${returnName}>): Promise<DebugResult<Array<${returnName}>>>`);
   overloads.push(`${queryName}<N extends Alias<${returnName}>>(query: ComplexSqlQueryAlias${append}<${generics}ToWhere<${returnName}>, ${returnName}, N>): Promise<Array<${returnName} & ReturnTypes<N>>>`);
   overloads.push(`${queryName}<N extends Alias<${returnName}>>(query: ComplexSqlQueryAlias${append}Debug<${generics}ToWhere<${returnName}>, ${returnName}, N>): Promise<DebugResult<Array<${returnName} & ReturnTypes<N>>>>`);
   overloads.push(`${queryName}<U extends Includes<TypedDb, ${returnName}>>(query: ComplexSqlQueryInclude${append}<${generics}ToWhere<${returnName}>, ${returnName}, U>): Promise<Array<MergeIncludes<${returnName}, U>>>`);
@@ -68,8 +70,6 @@ const makeOverloads = (queryName, paramsName, unsafeName, returnName) => {
   overloads.push(`${queryName}<K extends keyof ${returnName}, U extends Includes<TypedDb, ${returnName}>, N extends Alias<${returnName}>>(query: ComplexSqlQueryObjectIncludeAliasOmit${append}Debug<${generics}ToWhere<${returnName}>, K, ${returnName}, U, N>): Promise<DebugResult<Array<MergeIncludes<Omit<${returnName}, K>, U> & ReturnTypes<N>>>>`);
   overloads.push(`${queryName}<K extends keyof ${returnName}>(query: ComplexSqlQueryValue${append}<${generics}ToWhere<${returnName}>, K, ${returnName}>): Promise<Array<${returnName}[K]>>`);
   overloads.push(`${queryName}<K extends keyof ${returnName}>(query: ComplexSqlQueryValue${append}Debug<${generics}ToWhere<${returnName}>, K, ${returnName}>): Promise<DebugResult<Array<${returnName}[K]>>>`);
-  overloads.push(`${queryName}(query: ComplexSqlQuery${append}<${generics}ToWhere<${returnName}>, ${returnName}>): Promise<Array<${returnName}>>`);
-  overloads.push(`${queryName}(query: ComplexSqlQuery${append}Debug<${generics}ToWhere<${returnName}>, ${returnName}>): Promise<DebugResult<Array<${returnName}>>>`);
   overloads.push(`${queryName}<N>(query: ComplexSqlQuerySelector${append}<${generics}ToWhere<${returnName}>, ${returnName}, N>): Promise<Array<N>>`);
   overloads.push(`${queryName}<N>(query: ComplexSqlQuerySelector${append}Debug<${generics}ToWhere<${returnName}>, ${returnName}, N>): Promise<DebugResult<Array<N>>>`);
   return overloads;
