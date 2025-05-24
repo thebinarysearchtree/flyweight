@@ -482,9 +482,11 @@ const traverse = (selector) => {
   selector(proxy);
   const column = chain.shift();
   const path = `$.${chain.join('.')}`;
+  const rename = chain.length === 0;
   return {
     column,
-    path
+    path,
+    rename
   };
 }
 
@@ -570,10 +572,15 @@ const toSelect = (db, table, columns, types, verify, params, customFields) => {
           if (verify) {
             verify(result.column);
           }
-          const placeholder = getPlaceholder();
-          params[placeholder] = result.path;
-          customFields[as] = 'any';
-          statements.push(`json_extract(${table}.${result.column}, $${placeholder}) as ${as}`);
+          if (result.rename) {
+            statements.push(`${table}.${result.column} as ${as}`);
+          }
+          else {
+            const placeholder = getPlaceholder();
+            params[placeholder] = result.path;
+            customFields[as] = 'any';
+            statements.push(`json_extract(${table}.${result.column}, $${placeholder}) as ${as}`);
+          }
         }
       }
       return {
@@ -1745,8 +1752,8 @@ const custom = async (config) => {
           fields.push({ select: value, as: key });
         }
       }
-      const select = toSelect(db, table, fields, parsers.types, null, params, customFields);
-      sql += ` select ${select.clause} from ${withTable}`;
+      const result = toSelect(db, withTable, fields, parsers.types, null, params, customFields);
+      sql += ` select ${result.clause} from ${withTable}`;
     }
     if (hasKeywords) {
       sql += toKeywords(null, keywords, params, customFields);
