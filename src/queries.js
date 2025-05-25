@@ -602,7 +602,13 @@ const toSelect = (db, table, columns, types, verify, params, customFields) => {
         clause
       }
     }
+    if (!verify) {
+      throw Error('Something went wrong');
+    }
     return expandStar(db, table);
+  }
+  if (!verify) {
+    throw Error('Something went wrong');
   }
   return expandStar(db, table);
 }
@@ -1894,58 +1900,21 @@ const all = async (config) => {
   }
   const returnValue = ['string', 'function'].includes(typeof columns);
   const includeResults = [];
-  let columnsToRemove = [];
-  const runWhere = [];
-  const runSort = [];
-  let orderByIncludes;
+  const columnsToRemove = [];
   if (included) {
     const extraColumns = new Set();
     const includeNames = [];
-    const maybeIncludeSort = keywords && keywords.orderBy && (keywords.limit !== undefined || keywords.offset !== undefined);
-    const orderBy = [];
-    if (keywords && keywords.orderBy) {
-      if (!Array.isArray(keywords.orderBy)) {
-        orderBy.push(keywords.orderBy);
-      }
-      else {
-        orderBy.push(...keywords.orderBy);
-      }
-    }
     for (const [column, handler] of Object.entries(included)) {
-      let parentQuery;
-      const inSort = maybeIncludeSort && orderBy.includes(column);
-      const inWhere = query.hasOwnProperty(column);
-      if (inSort || inWhere) {
-        parentQuery = {
-          table,
-          query,
-          columns,
-          include: included,
-          keywords,
-          includeName: column
-        };
-      }
-      if (inSort) {
-        runSort.push(column);
-      }
-      else if (inWhere) {
-        runWhere.push(column);
-      }
       const defined = db.includes.get(table);
-      const result = processInclude(column, handler, parentQuery, defined, debugResult);
+      const result = processInclude(column, handler, null, defined, debugResult);
       extraColumns.add(result.parentColumn);
       includeResults.push({ column, result });
       includeNames.push(column);
     }
     if (columns) {
-      columnsToRemove = Array.from(extraColumns.values()).filter(c => !columns.includes(c));
-      columns.push(...columnsToRemove);
-    }
-    if (runSort.length > 0) {
-      orderByIncludes = runSort.at(0);
-    }
-    else if (keywords && keywords.orderBy) {
-      orderByIncludes = includeNames.find(n => orderBy.includes(n));
+      const remove = Array.from(extraColumns.values()).filter(c => !columns.includes(c));
+      columnsToRemove.push(...remove);
+      columns.push(...remove);
     }
   }
   const columnSet = db.columnSets[table];
@@ -1957,57 +1926,6 @@ const all = async (config) => {
     return await getVirtual(db, table, query, tx, keywords, select.clause, returnValue, verify, false);
   }
   let sql = 'select ';
-  let runFirstInclude;
-  let joinWithInclude = false;
-  const otherTableColumns = new Map();
-  if (runSort.length > 0) {
-    const name = runSort.at(0);
-    runFirstInclude = includeResults.find(r => r.column === name);
-    const { table, column } = runFirstInclude.result;
-    if (table !== undefined) {
-      joinWithInclude = true;
-      sql += `${table}.${column} as ${runFirstInclude.column}, `;
-      const data = {
-        table,
-        column
-      };
-      otherTableColumns.set(runFirstInclude.column, data);
-    }
-  }
-  const addWhere = () => {
-    if (joinWithInclude) {
-      const includeTable = runFirstInclude.result.table;
-      const joinColumn = runFirstInclude.result.joinColumn;
-      const parentColumn = runFirstInclude.result.parentColumn;
-      sql += ` left join ${includeTable} on ${includeTable}.${joinColumn} = ${table}.${parentColumn}`;
-      const parentClauses = toWhere(verify, table, query, params);
-      const includeVerify = makeVerify(includeTable, db.columnSets[includeTable]);
-      const includeWhere = runFirstInclude.result.where;
-      const adjusted = {};
-      for (const [key, value] of Object.entries(includeWhere)) {
-        if (key === runFirstInclude.result.joinColumn) {
-          continue;
-        }
-        adjusted[key] = value;
-      }
-      const includeClauses = toWhere(includeVerify, null, adjusted, params);
-      if (parentClauses.whereClauses || includeClauses.whereClauses) {
-        sql += ` where`;
-        if (parentClauses.whereClauses) {
-          sql += ` ${parentClauses.whereClauses}`;
-        }
-        if (includeClauses.whereClauses) {
-          if (parentClauses.whereClauses) {
-            sql += ' and';
-          }
-          sql += ` ${includeClauses.whereClauses}`;
-        }
-      }
-    }
-    else {
-      sql += addClauses(verify, table, query, params);
-    }
-  }
   if (partitionBy) {
     let orderBy;
     if (keywords.orderBy) {
@@ -2060,7 +1978,7 @@ const all = async (config) => {
       sql += 'distinct ';
     }
     sql += `${select.clause} from ${table}`;
-    addWhere();
+    sql += addClauses(verify, table, query, params);
     sql = wrapQuery(sql);
   }
   else {
@@ -2068,29 +1986,8 @@ const all = async (config) => {
       sql += 'distinct ';
     }
     sql += `${select.clause} from ${table}`;
-    if (runWhere.length > 0) {
-      for (const key of runWhere) {
-        const include = includeResults.find(r => r.column === key);
-        const result = await include.result.runQuery(dbClient);
-        include.postProcess = result.postProcess;
-        const mapped = result.raw.map(r => r[result.whereKey]);
-        query = {
-          [include.result.parentColumn]: mapped
-        };
-      }
-    }
-    if (runSort.length > 0 && !joinWithInclude) {
-      const result = await runFirstInclude.result.runQuery(dbClient);
-      runFirstInclude.postProcess = result.postProcess;
-      const mapped = result.raw.map(r => r[result.whereKey]);
-      query = {
-        [runFirstInclude.result.parentColumn]: mapped
-      };
-    }
-    addWhere();
-    if (runSort.length === 0 || joinWithInclude) {
-      sql += toKeywords(verify, keywords, params, customFields, included);
-    }
+    sql += addClauses(verify, table, query, params);
+    sql += toKeywords(verify, keywords, params, customFields);
   }
   if (first) {
     sql += ' limit 1';
@@ -2137,13 +2034,7 @@ const all = async (config) => {
             created[key] = value;
             continue;
           }
-          const other = otherTableColumns.get(key);
-          if (other) {
-            created[key] = db.convertToJs(other.table, other.column, value);
-          }
-          else {
-            created[key] = db.convertToJs(table, key, value);
-          }
+          created[key] = db.convertToJs(table, key, value);
         }
         adjusted.push(created);
       }
@@ -2230,81 +2121,6 @@ const all = async (config) => {
         mapped.push(removed);
       }
       result = mapped;
-    }
-    if (orderByIncludes) {
-      const sample = result.find(r => r[orderByIncludes] !== null && r[orderByIncludes] !== undefined);
-      if (sample !== undefined) {
-        const type = sample[orderByIncludes] instanceof Date ? 'Date' : typeof sample[orderByIncludes];
-        let sorter;
-        const nullSorter = (sorter, desc) => {
-          return (a, b) => {
-            if (a === b) {
-              return 0;
-            }
-            if (a === null || a === undefined) {
-              if (b !== null && b !== undefined) {
-                if (desc) {
-                  return -1;
-                }
-                return 1;
-              }
-              return 0;
-            }
-            if (b === null || b === undefined) {
-              if (a !== null & a !== undefined) {
-                if (desc) {
-                  return 1;
-                }
-                return -1;
-              }
-              return 0;
-            }
-            return sorter(a, b);
-          }
-        }
-        if (type === 'string') {
-          if (keywords.desc) {
-            sorter = nullSorter((a, b) => b[orderByIncludes].localeCompare(a[orderByIncludes]), true);
-          }
-          else {
-            sorter = nullSorter((a, b) => a[orderByIncludes].localeCompare(b[orderByIncludes]));
-          }
-        }
-        else if (type === 'number' || type === 'boolean') {
-          if (keywords.desc) {
-            sorter = nullSorter((a, b) => b[orderByIncludes] - a[orderByIncludes], true);
-          }
-          else {
-            sorter = nullSorter((a, b) => a[orderByIncludes] - b[orderByIncludes]);
-          }
-        }
-        else if (type === 'Date') {
-          if (keywords.desc) {
-            const sort = (a, b) => {
-              const order = b[orderByIncludes].getTime() - a[orderByIncludes].getTime();
-              if (isNaN(order)) {
-                return 0;
-              }
-              return order;
-            };
-            sorter = nullSorter(sort, true);
-          }
-          else {
-            const sort = (a, b) => {
-              const order = a[orderByIncludes].getTime() - b[orderByIncludes].getTime();
-              if (isNaN(order)) {
-                return 0;
-              }
-              return order;
-            };
-            sorter = nullSorter(sort);
-          }
-        }
-        else {
-          throw Error(`Cannot sort ${type} types`);
-        }
-        result.sort(sorter);
-      }
     }
     return debugReturn(result);
   }
