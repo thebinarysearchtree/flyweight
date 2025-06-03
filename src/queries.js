@@ -46,7 +46,6 @@ const queryMethods = [
   'remove'
 ];
 
-
 const methods = new Map([
   ['not', '!='],
   ['gt', '>'],
@@ -514,15 +513,6 @@ const expandStar = (db, table) => {
   return {
     names,
     clause: statements.join(', ')
-  }
-}
-
-const makeSelectField = (table, column, db, types) => {
-  if (db.supports.jsonb && types[column] === 'json') {
-    return `json(${table}.${column}) as ${column}`;
-  }
-  else {
-    return `${table}.${column}`;
   }
 }
 
@@ -1023,34 +1013,13 @@ const group = async (config) => {
     sql += clauses;
     sql += ` from ${table}`;
   }
-  let having = {};
   if (where) {
-    let adjusted = where;
-    if (alias) {
-      adjusted = {};
-      for (const [key, value] of Object.entries(where)) {
-        if (havingKeys.includes(key)) {
-          having[key] = value;
-          continue;
-        }
-        else if (arrayKeys.includes(key)) {
-          continue;
-        }
-        adjusted[key] = value;
-      }
-    }
-    const { whereClauses } = toWhere(verify, table, adjusted, params);
+    const { whereClauses } = toWhere(verify, table, where, params);
     if (whereClauses) {
       sql += ` where ${whereClauses}`;
     }
   }
   sql += ` group by ${byClause}`;
-  if (Object.keys(having).length > 0) {
-    const { whereClauses } = toWhere(null, null, having, params);
-    if (whereClauses) {
-      sql += ` having ${whereClauses}`;
-    }
-  }
   if (hasKeywords) {
     sql += toKeywords(verify, keywords, params, alias);
   }
@@ -1329,7 +1298,7 @@ const processInclude = (key, handler, parentQuery, defined, debugResult) => {
   }
   const method = tableTarget.method;
   let where;
-  const whereFirst = ['get', 'many', 'exists'].includes(method) || !queryMethods.includes(method);
+  const whereFirst = ['get', 'many', 'exists'].includes(method);
   if (whereFirst) {
     where = tableTarget.args[0] || {};
   }
@@ -1443,7 +1412,7 @@ const processInclude = (key, handler, parentQuery, defined, debugResult) => {
     if (!singleResult && method === 'first') {
       queryMethod = 'query';
     }
-    if (['first', 'query'].includes(method)) {
+    if (['first', 'query'].includes(method) || !queryMethods.includes(method)) {
       if (tableTarget.args[0].limit !== undefined) {
         config.partitionBy = whereKey;
       }
@@ -1732,37 +1701,28 @@ const custom = async (config) => {
   }
   const hasKeywords = Object.keys(keywords).length > 0;
   const wrap = where || select || omit || alias || hasKeywords;
+  const withTable = 'flyweight_wrapped';
+  let fields;
   if (wrap) {
     sql = sql.replace(/;\s*$/, '');
-    const withTable = 'flyweight_wrapped';
     sql = `with ${withTable} as (${sql})`;
-    if (!select && !omit) {
-      sql += ` select * from ${withTable}`;
+    if (omit) {
+      const all = Object.keys(db.columns[table]);
+      fields = invertOmit(all, omit);
     }
     else {
-      const fields = [];
-      if (omit) {
-        const all = Object.keys(columns);
-        fields.push(...invertOmit(all, omit));
-      }
-      else {
-        if (Array.isArray(select)) {
-          fields.push(...select);
-        }
-        else {
-          fields.push(select);
-        }
-      }
-      if (alias) {
-        for (const [key, value] of Object.entries(alias)) {
-          fields.push({ select: value, as: key });
-        }
-      }
-      const result = toSelect(db, withTable, fields, parsers.types, null, params, customFields);
-      sql += ` select ${result.clause} from ${withTable}`;
+      fields = select;
     }
-    if (hasKeywords) {
-      sql += toKeywords(null, keywords, params, customFields);
+    if (alias) {
+      if (!fields) {
+        fields = [];
+      }
+      else if (typeof fields === 'string') {
+        fields = [fields];
+      }
+      for (const [key, value] of Object.entries(alias)) {
+        fields.push({ select: value, as: key });
+      }
     }
   }
   if (columns.length === 0) {
@@ -1797,6 +1757,92 @@ const custom = async (config) => {
     }
     return result;
   }
+  const returnValue = ['string', 'function'].includes(typeof select);
+  const includeResults = [];
+  const columnsToRemove = [];
+  if (include) {
+    const extraColumns = new Set();
+    const includeNames = [];
+    for (const [column, handler] of Object.entries(include)) {
+      const result = processInclude(column, handler, null, null, debugResult);
+      extraColumns.add(result.parentColumn);
+      includeResults.push({ column, result });
+      includeNames.push(column);
+    }
+    if (fields) {
+      const remove = Array.from(extraColumns.values()).filter(c => !fields.includes(c));
+      columnsToRemove.push(...remove);
+      fields.push(...remove);
+    }
+  }
+  if (wrap) {
+    let selectResult;
+    if (fields) {
+      selectResult = toSelect(db, withTable, fields, parsers.types, null, params, customFields);
+      const distinct = keywords && keywords.distinct ? 'distinct ' : '';
+      sql += ` select ${distinct}${selectResult.clause}`;
+    }
+    else {
+      sql += ` select *`;
+    }
+    let wrapQuery;
+    if (partitionBy) {
+      let orderBy;
+      if (keywords.orderBy) {
+        orderBy = getOrderBy(null, keywords, customFields);
+      }
+      else {
+        orderBy = fields.at(0);
+      }
+      let desc = '';
+      if (keywords.desc) {
+        desc = ' desc';
+      }
+      let i = 1;
+      let alias = 'rn';
+      while (fields && fields.includes(alias)) {
+        i++;
+        alias = `rn${i}`;
+      }
+      sql += `, row_number() over (partition by ${withTable}.${partitionBy} order by ${withTable}.${orderBy}${desc}) as ${alias}`;
+      wrapQuery = (sql, original) => {
+        let statement = `with rankedQuery as (${sql}) select ${original} from rankedQuery where ${alias}`;
+        const hasOffset = keywords.offset !== undefined && Number.isInteger(keywords.offset);
+        const hasLimit = keywords.limit !== undefined && Number.isInteger(keywords.limit);
+        if (hasOffset && hasLimit) {
+          const start = keywords.offset;
+          const end = keywords.offset + keywords.limit;
+          const startPlaceholder = getPlaceholder();
+          const endPlaceholder = getPlaceholder();
+          params[startPlaceholder] = start;
+          params[endPlaceholder] = end;
+          statement += ` > $${startPlaceholder} and ${alias} <= $${endPlaceholder}`;
+        }
+        else if (hasLimit && !hasOffset) {
+          const placeholder = getPlaceholder();
+          params[placeholder] = keywords.limit;
+          statement += ` <= $${placeholder}`;
+        }
+        else if (hasOffset && !hasLimit) {
+          const placeholder = getPlaceholder();
+          params[placeholder] = keywords.limit;
+          statement += ` > $${placeholder}`;
+        }
+        return statement;
+      }
+    }
+    sql += ` from ${withTable}`;
+    if (where) {
+      sql += addClauses(null, withTable, where, params);
+    }
+    if (!partitionBy && hasKeywords) {
+      sql += toKeywords(null, keywords, params, customFields);
+    }
+    if (partitionBy) {
+      const original = selectResult ? selectResult.names.join(', ') : columns.map(c => c.name).join(', ');
+      sql = wrapQuery(sql, original);
+    }
+  }
   const post = (rows) => {
     if (rows.length === 0) {
       return rows;
@@ -1809,6 +1855,10 @@ const custom = async (config) => {
       .filter(n => sample.includes(n))
       .length > 0;
     if (!needsParsing) {
+      if (returnValue) {
+        const key = sample.at(0);
+        return rows.map(r => r[key]);
+      }
       return rows;
     }
     else {
@@ -1816,6 +1866,10 @@ const custom = async (config) => {
       for (const row of rows) {
         const adjusted = {};
         for (const [key, value] of Object.entries(row)) {
+          if (customFields.hasOwnProperty(key)) {
+            adjusted[key] = value;
+            continue;
+          }
           const parser = parsers.types[key];
           const renamed = parsers.names[key] || key;
           if (parser) {
@@ -1826,6 +1880,10 @@ const custom = async (config) => {
           }
         }
         parsed.push(adjusted);
+      }
+      if (returnValue) {
+        const key = sample.at(0);
+        return parsed.map(p => p[key]);
       }
       return parsed;
     }
@@ -1841,7 +1899,38 @@ const custom = async (config) => {
   }
   const rows = await db.all(options);
   const adjusted = post(rows);
-  return debugReturn(adjusted);
+  if (!include || !adjusted || returnValue) {
+    return debugReturn(adjusted);
+  }
+  let queryResult = adjusted;
+  for (const include of includeResults) {
+    if (include.postProcess) {
+      include.postProcess(adjusted);
+    }
+    else {
+      const runQuery = include.result.runQuery;
+      if (runQuery) {
+        const result = await runQuery(dbClient, adjusted);
+        result.postProcess(adjusted);
+      }
+    }
+    if (columnsToRemove.length === 0) {
+      continue;
+    }
+    const mapped = [];
+    for (const item of result) {
+      const removed = {};
+      for (const [key, value] of Object.entries(item)) {
+        if (columnsToRemove.includes(key)) {
+          continue;
+        }
+        removed[key] = value;
+      }
+      mapped.push(removed);
+    }
+    queryResult = mapped;
+  }
+  return debugReturn(queryResult);
 }
 
 const invertOmit = (all, omit) => {

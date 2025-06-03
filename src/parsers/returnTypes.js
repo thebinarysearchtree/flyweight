@@ -32,6 +32,7 @@ const returnTypes = {
   julianday: 'integer',
   unixepoch: 'integer',
   strftime: 'text',
+  timediff: 'text',
   avg: 'real',
   count: 'integer',
   group_concat: 'text',
