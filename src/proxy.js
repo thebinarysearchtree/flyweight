@@ -10,8 +10,18 @@ import {
   all,
   remove
 } from './queries.js';
-import { parseQuery, isWrite } from './parsers/queries.js';
-import { preprocess, insertUnsafe } from './parsers/preprocessor.js';
+
+const groupMethods = (database, table, tx, by, config) => {
+  const makeMethod = (method) => {
+    return async (query) => await group({ db: database, table, by, method, query, tx, ...config });
+  }
+  const result = {};
+  const methods = ['count', 'avg', 'min', 'max', 'sum'];
+  methods.forEach(m => {
+    result[m] = makeMethod(m)
+  });
+  return result;
+}
 
 const basic = {
   insert: (database, table, tx) => async (params) => await insert(database, table, params, tx),
@@ -19,7 +29,7 @@ const basic = {
   update: (database, table, tx) => async (options) => await update(database, table, options, tx),
   upsert: (database, table, tx) => async (options) => await upsert(database, table, options, tx),
   exists: (database, table, tx) => async (query, config) => await exists({ db: database, table, query, tx, ...config }),
-  group: (database, table, tx) => async (query, config) => await group({ db: database, table, query, tx, ...config }),
+  groupBy: (database, table, tx) => (by, config) => groupMethods(database, table, tx, by, config),
   count: (database, table, tx) => async (query, config) => await aggregate({ db: database, table, query, tx, method: 'count', ...config }),
   avg: (database, table, tx) => async (query, config) => await aggregate({ db: database, table, query, tx, method: 'avg', ...config }),
   min: (database, table, tx) => async (query, config) => await aggregate({ db: database, table, query, tx, method: 'min', ...config }),
@@ -223,8 +233,15 @@ const makeQueryHandler = (table, db, tx, dbClient) => {
         if (basic[method]) {
           const makeQuery = basic[method];
           const run = makeQuery(db, table, tx, dbClient);
-          target[method] = async (...args) => {
-            return await run(...args);
+          if (method === 'groupBy') {
+            target[method] = (...args) => {
+              return run(...args);
+            }
+          }
+          else {
+            target[method] = async (...args) => {
+              return await run(...args);
+            }
           }
           return target[method];
         }

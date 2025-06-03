@@ -86,56 +86,10 @@ export interface GroupQueryObjectDebug<W, B> extends GroupQueryObject<W, B> {
   debug: true;
 }
 
-export interface ComplexQuery<W, T> extends Keywords<Array<keyof T> | keyof T> {
-  where?: W;
-  select?: undefined;
-  include?: undefined;
-}
-
-export interface ComplexSqlQueryParamsUnsafe<P, U, W, T> extends ComplexQuery<W, T> {
-  params: P;
-  unsafe: U;
-}
-
-export interface ComplexSqlQueryParams<P, W, T> extends ComplexQuery<W, T> {
-  params: P;
-  unsafe?: undefined;
-}
-
-export interface ComplexSqlQueryUnsafe<U, W, T> extends ComplexQuery<W, T> {
-  params?: undefined;
-  unsafe: U;
-}
-
-export interface ComplexSqlQuery<W, T> extends ComplexQuery<W, T> {
-  params?: undefined;
-  unsafe?: undefined;
-}
-
-export interface ComplexSqlQueryParamsUnsafeDebug<P, W, T, U> extends ComplexSqlQueryParamsUnsafe<P, W, T, U> {
-  debug: true;
-}
-
-export interface ComplexSqlQueryParamsDebug<P, W, T> extends ComplexSqlQueryParams<P, W, T> {
-  debug: true;
-}
-
-export interface ComplexSqlQueryUnsafeDebug<U, W, T> extends ComplexSqlQueryUnsafe<U, W, T> {
-  debug: true;
-}
-
-export interface ComplexSqlQueryDebug<W, T> extends ComplexSqlQuery<W, T> {
-  debug: true;
-}
-
-export interface ComplexQueryDebug<W, T> extends ComplexQuery<W, T> {
-  debug: true;
-}
-
 export interface ComplexQueryInclude<W, T, U extends ObjectFunction> extends Keywords<Array<keyof T> | keyof T> {
   where?: W;
   select?: undefined;
-  include: U;
+  include?: U;
 }
 
 export interface ComplexSqlQueryIncludeParamsUnsafe<P, U, W, T, R extends ObjectFunction> extends ComplexQueryInclude<W, T, R> {
@@ -178,103 +132,10 @@ export interface ComplexQueryIncludeDebug<W, T, U extends ObjectFunction> extend
   debug: true;
 }
 
-export interface ComplexQueryObject<W, K, T> extends Keywords<keyof T | Array<keyof T>> {
-  where?: W;
-  select: (keyof T)[] | K[];
-  include?: undefined;
-}
-
-export interface ComplexSqlQueryObjectParamsUnsafe<P, U, W, K, T> extends ComplexQueryObject<W, K, T> {
-  params: P;
-  unsafe: U;
-}
-
-export interface ComplexSqlQueryObjectParams<P, W, K, T> extends ComplexQueryObject<W, K, T> {
-  params: P;
-  unsafe?: undefined;
-}
-
-export interface ComplexSqlQueryObjectUnsafe<U, W, K, T> extends ComplexQueryObject<W, K, T> {
-  params?: undefined;
-  unsafe: U;
-}
-
-export interface ComplexSqlQueryObject<W, K, T> extends ComplexQueryObject<W, K, T> {
-  params?: undefined;
-  unsafe?: undefined;
-}
-
-export interface ComplexSqlQueryObjectParamsUnsafeDebug<P, U, W, K, T> extends ComplexSqlQueryObjectParamsUnsafe<P, U, W, K, T> {
-  debug: true;
-}
-
-export interface ComplexSqlQueryObjectParamsDebug<P, W, K, T> extends ComplexSqlQueryObjectParams<P, W, K, T> {
-  debug: true;
-}
-
-export interface ComplexSqlQueryObjectUnsafeDebug<U, W, K, T> extends ComplexSqlQueryObjectUnsafe<U, W, K, T> {
-  debug: true;
-}
-
-export interface ComplexSqlQueryObjectDebug<W, K, T> extends ComplexSqlQueryObject<W, K, T> {
-  debug: true;
-}
-
-export interface ComplexQueryObjectDebug<W, K, T> extends ComplexQueryObject<W, K, T> {
-  debug: true;
-}
-
-export interface ComplexQueryObjectOmit<W, K, T> extends Keywords<keyof T | Array<keyof T>> {
-  where?: W;
-  select?: undefined;
-  omit: (keyof T)[] | K[] | K;
-  include?: undefined;
-}
-
-export interface ComplexSqlQueryObjectOmitParamsUnsafe<P, U, W, K, T> extends ComplexQueryObjectOmit<W, K, T> {
-  params: P;
-  unsafe: U;
-}
-
-export interface ComplexSqlQueryObjectOmitParams<P, W, K, T> extends ComplexQueryObjectOmit<W, K, T> {
-  params: P;
-  unsafe?: undefined;
-}
-
-export interface ComplexSqlQueryObjectOmitUnsafe<U, W, K, T> extends ComplexQueryObjectOmit<W, K, T> {
-  params?: undefined;
-  unsafe: U;
-}
-
-export interface ComplexSqlQueryObjectOmit<W, K, T> extends ComplexQueryObjectOmit<W, K, T> {
-  params?: undefined;
-  unsafe?: undefined;
-}
-
-export interface ComplexSqlQueryObjectOmitParamsUnsafeDebug<P, U, W, K, T> extends ComplexSqlQueryObjectOmitParamsUnsafe<P, U, W, K, T> {
-  debug: true;
-}
-
-export interface ComplexSqlQueryObjectOmitParamsDebug<P, W, K, T> extends ComplexSqlQueryObjectOmitParams<P, W, K, T> {
-  debug: true;
-}
-
-export interface ComplexSqlQueryObjectOmitUnsafeDebug<U, W, K, T> extends ComplexSqlQueryObjectOmitUnsafe<U, W, K, T> {
-  debug: true;
-}
-
-export interface ComplexSqlQueryObjectOmitDebug<W, K, T> extends ComplexSqlQueryObjectOmit<W, K, T> {
-  debug: true;
-}
-
-export interface ComplexQueryObjectOmitDebug<W, K, T> extends ComplexQueryObjectOmit<W, K, T> {
-  debug: true;
-}
-
 export interface ComplexQueryObjectInclude<W, K, T, U extends ObjectFunction> extends Keywords<keyof T | Array<keyof T>> {
   where?: W;
   select: (keyof T)[] | K[];
-  include: U;
+  include?: U;
 }
 
 export interface ComplexSqlQueryObjectIncludeParamsUnsafe<P, U, W, K, T, R extends ObjectFunction> extends ComplexQueryObjectInclude<W, K, T, R> {
@@ -321,7 +182,7 @@ export interface ComplexQueryObjectIncludeOmit<W, K, T, U extends ObjectFunction
   where?: W;
   select?: undefined;
   omit: (keyof T)[] | K[] | K;
-  include: U;
+  include?: U;
 }
 
 export interface ComplexSqlQueryObjectIncludeOmitParamsUnsafe<P, U, W, K, T, R extends ObjectFunction> extends ComplexQueryObjectIncludeOmit<W, K, T, R> {
@@ -546,34 +407,22 @@ export interface Queries<T, I, W, R, Y> {
   many<K extends keyof T>(params: W | null, columns: (keyof T)[] | K[]): Promise<Array<Pick<T, K>>>;
   many<K extends keyof T>(params: W | null, column: K): Promise<Array<T[K]>>;
   many<N>(params: W | null, column: (selector: T) => N): Promise<Array<N>>;
-  query<K extends keyof T>(query: ComplexQueryObject<W, K, T>): Promise<Array<Pick<T, K>>>;
-  query<K extends keyof T>(query: ComplexQueryObjectDebug<W, K, T>): Promise<DebugResult<Array<Pick<T, K>>>>;
-  query<K extends keyof T>(query: ComplexQueryObjectOmit<W, K, T>): Promise<Array<Omit<T, K>>>;
-  query<K extends keyof T>(query: ComplexQueryObjectOmitDebug<W, K, T>): Promise<DebugResult<Array<Omit<T, K>>>>;
   query<K extends keyof T, U extends Includes<Y, T>>(query: ComplexQueryObjectInclude<W, K, T, U>): Promise<Array<MergeIncludes<Pick<T, K>, U>>>;
   query<K extends keyof T, U extends Includes<Y, T>>(query: ComplexQueryObjectIncludeDebug<W, K, T, U>): Promise<DebugResult<Array<MergeIncludes<Pick<T, K>, U>>>>;
   query<K extends keyof T, U extends Includes<Y, T>>(query: ComplexQueryObjectIncludeOmit<W, K, T, U>): Promise<Array<MergeIncludes<Omit<T, K>, U>>>;
   query<K extends keyof T, U extends Includes<Y, T>>(query: ComplexQueryObjectIncludeOmitDebug<W, K, T, U>): Promise<DebugResult<Array<MergeIncludes<Omit<T, K>, U>>>>;
   query<K extends keyof T>(query: ComplexQueryValue<W, K, T>): Promise<Array<T[K]>>;
   query<K extends keyof T>(query: ComplexQueryValueDebug<W, K, T>): Promise<DebugResult<Array<T[K]>>>;
-  query(query: ComplexQuery<W, T>): Promise<Array<T>>;
-  query(query: ComplexQueryDebug<W, T>): Promise<DebugResult<Array<T>>>;
   query<U extends Includes<Y, T>>(query: ComplexQueryInclude<W, T, U>): Promise<Array<MergeIncludes<T, U>>>;
   query<U extends Includes<Y, T>>(query: ComplexQueryIncludeDebug<W, T, U>): Promise<DebugResult<Array<MergeIncludes<T, U>>>>;
   query<N>(query: ComplexQuerySelector<W, T, N>): Promise<Array<N>>;
   query<N>(query: ComplexQuerySelectorDebug<W, T, N>): Promise<DebugResult<Array<N>>>;
-  first<K extends keyof T>(query: ComplexQueryObject<W, K, T>): Promise<Pick<T, K> | undefined>;
-  first<K extends keyof T>(query: ComplexQueryObjectDebug<W, K, T>): Promise<DebugResult<Pick<T, K> | undefined>>;
-  first<K extends keyof T>(query: ComplexQueryObjectOmit<W, K, T>): Promise<Omit<T, K> | undefined>;
-  first<K extends keyof T>(query: ComplexQueryObjectOmitDebug<W, K, T>): Promise<DebugResult<Omit<T, K> | undefined>>;
   first<K extends keyof T, U extends Includes<Y, T>>(query: ComplexQueryObjectInclude<W, K, T, U>): Promise<MergeIncludes<Pick<T, K>, U> | undefined>;
   first<K extends keyof T, U extends Includes<Y, T>>(query: ComplexQueryObjectIncludeDebug<W, K, T, U>): Promise<DebugResult<MergeIncludes<Pick<T, K>, U> | undefined>>;
   first<K extends keyof T, U extends Includes<Y, T>>(query: ComplexQueryObjectIncludeOmit<W, K, T, U>): Promise<MergeIncludes<Omit<T, K>, U> | undefined>;
   first<K extends keyof T, U extends Includes<Y, T>>(query: ComplexQueryObjectIncludeOmitDebug<W, K, T, U>): Promise<DebugResult<MergeIncludes<Omit<T, K>, U> | undefined>>;
   first<K extends keyof T>(query: ComplexQueryValue<W, K, T>): Promise<T[K] | undefined>;
   first<K extends keyof T>(query: ComplexQueryValueDebug<W, K, T>): Promise<DebugResult<T[K] | undefined>>;
-  first(query: ComplexQuery<W, T>): Promise<T | undefined>;
-  first(query: ComplexQueryDebug<W, T>): Promise<DebugResult<T | undefined>>;
   first<U extends Includes<Y, T>>(query: ComplexQueryInclude<W, T, U>): Promise<MergeIncludes<T, U> | undefined>;
   first<U extends Includes<Y, T>>(query: ComplexQueryIncludeDebug<W, T, U>): Promise<DebugResult<MergeIncludes<T, U> | undefined>>;
   first<N>(query: ComplexQuerySelector<W, T, N>): Promise<N | undefined>;

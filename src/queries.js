@@ -863,16 +863,34 @@ const group = async (config) => {
   const {
     db,
     table,
+    method,
     query,
     tx
   } = config;
   if (!db.initialized) {
     await db.initialize();
   }
-  const { alias, where, debug, ...keywords } = query;
+  const { select, column, distinct, where, include, debug, ...keywords } = query;
+  let having;
+  let adjustedWhere = where;
+  const whereKeys = where ? Object.keys(where) : [];
+  if (whereKeys.includes(method)) {
+    having = {
+      [method]: where[method]
+    };
+    adjustedWhere = {};
+    for (const [key, value] of Object.entries(where)) {
+      if (key === method) {
+        continue;
+      }
+      adjustedWhere[key] = value;
+    }
+    if (whereKeys.length === 1) {
+      adjustedWhere = null;
+    }
+  }
   const hasKeywords = Object.keys(keywords).length > 0;
-  let by = query.by;
-  by = Array.isArray(by) ? by : [by];
+  const by = Array.isArray(config.by) ? config.by : [config.by];
   const params = {};
   let debugResult;
   if (debug) {
@@ -910,118 +928,68 @@ const group = async (config) => {
     }
   }
   let sql = `select ${byClause}, `;
-  const setParse = (alias, columns) => {
-    const types = db.columns[table];
-    if (typeof columns === 'string') {
-      let map = false;
-      if (db.needsParsing(table, columns) && types[columns] !== 'json') {
-        map = true;
-      }
-      needsParsing.set(alias, { jsonParse: true, field: columns });
-      return;
+  if (method !== 'array') {
+    const field = column || distinct;
+    if (!field && method !== 'count') {
+      throw Error(`The ${method} method requires a column`);
     }
-    const fields = new Map();
-    for (const column of columns) {
-      if (db.needsParsing(table, column) && types[column] !== 'json') {
-        fields.set(column, true);
+    let body = '';
+    if (field) {
+      if (distinct) {
+        body += 'distinct ';
       }
+      verify(field);
+      body += field;
     }
-    needsParsing.set(alias, { jsonParse: true, fields });
-  }
-  const havingKeys = [];
-  const arrayKeys = [];
-  if (!alias) {
-    const columns = Object.keys(db.columns[table]);
-    sql += makeJsonArray(columnTypes, columns);
-    sql += `as group from ${table}`;
-    setParse('group', columns);
+    else {
+      body = '*';
+    }
+    const actualMethod = method === 'sum' ? 'total' : method;
+    sql += `${actualMethod}(${body}) as ${method} from ${table}`;
   }
   else {
-    const aggregates = [];
-    for (const [key, selector] of Object.entries(alias)) {
-      const target = {};
-      const handler = {
-        get: function(target, property) {
-          target.method = property;
-          return (args) => {
-            target.args = args;
-            return proxy;
-          }
-        }
-      };
-      const proxy = new Proxy(target, handler);
-      selector(proxy);
-      aggregates.push({ alias: key, method: target.method, args: target.args });
-      if (target.method !== 'array') {
-        havingKeys.push(key);
-      }
-      else {
-        arrayKeys.push(key);
-      }
+    let columns;
+    if (!select) {
+      columns = Object.keys(db.columns[table]);
     }
-    const clauses = aggregates.map(aggregate => {
-      const { alias, method, args } = aggregate;
-      if (!aggregateMethods.includes(method) && !method === 'array') {
-        throw Error('Invalid aggregate method');
+    else if (Array.isArray(select)) {
+      columns = select;
+    }
+    if (columns) {
+      sql += makeJsonArray(columnTypes, columns);
+      const fields = new Map();
+      for (const column of columns) {
+        if (db.needsParsing(table, column) && types[column] !== 'json') {
+          fields.set(column, true);
+        }
       }
-      if (method !== 'array') {
-        if (method !== 'count' && !args) {
-          throw Error(`No arguments provided to ${method}`);
-        }
-        let body = '';
-        if (args) {
-          const { distinct, column } = args;
-          const field = distinct || column;
-          if (!field) {
-            throw Error(`Invalid arguments to ${method}`);
-          }
-          if (distinct) {
-            body += 'distinct ';
-          }
-          verify(field);
-          body += field;
-        }
-        else {
-          body = '*';
-        }
-        return `${method}(${body}) as ${alias}`;
+      needsParsing.set('group', { jsonParse: true, fields });
+    }
+    else {
+      sql += `json_group_array(${select})`;
+      let field;
+      if (db.needsParsing(table, select) && types[select] !== 'json') {
+        field = select;
       }
-      else {
-        let sql = '';
-        const columns = Object.keys(db.columns[table]);
-        if (!args) {
-          sql += makeJsonArray(columnTypes, columns);
-          setParse(alias, columns, db.columns);
-        }
-        else {
-          if (Array.isArray(args)) {
-            sql += makeJsonArray(columnTypes, args);
-            setParse(alias, args);
-          }
-          else if (typeof args === 'string') {
-            sql += `json_group_array(${args})`;
-            setParse(alias, args);
-          }
-          else {
-            throw Error(`Invalid arguments to ${method}`);
-          }
-        }
-        sql += ` as ${alias}`;
-        return sql;
-      }
-    }).join(',');
-    sql += clauses;
-    sql += ` from ${table}`;
+      needsParsing.set('group', { jsonParse: true, field });
+    }
+    sql += `as group from ${table}`;
   }
-  if (where) {
-    const { whereClauses } = toWhere(verify, table, where, params);
+  if (adjustedWhere) {
+    const { whereClauses } = toWhere(verify, table, adjustedWhere, params);
     if (whereClauses) {
       sql += ` where ${whereClauses}`;
     }
   }
   sql += ` group by ${byClause}`;
+  if (having) {
+    const { whereClauses } = toWhere(verify, table, having, params);
+    if (whereClauses) {
+      sql += ` having ${whereClauses}`;
+    }
+  }
   if (hasKeywords) {
-    sql += toKeywords(verify, keywords, params, alias);
+    sql += toKeywords(verify, keywords, params, { [method]: true });
   }
   const options = {
     query: sql,
@@ -1050,7 +1018,7 @@ const group = async (config) => {
           if (parse.jsonParse) {
             const items = JSON.parse(value);
             if (parse.field) {
-              created[key] = items.map(item => db.convertToJs(table, parse.field, value));
+              created[key] = items.map(item => db.convertToJs(table, parse.field, item));
             }
             else if (parse.fields) {
               created[key] = items.map(item => {

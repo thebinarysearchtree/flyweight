@@ -44,14 +44,8 @@ const makeOverloads = (queryName, paramsName, unsafeName, returnName) => {
     .map(s => `${s}, `)
     .join('');
   const overloads = [];
-  overloads.push(`${queryName}(query: ComplexSqlQuery${append}<${generics}ToWhere<${returnName}>, ${returnName}>): Promise<Array<${returnName}>>`);
-  overloads.push(`${queryName}(query: ComplexSqlQuery${append}Debug<${generics}ToWhere<${returnName}>, ${returnName}>): Promise<DebugResult<Array<${returnName}>>>`);
   overloads.push(`${queryName}<U extends Includes<TypedDb, ${returnName}>>(query: ComplexSqlQueryInclude${append}<${generics}ToWhere<${returnName}>, ${returnName}, U>): Promise<Array<MergeIncludes<${returnName}, U>>>`);
   overloads.push(`${queryName}<U extends Includes<TypedDb, ${returnName}>>(query: ComplexSqlQueryInclude${append}Debug<${generics}ToWhere<${returnName}>, ${returnName}, U>): Promise<DebugResult<Array<MergeIncludes<${returnName}, U>>>>`);
-  overloads.push(`${queryName}<K extends keyof ${returnName}>(query: ComplexSqlQueryObject${append}<${generics}ToWhere<${returnName}>, K, ${returnName}>): Promise<Array<Pick<${returnName}, K>>>`);
-  overloads.push(`${queryName}<K extends keyof ${returnName}>(query: ComplexSqlQueryObject${append}Debug<${generics}ToWhere<${returnName}>, K, ${returnName}>): Promise<DebugResult<Array<Pick<${returnName}, K>>>>`);
-  overloads.push(`${queryName}<K extends keyof ${returnName}>(query: ComplexSqlQueryObjectOmit${append}<${generics}ToWhere<${returnName}>, K, ${returnName}>): Promise<Array<Omit<${returnName}, K>>>`);
-  overloads.push(`${queryName}<K extends keyof ${returnName}>(query: ComplexSqlQueryObjectOmit${append}Debug<${generics}ToWhere<${returnName}>, K, ${returnName}>): Promise<DebugResult<Array<Omit<${returnName}, K>>>>`);
   overloads.push(`${queryName}<K extends keyof ${returnName}, U extends Includes<TypedDb, ${returnName}>>(query: ComplexSqlQueryObjectInclude${append}<${generics}ToWhere<${returnName}>, K, ${returnName}, U>): Promise<Array<MergeIncludes<Pick<${returnName}, K>, U>>>`);
   overloads.push(`${queryName}<K extends keyof ${returnName}, U extends Includes<TypedDb, ${returnName}>>(query: ComplexSqlQueryObjectInclude${append}Debug<${generics}ToWhere<${returnName}>, K, ${returnName}, U>): Promise<DebugResult<Array<MergeIncludes<Pick<${returnName}, K>, U>>>>`);
   overloads.push(`${queryName}<K extends keyof ${returnName}, U extends Includes<TypedDb, ${returnName}>>(query: ComplexSqlQueryObjectIncludeOmit${append}<${generics}ToWhere<${returnName}>, K, ${returnName}, U>): Promise<Array<MergeIncludes<Omit<${returnName}, K>, U>>>`);
