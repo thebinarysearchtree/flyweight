@@ -865,7 +865,8 @@ const group = async (config) => {
     table,
     method,
     query,
-    tx
+    tx,
+    dbClient
   } = config;
   if (!db.initialized) {
     await db.initialize();
@@ -918,6 +919,13 @@ const group = async (config) => {
       return debugResult;
     }
     return result;
+  }
+  const includeResults = [];
+  if (include) {
+    for (const [column, handler] of Object.entries(include)) {
+      const result = processInclude(column, handler, null, null, debugResult);
+      includeResults.push({ column, result });
+    }
   }
   const needsParsing = new Map();
   const columnSet = db.columnSets[table];
@@ -1056,6 +1064,21 @@ const group = async (config) => {
   }
   const results = await db.all(options);
   const adjusted = post(results);
+  if (!include || !adjusted) {
+    return debugReturn(adjusted);
+  }
+  for (const include of includeResults) {
+    if (include.postProcess) {
+      include.postProcess(adjusted);
+    }
+    else {
+      const runQuery = include.result.runQuery;
+      if (runQuery) {
+        const result = await runQuery(dbClient, adjusted);
+        result.postProcess(adjusted);
+      }
+    }
+  }
   return debugReturn(adjusted);
 }
 
@@ -1252,6 +1275,13 @@ const processInclude = (key, handler, parentQuery, defined, debugResult) => {
           return tableProxy;
         }
       }
+      if (target.method && target.method === 'groupBy' && !target.aggregate) {
+        target.aggregate = property;
+        return (...args) => {
+          target.aggregateArgs = args;
+          return tableProxy;
+        }
+      }
     }
   };
   const tableProxy = new Proxy(tableTarget, tableHandler);
@@ -1275,7 +1305,12 @@ const processInclude = (key, handler, parentQuery, defined, debugResult) => {
     where = tableTarget.args[0] || {};
   }
   else {
-    where = tableTarget.args[0].where || {};
+    if (tableTarget.method === 'groupBy') {
+      where = tableTarget.aggregateArgs[0].where || {};
+    }
+    else {
+      where = tableTarget.args[0].where || {};
+    }
   }
   let whereKey;
   for (const [key, value] of Object.entries(where)) {
@@ -1364,7 +1399,7 @@ const processInclude = (key, handler, parentQuery, defined, debugResult) => {
         }
       }
     }
-    else if (whereKey !== undefined) {
+    else if (whereKey !== undefined && method !== 'groupBy') {
       const options = tableTarget.args[0];
       const select = options.select;
       if (select) {
@@ -1384,23 +1419,32 @@ const processInclude = (key, handler, parentQuery, defined, debugResult) => {
     if (!singleResult && method === 'first') {
       queryMethod = 'query';
     }
-    if (['first', 'query'].includes(method) || !queryMethods.includes(method)) {
-      if (tableTarget.args[0].limit !== undefined) {
+    const args = method === 'groupBy' ? tableTarget.aggregateArgs : tableTarget.args;
+    if (['first', 'query', 'groupBy'].includes(method) || !queryMethods.includes(method)) {
+      if (args[0].limit !== undefined) {
         config.partitionBy = whereKey;
       }
-      else if (tableTarget.args[0].orderBy !== undefined && method === 'first' && queryMethod === 'query') {
+      else if (args[0].orderBy !== undefined && method === 'first' && queryMethod === 'query') {
         config.partitionBy = whereKey;
         config.singleRow = true;
       }
     }
-    if (tableTarget.args.length === 0) {
-      tableTarget.args.push(undefined);
+    if (args.length === 0) {
+      args.push(undefined);
     }
-    if (['get', 'many'].includes(method) && tableTarget.args.length === 1) {
-      tableTarget.args.push(undefined);
+    if (['get', 'many'].includes(method) && args.length === 1) {
+      args.push(undefined);
     }
-    tableTarget.args.push(config);
-    const included = await db[tableTarget.table][queryMethod](...tableTarget.args);
+    args.push(config);
+    let included;
+    const run = db[tableTarget.table][queryMethod];
+    if (method === 'groupBy') {
+      const { aggregate, aggregateArgs } = tableTarget;
+      included = await run(...tableTarget.args)[aggregate](...aggregateArgs);
+    }
+    else {
+      included = await run(...args);
+    }
     const postProcess = (result) => {
       if (singleResult) {
         let adjusted = false;

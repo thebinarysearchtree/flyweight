@@ -11,9 +11,9 @@ import {
   remove
 } from './queries.js';
 
-const groupMethods = (database, table, tx, by, config) => {
+const groupMethods = (database, table, tx, dbClient, by, config) => {
   const makeMethod = (method) => {
-    return async (query) => await group({ db: database, table, by, method, query, tx, ...config });
+    return async (query) => await group({ db: database, table, by, method, query, tx, dbClient, ...config });
   }
   const result = {};
   const methods = ['count', 'avg', 'min', 'max', 'sum'];
@@ -29,7 +29,7 @@ const basic = {
   update: (database, table, tx) => async (options) => await update(database, table, options, tx),
   upsert: (database, table, tx) => async (options) => await upsert(database, table, options, tx),
   exists: (database, table, tx) => async (query, config) => await exists({ db: database, table, query, tx, ...config }),
-  groupBy: (database, table, tx) => (by, config) => groupMethods(database, table, tx, by, config),
+  groupBy: (database, table, tx, dbClient) => (by, config) => groupMethods(database, table, tx, dbClient, by, config),
   count: (database, table, tx) => async (query, config) => await aggregate({ db: database, table, query, tx, method: 'count', ...config }),
   avg: (database, table, tx) => async (query, config) => await aggregate({ db: database, table, query, tx, method: 'avg', ...config }),
   min: (database, table, tx) => async (query, config) => await aggregate({ db: database, table, query, tx, method: 'min', ...config }),
