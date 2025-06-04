@@ -870,13 +870,16 @@ const group = async (config) => {
   if (!db.initialized) {
     await db.initialize();
   }
-  const { select, column, distinct, where, include, debug, ...keywords } = query;
+  const { select, column, distinct, where, include, alias, debug, ...keywords } = query;
+  if (alias && !/^[_a-z][a-z0-9_]+$/i.test(alias)) {
+    throw Error('Invalid alias');
+  }
   let having;
   let adjustedWhere = where;
   const whereKeys = where ? Object.keys(where) : [];
   if (whereKeys.includes(method)) {
     having = {
-      [method]: where[method]
+      [alias || method]: where[method]
     };
     adjustedWhere = {};
     for (const [key, value] of Object.entries(where)) {
@@ -945,7 +948,7 @@ const group = async (config) => {
       body = '*';
     }
     const actualMethod = method === 'sum' ? 'total' : method;
-    sql += `${actualMethod}(${body}) as ${method} from ${table}`;
+    sql += `${actualMethod}(${body}) as ${alias || method} from ${table}`;
   }
   else {
     let columns;
@@ -973,7 +976,8 @@ const group = async (config) => {
       }
       needsParsing.set('group', { jsonParse: true, field });
     }
-    sql += `as group from ${table}`;
+    const name = alias || 'group';
+    sql += `as ${name} from ${table}`;
   }
   if (adjustedWhere) {
     const { whereClauses } = toWhere(verify, table, adjustedWhere, params);
@@ -983,7 +987,7 @@ const group = async (config) => {
   }
   sql += ` group by ${byClause}`;
   if (having) {
-    const { whereClauses } = toWhere(verify, table, having, params);
+    const { whereClauses } = toWhere(null, null, having, params);
     if (whereClauses) {
       sql += ` having ${whereClauses}`;
     }

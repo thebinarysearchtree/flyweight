@@ -82,7 +82,11 @@ export interface AggregateQueryDebug<W, K> extends AggregateQuery<W, K> {
   debug: true;
 }
 
-export interface GroupQueryObjectDebug<W, B> extends GroupQueryObject<W, B> {
+export interface GroupQueryObjectDebug<T, W, K, U> extends GroupQueryObject<T, W, K, U> {
+  debug: true;
+}
+
+export interface GroupQueryObjectAliasDebug<T, W, K, U, A> extends GroupQueryObjectAlias<T, W, K, U, A> {
   debug: true;
 }
 
@@ -363,14 +367,32 @@ export interface GroupQueryObject<T, W, K, U> {
   limit?: number;
   offset?: number;
   include?: U;
+  alias?: undefined;
+}
+
+export interface GroupQueryObjectAlias<T, W, K, U, A> {
+  where?: W;
+  column?: keyof T;
+  distinct?: keyof T;
+  orderBy?: K;
+  desc?: boolean;
+  limit?: number;
+  offset?: number;
+  include?: U;
+  alias: A;
 }
 
 export interface AggregateMethods<T, W, K extends keyof T, Y> {
-  count<U extends Includes<Y, T>>(params?: GroupQueryObject<T, W & ToWhere<{ count: number }>, K | 'count', U>): Promise<Array<MergeIncludes<Pick<T, K> & { count: number }, U>>>;
-  avg<U extends Includes<Y, T>>(params: GroupQueryObject<T, W & ToWhere<{ avg: number }>, K | 'avg', U>): Promise<Array<MergeIncludes<Pick<T, K> & { avg: number }, U>>>;
-  max<U extends Includes<Y, T>>(params: GroupQueryObject<T, W & ToWhere<{ max: number }>, K | 'max', U>): Promise<Array<MergeIncludes<Pick<T, K> & { max: number }, U>>>;
-  min<U extends Includes<Y, T>>(params: GroupQueryObject<T, W & ToWhere<{ min: number }>, K | 'min', U>): Promise<Array<MergeIncludes<Pick<T, K> & { min: number }, U>>>;
-  sum<U extends Includes<Y, T>>(params: GroupQueryObject<T, W & ToWhere<{ sum: number }>, K | 'sum', U>): Promise<Array<MergeIncludes<Pick<T, K> & { sum: number }, U>>>;
+  count<U extends Includes<Y, (Pick<T, K> & { count: number })>>(params?: GroupQueryObject<T, W & ToWhere<{ count: number }>, K | 'count', U>): Promise<Array<MergeIncludes<Pick<T, K> & { count: number }, U>>>;
+  count<A extends string, U extends Includes<Y, (Pick<T, K> & { count: number })>>(params?: GroupQueryObjectAlias<T, W & ToWhere<{ count: number }>, K | 'count', U, A>): Promise<Array<MergeIncludes<Pick<T, K> & Record<A, number>, U>>>;
+  avg<U extends Includes<Y, (Pick<T, K> & { avg: number })>>(params: GroupQueryObject<T, W & ToWhere<{ avg: number }>, K | 'avg', U>): Promise<Array<MergeIncludes<Pick<T, K> & { avg: number }, U>>>;
+  avg<A extends string, U extends Includes<Y, (Pick<T, K> & { avg: number })>>(params: GroupQueryObjectAlias<T, W & ToWhere<{ avg: number }>, K | 'avg', U, A>): Promise<Array<MergeIncludes<Pick<T, K> & Record<A, number>, U>>>;
+  max<U extends Includes<Y, (Pick<T, K> & { min: number })>>(params: GroupQueryObject<T, W & ToWhere<{ max: number }>, K | 'max', U>): Promise<Array<MergeIncludes<Pick<T, K> & { max: number }, U>>>;
+  max<A extends string, U extends Includes<Y, (Pick<T, K> & { min: number })>>(params: GroupQueryObjectAlias<T, W & ToWhere<{ max: number }>, K | 'max', U, A>): Promise<Array<MergeIncludes<Pick<T, K> & Record<A, number>, U>>>;
+  min<U extends Includes<Y, (Pick<T, K> & { max: number })>>(params: GroupQueryObject<T, W & ToWhere<{ min: number }>, K | 'min', U>): Promise<Array<MergeIncludes<Pick<T, K> & { min: number }, U>>>;
+  min<A extends string, U extends Includes<Y, (Pick<T, K> & { max: number })>>(params: GroupQueryObjectAlias<T, W & ToWhere<{ min: number }>, K | 'min', U, A>): Promise<Array<MergeIncludes<Pick<T, K> & Record<A, number>, U>>>;
+  sum<U extends Includes<Y, (Pick<T, K> & { sum: number })>>(params: GroupQueryObject<T, W & ToWhere<{ sum: number }>, K | 'sum', U>): Promise<Array<MergeIncludes<Pick<T, K> & { sum: number }, U>>>;
+  sum<A extends string, U extends Includes<Y, (Pick<T, K> & { sum: number })>>(params: GroupQueryObjectAlias<T, W & ToWhere<{ sum: number }>, K | 'sum', U, A>): Promise<Array<MergeIncludes<Pick<T, K> & Record<A, number>, U>>>;
 }
 
 export interface VirtualQueries<T, W> {
