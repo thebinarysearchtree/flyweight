@@ -783,20 +783,21 @@ const exists = async (config) => {
     db,
     table,
     tx,
-    groupKey,
-    parentQuery,
+    groupKeys,
     debugResult
   } = config;
   if (!db.initialized) {
     await db.initialize();
   }
   const query = config.query || {};
-  if (groupKey) {
-    const result = await aggregate({ db, table, query, tx, method: 'count', groupKey, parentQuery });
+  if (groupKeys.length > 0) {
+    const result = await aggregate({ db, table, query, tx, method: 'count', groupKeys });
     return result.map(r => {
-      return {
-        result: r.countResult > 0,
-        [groupKey]: r[groupKey]
+      const adjusted = {
+        result: r.countResult > 0
+      };
+      for (const key of groupKeys) {
+        adjusted[key] = r[key];
       }
     });
   }
@@ -1088,8 +1089,7 @@ const aggregate = async (config) => {
     table,
     tx,
     method,
-    groupKey,
-    parentQuery,
+    groupKeys,
     debugResult
   } = config;
   if (!db.initialized) {
@@ -1097,24 +1097,12 @@ const aggregate = async (config) => {
   }
   const params = {};
   const query = config.query || {};
-  let parentWhere = {};
-  let parentHaving = {};
-  if (parentQuery) {
-    for (const [key, value] of Object.entries(parentQuery.query)) {
-      if (parentQuery.include && parentQuery.include.hasOwnProperty(key)) {
-        parentHaving[key] = value;
-      }
-      else {
-        parentWhere[key] = value;
-      }
-    }
-  }
   const { where, column, distinct } = query;
   const columnSet = db.columnSets[table];
   const verify = makeVerify(table, columnSet);
   const clauses = toWhere(verify, table, where, params);
   const primaryKey = db.getPrimaryKey(table);
-  const alias = parentQuery ? parentQuery.includeName : `${method}_result`;
+  const alias = `${method}_result`;
   const actualMethod = method === 'sum' ? 'total' : method;
   let expression;
   if (!column && !distinct) {
@@ -1135,38 +1123,17 @@ const aggregate = async (config) => {
     expression = `${actualMethod}(${table}.${column}) as ${alias}`;
   }
   let sql;
-  if (groupKey) {
-    if (parentQuery) {
-      const clauses = toWhere(verify, table, where, params);
-      const columnSet = db.columnSets[parentQuery.table];
-      const parentVerify = makeVerify(parentQuery.table, columnSet);
-      const parentClauses = toWhere(parentVerify, parentQuery.table, parentWhere, params);
-      if (clauses.fromClauses || parentClauses.fromClauses) {
-        throw Error('Queries that order by included fields cannot contain array searches.');
-      }
-      sql = `select ${expression}, ${table}.${groupKey} from ${parentQuery.table} left join ${table} on ${parentQuery.table}.${parentQuery.joinColumn} = ${table}.${groupKey}`;
-      if (clauses.whereClauses || parentClauses.whereClauses) {
-        sql += ' where ';
-        if (parentClauses.whereClauses) {
-          sql += parentClauses.whereClauses;
-        }
-        if (clauses.whereClauses) {
-          if (parentClauses.whereClauses) {
-            sql += ' and ';
-          }
-          sql += clauses.whereClauses;
-        }
-      }
+  const groupFields = groupKeys
+      .map(key => `${table}.${key}`)
+      .join(', ');
+  if (groupKeys.length > 0) {
+    const { whereClauses, fromClauses } = toWhere(verify, table, where, params);
+    sql = `select ${expression}, ${groupFields} from ${table}`;
+    if (fromClauses) {
+      sql += `, ${fromClauses}`;
     }
-    else {
-      const { whereClauses, fromClauses } = toWhere(verify, table, where, params);
-      sql = `select ${expression}, ${table}.${groupKey} from ${table}`;
-      if (fromClauses) {
-        sql += `, ${fromClauses}`;
-      }
-      if (whereClauses) {
-        sql += ` where ${whereClauses}`;
-      }
+    if (whereClauses) {
+      sql += ` where ${whereClauses}`;
     }
   }
   else {
@@ -1179,31 +1146,8 @@ const aggregate = async (config) => {
       sql += ` where ${whereClauses}`;
     }
   }
-  if (groupKey) {
-    sql += ` group by ${table}.${groupKey}`;
-    if (parentQuery) {
-      const clauses = toWhere(null, null, parentHaving, params);
-      if (clauses.whereClauses) {
-        sql += ` having ${clauses.whereClauses}`;
-      }
-      const { orderBy, offset, limit, desc } = parentQuery.keywords;
-      if (offset !== undefined || limit !== undefined || orderBy === parentQuery.includeName) {
-        sql += ` order by ${parentQuery.includeName}`;
-      }
-      if (desc) {
-        sql += ` desc`;
-      }
-      if (offset) {
-        const placeholder = getPlaceholder();
-        params[placeholder] = offset;
-        sql += ` offset $${placeholder}`;
-      }
-      if (limit) {
-        const placeholder = getPlaceholder();
-        params[placeholder] = limit;
-        sql += ` limit $${placeholder}`;
-      }
-    }
+  if (groupKeys.length > 0) {
+    sql += ` group by ${groupFields}`;
   }
   const options = {
     query: sql,
@@ -1217,7 +1161,7 @@ const aggregate = async (config) => {
     });
   }
   const post = (results) => {
-    if (groupKey) {
+    if (groupKeys.length > 0) {
       return results;
     }
     if (results.length > 0) {
@@ -1232,10 +1176,8 @@ const aggregate = async (config) => {
   return post(results);
 }
 
-const processInclude = (key, handler, parentQuery, defined, debugResult) => {
+const processInclude = (key, handler, debugResult) => {
   const tableTarget = {};
-  let otherProxy;
-  let otherTarget;
   const tableHandler = {
     get: function(target, property) {
       if (!target.table) {
@@ -1245,32 +1187,6 @@ const processInclude = (key, handler, parentQuery, defined, debugResult) => {
       if (!target.method) {
         target.method = property;
         return (...args) => {
-          let where;
-          if (defined) {
-            const options = defined.get(target.table);
-            if (options && queryMethods.includes(target.method)) {
-              where = options.where;
-              otherProxy = options.columnProxy;
-              otherTarget = options.columnTarget;
-            }
-          }
-          if (where) {
-            if (args.length === 0) {
-              args.push({});
-            }
-            const options = args.at(0);
-            if (['get', 'many', 'exists'].includes(target.method)) {
-              args[0] = { ...where, ...options };
-            }
-            else {
-              if (!options.where) {
-                options.where = where;
-              }
-              else {
-                options.where = { ...options.where, ...where };
-              }
-            }
-          }
           target.args = args;
           return tableProxy;
         }
@@ -1288,16 +1204,18 @@ const processInclude = (key, handler, parentQuery, defined, debugResult) => {
   const columnHandler = {
     get: function(target, property) {
       target.name = property;
-      return columnProxy;
+      const request = {
+        name: property
+      };
+      columnRequests.push(request);
+      return request;
     }
   }
   const columnTarget = {};
   const columnProxy = new Proxy(columnTarget, columnHandler);
+  const columnRequests = [];
   handler(tableProxy, columnProxy);
-  const targetName = otherTarget ? otherTarget.name : columnTarget.name;
-  if (parentQuery) {
-    parentQuery.joinColumn = targetName;
-  }
+  const targetName = columnTarget.name;
   const method = tableTarget.method;
   let where;
   const whereFirst = ['get', 'many', 'exists'].includes(method);
@@ -1312,103 +1230,78 @@ const processInclude = (key, handler, parentQuery, defined, debugResult) => {
       where = tableTarget.args[0].where || {};
     }
   }
-  let whereKey;
-  for (const [key, value] of Object.entries(where)) {
-    if (value === columnProxy || value === otherProxy) {
-      whereKey = key;
-      break;
-    }
-  }
-  if (['first', 'get'].includes(method) && parentQuery) {
-    let column;
-    let where;
-    if (method === 'first') {
-      column = tableTarget.args[0].select;
-      where = tableTarget.args[0].where;
-    }
-    else {
-      if (tableTarget.args.length > 1) {
-        column = tableTarget.args[1];
-      }
-      if (tableTarget.args.length > 0) {
-        where = tableTarget.args[0];
-      }
-    }
-    if (typeof column !== 'string') {
-      throw Error('Cannot order by object types');
-    }
-    return {
-      parentColumn: targetName,
-      joinColumn: whereKey,
-      table: tableTarget.table,
-      column,
-      where
-    }
-  }
-  const runQuery = async (db, result) => {
-    const singleResult = !parentQuery && !Array.isArray(result);
-    const singleInclude = ['first', 'get', 'exists'].includes(method) || aggregateMethods.includes(method);
-    let group = false;
-    let values;
-    const config = { debugResult };
-    if (!parentQuery) {
-      values = singleResult ? result[targetName] : result.map(item => item[targetName]);
-    }
-    if (whereKey) {
-      where[whereKey] = values;
-    }
-    if (parentQuery) {
-      const adjustedWhere = {};
-      for (const [key, value] of Object.entries(where)) {
-        if (key === whereKey) {
-          continue;
-        }
-        adjustedWhere[key] = value;
-      }
-      if (whereFirst) {
-        tableTarget.args[0] = adjustedWhere;
+  const whereMap = new Map();
+  const whereKeys = [];
+  let whereOperator = 'and';
+  const getWhereKeys = (conditions) => {
+    for (const [key, value] of Object.entries(conditions)) {
+      if (key === 'and' || key === 'or') {
+        whereOperator = key;
+        getWhereKeys(value);
       }
       else {
-        tableTarget.args[0].where = adjustedWhere;
+        const request = columnRequests.find(r => r === value);
+        if (request) {
+          whereMap.set(request.name, key);
+          whereKeys.push(key);
+        }
       }
-      where = adjustedWhere;
+    }
+  }
+  getWhereKeys(where);
+  const runQuery = async (db, result) => {
+    const singleResult = !Array.isArray(result);
+    const singleInclude = ['first', 'get', 'exists'].includes(method) || aggregateMethods.includes(method);
+    let group = false;
+    const values = new Map();
+    const config = { debugResult };
+    for (const [parentKey, includeKey] of whereMap.entries()) {
+      if (values.has(parentKey)) {
+        continue;
+      }
+      const parentValues = singleResult ? result[parentKey] : result.map(item => item[parentKey]);
+      values.set(includeKey, parentValues);
+    }
+    for (const key of whereKeys) {
+      const parentValues = values.get(key);
+      where[key] = parentValues;
     }
     let returnToValues = null;
-    if (['get', 'many', 'exists', ...aggregateMethods].includes(method) && whereKey !== undefined) {
+    if (['get', 'many', 'exists', ...aggregateMethods].includes(method) && whereKeys.length > 0) {
       if (tableTarget.args.length > 1) {
         const select = tableTarget.args[1];
         if (!Array.isArray(select)) {
-          if (select !== whereKey) {
+          if (whereKeys.length > 1 || whereKeys.at(0) !== select) {
             returnToValues = select;
-            tableTarget.args[1] = [select, whereKey];
+            const set = new Set([...select, ...whereKeys]);
+            tableTarget.args[1] = [...set];
           }
         }
-        else if (!select.includes(whereKey)) {
-          select.push(whereKey);
+        else {
+          const add = whereKeys.filter(k => !select.includes(k));
+          select.push(...add);
         }
       }
       if (method === 'exists' || aggregateMethods.includes(method)) {
         group = true;
-        config.groupKey = whereKey;
-        config.parentQuery = parentQuery;
-        if (parentQuery) {
-          returnToValues = parentQuery.includeName;
-        }
-        else {
-          returnToValues = `${method}_result`;
-        }
+        config.groupKeys = whereKeys;
+        returnToValues = `${method}_result`;
       }
     }
-    else if (whereKey !== undefined && method !== 'groupBy') {
+    else if (whereKeys.length > 0 && method !== 'groupBy') {
       const options = tableTarget.args[0];
       const select = options.select;
       if (select) {
-        if (!Array.isArray(select) && select !== whereKey) {
-          returnToValues = select;
-          options.select = [select, whereKey];
+        if (!Array.isArray(select)) {
+          const add = whereKeys.filter(k => k !== select);
+          if (add.length > 0) {
+            options.select = [select, ...add];
+            returnToValues = select;
+          }
         }
-        else if (!select.includes(whereKey)) {
-          select.push(whereKey);
+        else {
+          const add = whereKeys.filter(k => !select.includes(k));
+          select.push(...add);
         }
       }
     }
@@ -1422,10 +1315,10 @@ const processInclude = (key, handler, parentQuery, defined, debugResult) => {
     const args = method === 'groupBy' ? tableTarget.aggregateArgs : tableTarget.args;
     if (['first', 'query', 'groupBy'].includes(method) || !queryMethods.includes(method)) {
       if (args[0].limit !== undefined) {
-        config.partitionBy = whereKey;
+        config.partitionBy = whereKeys;
       }
       else if (args[0].orderBy !== undefined && method === 'first' && queryMethod === 'query') {
-        config.partitionBy = whereKey;
+        config.partitionBy = whereKeys;
         config.singleRow = true;
       }
     }
@@ -1482,8 +1375,23 @@ const processInclude = (key, handler, parentQuery, defined, debugResult) => {
       else {
         for (const item of result) {
           const itemKey = item[targetName];
-          if (whereKey !== undefined) {
-            item[key] = included.filter(value => value[whereKey] === itemKey);
+          if (whereKeys.length > 0) {
+            if (whereKeys.length === 1) {
+              const key = whereKeys.at(0);
+              item[key] = included.filter(value => value[key] === itemKey);
+            }
+            else {
+              if (whereOperator === 'and') {
+                item[key] = included.filter(value => {
+                  for (const key of whereKeys) {
+                    if (value[key] !== itemKey) {
+                      return false;
+                    }
+                  }
+                  return true;
+                });
+              }
+            }
           }
           else {
             item[key] = included;
@@ -1513,7 +1421,7 @@ const processInclude = (key, handler, parentQuery, defined, debugResult) => {
     }
     return {
       raw: included,
-      whereKey,
+      whereKeys,
       postProcess
     }
   }
@@ -1780,7 +1688,7 @@ const custom = async (config) => {
     const extraColumns = new Set();
     const includeNames = [];
     for (const [column, handler] of Object.entries(include)) {
-      const result = processInclude(column, handler, null, null, debugResult);
+      const result = processInclude(column, handler, debugResult);
       extraColumns.add(result.parentColumn);
       includeResults.push({ column, result });
       includeNames.push(column);
@@ -2010,8 +1918,7 @@ const all = async (config) => {
     const extraColumns = new Set();
     const includeNames = [];
     for (const [column, handler] of Object.entries(included)) {
-      const defined = db.includes.get(table);
-      const result = processInclude(column, handler, null, defined, debugResult);
+      const result = processInclude(column, handler, debugResult);
       extraColumns.add(result.parentColumn);
       includeResults.push({ column, result });
       includeNames.push(column);
