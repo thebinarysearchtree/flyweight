@@ -1123,10 +1123,13 @@ const aggregate = async (config) => {
     expression = `${actualMethod}(${table}.${column}) as ${alias}`;
   }
   let sql;
-  const groupFields = groupKeys
+  let groupFields;
+  if (groupKeys && groupKeys.length > 0) {
+    groupFields = groupKeys
       .map(key => `${table}.${key}`)
       .join(', ');
-  if (groupKeys.length > 0) {
+  }
+  if (groupFields) {
     const { whereClauses, fromClauses } = toWhere(verify, table, where, params);
     sql = `select ${expression}, ${groupFields} from ${table}`;
     if (fromClauses) {
@@ -1146,7 +1149,7 @@ const aggregate = async (config) => {
       sql += ` where ${whereClauses}`;
     }
   }
-  if (groupKeys.length > 0) {
+  if (groupFields) {
     sql += ` group by ${groupFields}`;
   }
   const options = {
@@ -1161,7 +1164,7 @@ const aggregate = async (config) => {
     });
   }
   const post = (results) => {
-    if (groupKeys.length > 0) {
+    if (groupFields) {
       return results;
     }
     if (results.length > 0) {
@@ -1215,7 +1218,6 @@ const processInclude = (key, handler, debugResult) => {
   const columnProxy = new Proxy(columnTarget, columnHandler);
   const columnRequests = [];
   handler(tableProxy, columnProxy);
-  const targetName = columnTarget.name;
   const method = tableTarget.method;
   let where;
   const whereFirst = ['get', 'many', 'exists'].includes(method);
@@ -1230,77 +1232,89 @@ const processInclude = (key, handler, debugResult) => {
       where = tableTarget.args[0].where || {};
     }
   }
-  const whereMap = new Map();
   const whereKeys = [];
   let whereOperator = 'and';
-  const getWhereKeys = (conditions) => {
+  const getWhereKeys = (conditions, traversals) => {
     for (const [key, value] of Object.entries(conditions)) {
       if (key === 'and' || key === 'or') {
+        traversals.push(key);
         whereOperator = key;
-        getWhereKeys(value);
+        let i = 0;
+        for (const conditions of value) {
+          getWhereKeys(conditions, [...traversals, i]);
+          i++;
+        }
       }
       else {
         const request = columnRequests.find(r => r === value);
         if (request) {
-          whereMap.set(request.name, key);
-          whereKeys.push(key);
+          whereKeys.push({
+            includeKey: key,
+            parentKey: request.name,
+            traversals
+          });
         }
       }
     }
   }
-  getWhereKeys(where);
+  getWhereKeys(where, []);
+  const includeKeys = whereKeys.map(k => k.includeKey);
   const runQuery = async (db, result) => {
     const singleResult = !Array.isArray(result);
     const singleInclude = ['first', 'get', 'exists'].includes(method) || aggregateMethods.includes(method);
     let group = false;
     const values = new Map();
     const config = { debugResult };
-    for (const [parentKey, includeKey] of whereMap.entries()) {
-      if (values.has(parentKey)) {
-        continue;
+    for (const keys of whereKeys) {
+      const { includeKey, parentKey, traversals } = keys;
+      let parentValues = values.get(parentKey);
+      if (!parentValues) {
+        parentValues = singleResult ? result[parentKey] : result.map(item => item[parentKey]);
+        values.set(includeKey, parentValues);
       }
-      const parentValues = singleResult ? result[parentKey] : result.map(item => item[parentKey]);
-      values.set(includeKey, parentValues);
-    }
-    for (const key of whereKeys) {
-      const parentValues = values.get(key);
-      where[key] = parentValues;
+      let current = where;
+      if (traversals.length > 0) {
+        for (const key of traversals) {
+          current = current[key];
+        }
+      }
+      current[includeKey] = parentValues;
     }
     let returnToValues = null;
-    if (['get', 'many', 'exists', ...aggregateMethods].includes(method) && whereKeys.length > 0) {
+    if (['get', 'many', 'exists', ...aggregateMethods].includes(method) && includeKeys.length > 0) {
       if (tableTarget.args.length > 1) {
         const select = tableTarget.args[1];
         if (!Array.isArray(select)) {
-          if (whereKeys.length > 1 || whereKeys.at(0) !== select) {
+          if (includeKeys.length > 1 || includeKeys.at(0) !== select) {
             returnToValues = select;
-            const set = new Set([...select, ...whereKeys]);
+            const set = new Set([select, ...includeKeys]);
             tableTarget.args[1] = [...set];
           }
         }
         else {
-          const add = whereKeys.filter(k => !select.includes(k));
+          const add = includeKeys.filter(k => !select.includes(k));
           select.push(...add);
         }
       }
       if (method === 'exists' || aggregateMethods.includes(method)) {
         group = true;
-        config.groupKeys = whereKeys;
+        config.groupKeys = includeKeys;
         returnToValues = `${method}_result`;
       }
     }
-    else if (whereKeys.length > 0 && method !== 'groupBy') {
+    else if (includeKeys.length > 0 && method !== 'groupBy') {
       const options = tableTarget.args[0];
       const select = options.select;
       if (select) {
         if (!Array.isArray(select)) {
-          const add = whereKeys.filter(k => k !== select);
+          const add = includeKeys.filter(k => k !== select);
           if (add.length > 0) {
             options.select = [select, ...add];
             returnToValues = select;
           }
         }
         else {
-          const add = whereKeys.filter(k => !select.includes(k));
+          const add = includeKeys.filter(k => !select.includes(k));
           select.push(...add);
         }
       }
@@ -1315,10 +1329,10 @@ const processInclude = (key, handler, debugResult) => {
     const args = method === 'groupBy' ? tableTarget.aggregateArgs : tableTarget.args;
     if (['first', 'query', 'groupBy'].includes(method) || !queryMethods.includes(method)) {
       if (args[0].limit !== undefined) {
-        config.partitionBy = whereKeys;
+        config.partitionBy = includeKeys;
       }
       else if (args[0].orderBy !== undefined && method === 'first' && queryMethod === 'query') {
-        config.partitionBy = whereKeys;
+        config.partitionBy = includeKeys;
         config.singleRow = true;
       }
     }
@@ -1374,21 +1388,32 @@ const processInclude = (key, handler, debugResult) => {
       }
       else {
         for (const item of result) {
-          const itemKey = item[targetName];
           if (whereKeys.length > 0) {
             if (whereKeys.length === 1) {
-              const key = whereKeys.at(0);
-              item[key] = included.filter(value => value[key] === itemKey);
+              const { includeKey, parentKey } = whereKeys.at(0);
+              item[key] = included.filter(value => value[includeKey] === item[parentKey]);
             }
             else {
               if (whereOperator === 'and') {
                 item[key] = included.filter(value => {
-                  for (const key of whereKeys) {
-                    if (value[key] !== itemKey) {
+                  for (const keys of whereKeys) {
+                    const { includeKey, parentKey } = keys;
+                    if (value[includeKey] !== item[parentKey]) {
                       return false;
                     }
                   }
                   return true;
+                });
+              }
+              else {
+                item[key] = included.filter(value => {
+                  for (const keys of whereKeys) {
+                    const { includeKey, parentKey } = keys;
+                    if (value[includeKey] === item[parentKey]) {
+                      return true;
+                    }
+                  }
+                  return false;
                 });
               }
             }
@@ -1421,12 +1446,12 @@ const processInclude = (key, handler, debugResult) => {
     }
     return {
       raw: included,
-      whereKeys,
+      whereKeys: includeKeys,
       postProcess
     }
   }
   return {
-    parentColumn: targetName,
+    whereKeys: whereKeys,
     runQuery
   }
 }
@@ -1689,7 +1714,7 @@ const custom = async (config) => {
     const includeNames = [];
     for (const [column, handler] of Object.entries(include)) {
       const result = processInclude(column, handler, debugResult);
-      extraColumns.add(result.parentColumn);
+      extraColumns.add(...result.whereKeys.map(k => k.parentKey));
       includeResults.push({ column, result });
       includeNames.push(column);
     }
@@ -1919,7 +1944,9 @@ const all = async (config) => {
     const includeNames = [];
     for (const [column, handler] of Object.entries(included)) {
       const result = processInclude(column, handler, debugResult);
-      extraColumns.add(result.parentColumn);
+      for (const keys of result.whereKeys) {
+        extraColumns.add(keys.parentKey);
+      }
       includeResults.push({ column, result });
       includeNames.push(column);
     }
