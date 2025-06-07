@@ -193,8 +193,6 @@ You can use the ```query``` or ```first``` syntax for more complex queries. ```q
 
 ```include```: include other tables in the result.
 
-```alias```: create an alias for columns, such as when selecting inside of JSON objects.
-
 ```orderBy```: a string representing the column to order the result by, or an array of columns to order the result by.
 
 ```desc```: set to true when using ```orderBy``` if you want the results in descending order.
@@ -218,21 +216,6 @@ const fighters = await db.fighters.query({
 });
 ```
 
-You can select inside JSON objects and create an alias for the result:
-
-```js
-const orderBy = await db.fighters.query({
-  where: {
-    id: n => n.lt(10)
-  },
-  select: ['id', 'born'],
-  alias: {
-    instagram: s => s.social.instagram
-  },
-  orderBy: 'instagram'
-});
-```
-
 You can also include additional relations:
 
 ```js
@@ -240,29 +223,6 @@ const locations = await db.locations.query({
   include: {
     events: (t, c) => t.events.many({ locationId: c.id })
   }
-});
-```
-
-If you want to predefine the join clause for two tables, you can call ```define```. This should be done in the ```db.js``` file before exporting.
-
-```js
-db.locations.define((t, c) => t.events.where({
-  locationId: c.id
-}));
-```
-
-Now you no longer have to specify the join in queries.
-
-```js
-const defined = await db.locations.query({
-  include: {
-    events: t => t.events.query({
-      limit: 3,
-      orderBy: 'startTime',
-      desc: true
-    })
-  },
-  limit: 3
 });
 ```
 
@@ -334,20 +294,19 @@ const exists = await db.fighters.exists({ name: 'Israel Adesanya' });
 You can write ```group by``` statements like this:
 
 ```js
-const heights = await db.fighters.group({
-  by: 'hometown',
-  alias: {
-    height: agg => agg.avg({ column: 'heightCm' }),
-    sample: agg => agg.count()
-  },
-  where: {
-    sample: s => s.gt(1)
-  },
-  orderBy: 'height',
-  desc: true,
-  limit: 5
-});
+const towns = await db.fighters
+  .groupBy('hometown')
+  .avg({
+    column: 'heightCm',
+    limit: 3,
+    alias: 'height',
+    where: {
+      avg: a => a.gt(170)
+    }
+  });
 ```
+
+An aggregate function comes after the ```groupBy``` method. ```distinct``` can be used instead of ```column``` to aggregate by distinct values. ```count``` does not need to be supplied with any column.
 
 ### Remove
 
