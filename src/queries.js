@@ -867,7 +867,8 @@ const group = async (config) => {
     method,
     query,
     tx,
-    dbClient
+    dbClient,
+    partitionBy
   } = config;
   if (!db.initialized) {
     await db.initialize();
@@ -879,9 +880,10 @@ const group = async (config) => {
   let having;
   let adjustedWhere = where;
   const whereKeys = where ? Object.keys(where) : [];
+  const methodAlias = method === 'array' ? 'group' : method;
   if (whereKeys.includes(method)) {
     having = {
-      [alias || method]: where[method]
+      [methodAlias]: where[methodAlias]
     };
     adjustedWhere = {};
     for (const [key, value] of Object.entries(where)) {
@@ -957,7 +959,7 @@ const group = async (config) => {
       body = '*';
     }
     const actualMethod = method === 'sum' ? 'total' : method;
-    sql += `${actualMethod}(${body}) as ${alias || method} from ${table}`;
+    sql += `${actualMethod}(${body}) as ${methodAlias} from ${table}`;
   }
   else {
     let columns;
@@ -985,8 +987,7 @@ const group = async (config) => {
       }
       needsParsing.set('group', { jsonParse: true, field });
     }
-    const name = alias || 'group';
-    sql += `as ${name} from ${table}`;
+    sql += `as ${methodAlias} from ${table}`;
   }
   if (adjustedWhere) {
     const { whereClauses } = toWhere(verify, table, adjustedWhere, params);
@@ -1001,8 +1002,58 @@ const group = async (config) => {
       sql += ` having ${whereClauses}`;
     }
   }
-  if (hasKeywords) {
-    sql += toKeywords(verify, keywords, params, { [method]: true });
+  if (hasKeywords && !partitionBy) {
+    sql += toKeywords(verify, keywords, params, { [methodAlias]: true });
+  }
+  else if (partitionBy) {
+    const withTable = 'flyweight_wrapped';
+    sql = `with ${withTable} as (${sql})`;
+    const selectColumns = [methodAlias, ...by];
+    let orderBy;
+    if (keywords.orderBy) {
+      orderBy = getOrderBy(verify, keywords, { [methodAlias]: true });
+    }
+    else {
+      orderBy = db.getPrimaryKey(table);
+    }
+    let desc = '';
+    if (keywords.desc) {
+      desc = ' desc';
+    }
+    let i = 1;
+    let rankAlias = 'rn';
+    while (selectColumns.includes(rankAlias)) {
+      i++;
+      rankAlias = `rn${i}`;
+    }
+    sql += ` select ${selectColumns.join(', ')}, row_number() over (partition by ${withTable}.${partitionBy} order by ${withTable}.${orderBy}${desc}) as ${rankAlias} from ${withTable}`;
+    const rankedTable = `flyweight_ranked`;
+    sql = `with ${rankedTable} as (${sql}) select ${selectColumns.join(', ')} from ${rankedTable} where ${rankAlias}`;
+    const hasOffset = keywords.offset !== undefined && Number.isInteger(keywords.offset);
+    const hasLimit = keywords.limit !== undefined && Number.isInteger(keywords.limit);
+    if (hasOffset && hasLimit) {
+      const start = keywords.offset;
+      const end = keywords.offset + keywords.limit;
+      const startPlaceholder = getPlaceholder();
+      const endPlaceholder = getPlaceholder();
+      params[startPlaceholder] = start;
+      params[endPlaceholder] = end;
+      sql += ` > $${startPlaceholder} and ${alias} <= $${endPlaceholder}`;
+    }
+    else if (hasLimit && !hasOffset) {
+      const placeholder = getPlaceholder();
+      params[placeholder] = keywords.limit;
+      sql += ` <= $${placeholder}`;
+    }
+    else if (hasOffset && !hasLimit) {
+      const placeholder = getPlaceholder();
+      params[placeholder] = keywords.limit;
+      sql += ` > $${placeholder}`;
+    }
+  }
+  if (alias) {
+    const withTable = 'flyweight_alias';
+    sql = `with ${withTable} as (${sql}) select ${by.join(', ')}, ${methodAlias} as ${alias} from ${withTable}`;
   }
   const options = {
     query: sql,
@@ -1238,7 +1289,6 @@ const processInclude = (key, handler, debugResult) => {
     for (const [key, value] of Object.entries(conditions)) {
       if (key === 'and' || key === 'or') {
         traversals.push(key);
-        whereOperator = key;
         let i = 0;
         for (const conditions of value) {
           getWhereKeys(conditions, [...traversals, i]);
@@ -1248,6 +1298,9 @@ const processInclude = (key, handler, debugResult) => {
       else {
         const request = columnRequests.find(r => r === value);
         if (request) {
+          if (traversals.length > 0) {
+            whereOperator = traversals.at(0);
+          }
           whereKeys.push({
             includeKey: key,
             parentKey: request.name,
@@ -1342,7 +1395,12 @@ const processInclude = (key, handler, debugResult) => {
     if (['get', 'many'].includes(method) && args.length === 1) {
       args.push(undefined);
     }
-    args.push(config);
+    if (method === 'groupBy') {
+      tableTarget.args.push(config);
+    }
+    else {
+      args.push(config);
+    }
     let included;
     const run = db[tableTarget.table][queryMethod];
     if (method === 'groupBy') {
