@@ -855,7 +855,7 @@ const makeJsonArray = (types, columns) => {
     }
     return `'${column}', ${selector}`;
   });
-  sql += mapped.join(',');
+  sql += mapped.join(', ');
   sql += `))`;
   return sql;
 }
@@ -880,7 +880,7 @@ const group = async (config) => {
   let having;
   let adjustedWhere = where;
   const whereKeys = where ? Object.keys(where) : [];
-  const methodAlias = method === 'array' ? 'group' : method;
+  const methodAlias = method === 'array' ? 'items' : method;
   if (whereKeys.includes(method)) {
     having = {
       [methodAlias]: where[methodAlias]
@@ -962,6 +962,7 @@ const group = async (config) => {
     sql += `${actualMethod}(${body}) as ${methodAlias} from ${table}`;
   }
   else {
+    const types = db.columns[table];
     let columns;
     if (!select) {
       columns = Object.keys(db.columns[table]);
@@ -977,7 +978,7 @@ const group = async (config) => {
           fields.set(column, true);
         }
       }
-      needsParsing.set('group', { jsonParse: true, fields });
+      needsParsing.set(alias || methodAlias, { jsonParse: true, fields });
     }
     else {
       sql += `json_group_array(${select})`;
@@ -985,9 +986,9 @@ const group = async (config) => {
       if (db.needsParsing(table, select) && types[select] !== 'json') {
         field = select;
       }
-      needsParsing.set('group', { jsonParse: true, field });
+      needsParsing.set(alias || methodAlias, { jsonParse: true, field });
     }
-    sql += `as ${methodAlias} from ${table}`;
+    sql += ` as ${methodAlias} from ${table}`;
   }
   if (adjustedWhere) {
     const { whereClauses } = toWhere(verify, table, adjustedWhere, params);

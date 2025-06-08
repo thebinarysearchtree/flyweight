@@ -289,7 +289,7 @@ There is also an ```exists``` function that takes one argument representing the 
 const exists = await db.fighters.exists({ name: 'Israel Adesanya' });
 ```
 
-### Group
+### GroupBy
 
 You can write ```group by``` statements like this:
 
@@ -307,6 +307,18 @@ const towns = await db.fighters
 ```
 
 An aggregate function comes after the ```groupBy``` method. ```distinct``` can be used instead of ```column``` to aggregate by distinct values. ```count``` does not need to be supplied with any column.
+
+In addition to aggregate functions such as ```avg``` or ```count```, there is also an ```array``` function that simply groups the rows into an array. You can use the ```select``` option to limit which columns are included in the array. If ```select``` is a string, the array will contain values instead of objects.
+
+```js
+const groupValues = await db.events
+  .groupBy('locationId')
+  .array({
+    select: 'startTime',
+    alias: 'startTimes',
+    limit: 3
+  });
+```
 
 ### Remove
 

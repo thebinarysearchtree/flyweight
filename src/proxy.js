@@ -16,7 +16,7 @@ const groupMethods = (database, table, tx, dbClient, by, config) => {
     return async (query) => await group({ db: database, table, by, method, query, tx, dbClient, ...config });
   }
   const result = {};
-  const methods = ['count', 'avg', 'min', 'max', 'sum'];
+  const methods = ['count', 'avg', 'min', 'max', 'sum', 'array'];
   methods.forEach(m => {
     result[m] = makeMethod(m)
   });

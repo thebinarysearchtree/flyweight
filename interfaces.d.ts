@@ -382,6 +382,47 @@ export interface GroupQueryObjectAlias<T, W, K, U, A> {
   alias: A;
 }
 
+export interface GroupArrayKeywords<T, W, K, U> {
+  where?: W;
+  column?: keyof T;
+  distinct?: keyof T;
+  orderBy?: K;
+  desc?: boolean;
+  limit?: number;
+  offset?: number;
+  include?: U;
+}
+
+export interface GroupArray<T, W, K, U> extends GroupArrayKeywords<T, W, K, U> {
+  select?: undefined;
+  alias?: undefined;
+}
+
+export interface GroupArrayAlias<T, W, K, U, A> extends GroupArrayKeywords<T, W, K, U> {
+  select?: undefined;
+  alias: A;
+}
+
+export interface GroupArraySelect<T, W, K, U, S> extends GroupArrayKeywords<T, W, K, U> {
+  select: S[];
+  alias?: undefined;
+}
+
+export interface GroupArraySelectAlias<T, W, K, U, A, S> extends GroupArrayKeywords<T, W, K, U> {
+  select: S[];
+  alias: A;
+}
+
+export interface GroupArrayValue<T, W, K, U, S> extends GroupArrayKeywords<T, W, K, U> {
+  select: S;
+  alias?: undefined;
+}
+
+export interface GroupArrayValueAlias<T, W, K, U, A, S> extends GroupArrayKeywords<T, W, K, U> {
+  select: S;
+  alias: A;
+}
+
 export interface AggregateMethods<T, W, K extends keyof T, Y> {
   count<U extends Includes<Y, (Pick<T, K> & { count: number })>>(params?: GroupQueryObject<T, W & ToWhere<{ count: number }>, K | 'count', U>): Promise<Array<MergeIncludes<Pick<T, K> & { count: number }, U>>>;
   count<A extends string, U extends Includes<Y, (Pick<T, K> & { count: number })>>(params?: GroupQueryObjectAlias<T, W & ToWhere<{ count: number }>, K | 'count', U, A>): Promise<Array<MergeIncludes<Pick<T, K> & Record<A, number>, U>>>;
@@ -393,6 +434,12 @@ export interface AggregateMethods<T, W, K extends keyof T, Y> {
   min<A extends string, U extends Includes<Y, (Pick<T, K> & { max: number })>>(params: GroupQueryObjectAlias<T, W & ToWhere<{ min: number }>, K | 'min', U, A>): Promise<Array<MergeIncludes<Pick<T, K> & Record<A, number>, U>>>;
   sum<U extends Includes<Y, (Pick<T, K> & { sum: number })>>(params: GroupQueryObject<T, W & ToWhere<{ sum: number }>, K | 'sum', U>): Promise<Array<MergeIncludes<Pick<T, K> & { sum: number }, U>>>;
   sum<A extends string, U extends Includes<Y, (Pick<T, K> & { sum: number })>>(params: GroupQueryObjectAlias<T, W & ToWhere<{ sum: number }>, K | 'sum', U, A>): Promise<Array<MergeIncludes<Pick<T, K> & Record<A, number>, U>>>;
+  array<S extends keyof T, U extends Includes<Y, Pick<T, K>>>(params: GroupArrayValue<T, W & ToWhere<{ sum: number }>, K | 'items', U, S>): Promise<Array<MergeIncludes<Pick<T, K> & { items: Array<T[S]> }, U>>>;
+  array<A extends string, S extends keyof T, U extends Includes<Y, Pick<T, K>>>(params: GroupArrayValueAlias<T, W & ToWhere<{ sum: number }>, K | 'items', U, A, S>): Promise<Array<MergeIncludes<Pick<T, K> & Record<A, Array<T[S]>>, U>>>;
+  array<U extends Includes<Y, Pick<T, K>>>(params: GroupArray<T, W & ToWhere<{ sum: number }>, K | 'items', U>): Promise<Array<MergeIncludes<Pick<T, K> & { items: Array<T> }, U>>>;
+  array<A extends string, U extends Includes<Y, Pick<T, K>>>(params: GroupArrayAlias<T, W & ToWhere<{ sum: number }>, K | 'items', U, A>): Promise<Array<MergeIncludes<Pick<T, K> & Record<A, Array<T>>, U>>>;
+  array<S extends keyof T, U extends Includes<Y, Pick<T, K>>>(params: GroupArraySelect<T, W & ToWhere<{ sum: number }>, K | 'items', U, S>): Promise<Array<MergeIncludes<Pick<T, K> & { items: Array<Pick<T, S>> }, U>>>;
+  array<A extends string, S extends keyof T, U extends Includes<Y, Pick<T, K>>>(params: GroupArraySelectAlias<T, W & ToWhere<{ sum: number }>, K | 'items', U, A, S>): Promise<Array<MergeIncludes<Pick<T, K> & Record<A, Array<Pick<T, S>>>, U>>>;
 }
 
 export interface VirtualQueries<T, W> {
