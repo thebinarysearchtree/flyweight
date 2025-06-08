@@ -336,18 +336,6 @@ export interface UpsertQuery<T, K> {
   set?: Partial<MakeOptionalNullable<T>>;
 }
 
-export interface DefineWhere<W> {
-  where: (query: W) => void;
-}
-
-export interface DefineProperties<T, C> {
-  [key: string]: (table: T, columns: C) => void;
-}
-
-export interface DefineQuery<T, C> {
-  define: (properties: DefineProperties<T, C> | ((table: T, columns: C) => void)) => void;
-}
-
 export interface DebugQuery {
   sql: string;
   params?: any;
@@ -442,6 +430,32 @@ export interface AggregateMethods<T, W, K extends keyof T, Y> {
   array<A extends string, S extends keyof T, U extends Includes<Y, Pick<T, K>>>(params: GroupArraySelectAlias<T, W & ToWhere<{ sum: number }>, K | 'items', U, A, S>): Promise<Array<MergeIncludes<Pick<T, K> & Record<A, Array<Pick<T, S>>>, U>>>;
 }
 
+export interface ComputeMethod {
+  abs: (n: number) => void;
+  coalesce: (a: any, b: any, ...rest: any[]) => void;
+  concat: (...args: any[]) => void;
+  concatWs: (...args: any[]) => void;
+  format: (format: string | null, ...args: any[]) => void;
+  glob: (pattern: string, value: string) => void;
+  hex: (value: number | Buffer) => void;
+  if: (...args: any[]) => void;
+  instr: (a: string | Buffer | null, b: string | Buffer | null) => void;
+  length: (value: any) => void;
+  lower: (value: string) => void;
+  ltrim: (value: string, remove?: string) => void;
+  max: (a: any, b: any, ...rest: any[]) => void;
+  min: (a: any, b: any, ...rest: any[]) => void;
+  nullif: (a: any, b: any) => void;
+  octetLength: (value: any) => void;
+  random: () => void;
+  randomBlob: () => void;
+  replace: (a: any, b: any, c: any) => void;
+}
+
+export interface Compute<T> {
+  [key: string]: (column: T, method: ComputeMethod) => void;
+}
+
 export interface VirtualQueries<T, W> {
   [key: string]: any;
   get(params?: W | null): Promise<T | undefined>;
@@ -508,6 +522,7 @@ export interface Queries<T, I, W, R, Y> {
   sum<K extends keyof T>(query: AggregateQueryDebug<W, K>): Promise<DebugResult<number>>;
   exists(params: W | null): Promise<boolean>;
   groupBy<K extends keyof T>(columns: K | Array<K>): AggregateMethods<T, W, K, Y>;
+  compute(properties: Compute<T>): void;
   remove(params?: W): Promise<number>;
 }
 

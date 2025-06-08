@@ -45,15 +45,10 @@ const makeOverloads = (queryName, paramsName, unsafeName, returnName) => {
     .join('');
   const overloads = [];
   overloads.push(`${queryName}<U extends Includes<TypedDb, ${returnName}>>(query: ComplexSqlQueryInclude${append}<${generics}ToWhere<${returnName}>, ${returnName}, U>): Promise<Array<MergeIncludes<${returnName}, U>>>`);
-  overloads.push(`${queryName}<U extends Includes<TypedDb, ${returnName}>>(query: ComplexSqlQueryInclude${append}Debug<${generics}ToWhere<${returnName}>, ${returnName}, U>): Promise<DebugResult<Array<MergeIncludes<${returnName}, U>>>>`);
   overloads.push(`${queryName}<K extends keyof ${returnName}, U extends Includes<TypedDb, ${returnName}>>(query: ComplexSqlQueryObjectInclude${append}<${generics}ToWhere<${returnName}>, K, ${returnName}, U>): Promise<Array<MergeIncludes<Pick<${returnName}, K>, U>>>`);
-  overloads.push(`${queryName}<K extends keyof ${returnName}, U extends Includes<TypedDb, ${returnName}>>(query: ComplexSqlQueryObjectInclude${append}Debug<${generics}ToWhere<${returnName}>, K, ${returnName}, U>): Promise<DebugResult<Array<MergeIncludes<Pick<${returnName}, K>, U>>>>`);
   overloads.push(`${queryName}<K extends keyof ${returnName}, U extends Includes<TypedDb, ${returnName}>>(query: ComplexSqlQueryObjectIncludeOmit${append}<${generics}ToWhere<${returnName}>, K, ${returnName}, U>): Promise<Array<MergeIncludes<Omit<${returnName}, K>, U>>>`);
-  overloads.push(`${queryName}<K extends keyof ${returnName}, U extends Includes<TypedDb, ${returnName}>>(query: ComplexSqlQueryObjectIncludeOmit${append}Debug<${generics}ToWhere<${returnName}>, K, ${returnName}, U>): Promise<DebugResult<Array<MergeIncludes<Omit<${returnName}, K>, U>>>>`);
   overloads.push(`${queryName}<K extends keyof ${returnName}>(query: ComplexSqlQueryValue${append}<${generics}ToWhere<${returnName}>, K, ${returnName}>): Promise<Array<${returnName}[K]>>`);
-  overloads.push(`${queryName}<K extends keyof ${returnName}>(query: ComplexSqlQueryValue${append}Debug<${generics}ToWhere<${returnName}>, K, ${returnName}>): Promise<DebugResult<Array<${returnName}[K]>>>`);
   overloads.push(`${queryName}<N>(query: ComplexSqlQuerySelector${append}<${generics}ToWhere<${returnName}>, ${returnName}, N>): Promise<Array<N>>`);
-  overloads.push(`${queryName}<N>(query: ComplexSqlQuerySelector${append}Debug<${generics}ToWhere<${returnName}>, ${returnName}, N>): Promise<DebugResult<Array<N>>>`);
   return overloads;
 }
 
@@ -454,14 +449,12 @@ const createTypes = async (options) => {
   catch {
     jsonTypes = new Map();
   }
-  const defineTypes = [];
   for (const table of tables) {
     const singular = pluralize.singular(table.name);
     const capitalized = capitalize(singular);
     const interfaceName = makeUnique(capitalized, typeSet, i);
     const insertInterfaceName = makeUnique(`Insert${interfaceName}`, typeSet, i);
     const whereInterfaceName = makeUnique(`Where${interfaceName}`, typeSet, i);
-    defineTypes.push([table.name, whereInterfaceName]);
     let returnType;
     const primaryKey = table.columns.find(c => c.primaryKey !== undefined);
     let tsType;
@@ -490,7 +483,6 @@ const createTypes = async (options) => {
         returnType += ` & ${queries.interfaceName}`;
       }
     }
-    returnType += ` & DefineQuery<DefineJoin, ${interfaceName}>`;
     returnType += ';\n';
     returnTypes.push(returnType);
     const jsonInterfaces = [];
@@ -595,11 +587,6 @@ const createTypes = async (options) => {
       types += '\n';
     }
   }
-  types += `export interface DefineJoin {\n`;
-  for (const [table, where] of defineTypes) {
-    types += `  ${table}: DefineWhere<${where}>;\n`;
-  }
-  types += '}\n\n';
   types = types.replace('getClient(): any;', 'getClient(): TypedDb;');
   const exportSection = files[features.types];
   const replaced = exportSection.replace(/(\[key: string\]: any;\s)/, `$1${returnTypes.join('')}`);
