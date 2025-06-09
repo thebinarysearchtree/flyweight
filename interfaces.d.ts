@@ -430,7 +430,7 @@ export interface AggregateMethods<T, W, K extends keyof T, Y> {
   array<A extends string, S extends keyof T, U extends Includes<Y, Pick<T, K>>>(params: GroupArraySelectAlias<T, W & ToWhere<{ sum: number }>, K | 'items', U, A, S>): Promise<Array<MergeIncludes<Pick<T, K> & Record<A, Array<Pick<T, S>>>, U>>>;
 }
 
-export interface ComputeMethod {
+export interface ComputeMethods {
   abs: (n: number) => void;
   coalesce: (a: any, b: any, ...rest: any[]) => void;
   concat: (...args: any[]) => void;
@@ -447,13 +447,55 @@ export interface ComputeMethod {
   min: (a: any, b: any, ...rest: any[]) => void;
   nullif: (a: any, b: any) => void;
   octetLength: (value: any) => void;
-  random: () => void;
-  randomBlob: () => void;
-  replace: (a: any, b: any, c: any) => void;
+  replace: (value: any, occurances: any, substitute: any) => void;
+  round: (value: number, places?: number) => void;
+  rtrim: (value: string, remove?: string) => void;
+  sign: (value: any) => void;
+  substring: (value: string, start: number, length?: number) => void;
+  trim: (value: string, remove?: string) => void;
+  unhex: (hex: string, ignore?: string) => void;
+  unicode: (value: string) => void;
+  upper: (value: string) => void;
+  date: (time?: string | number, ...modifers: string[]) => void;
+  time: (time?: string | number, ...modifers: string[]) => void;
+  dateTime: (time?: string | number, ...modifers: string[]) => void;
+  julianDay: (time?: string | number, ...modifers: string[]) => void;
+  unixEpoch: (time?: string | number, ...modifers: string[]) => void;
+  strfTime: (format: string, time: string | number, ...modifers: string[]) => void;
+  timeDiff: (start: string | number, end: string | number) => void;
+  acos: (value: number) => void;
+  acosh: (value: number) => void;
+  asin: (value: number) => void;
+  asinh: (value: number) => void;
+  atan: (value: number) => void;
+  atan2: (b: number, a: number) => void;
+  atanh: (value: number) => void;
+  ceil: (value: number) => void;
+  cos: (value: number) => void;
+  cosh: (value: number) => void;
+  degrees: (value: number) => void;
+  exp: (value: number) => void;
+  floor: (value: number) => void;
+  ln: (value: number) => void;
+  log: (base: number, value: number) => void;
+  acos: (value: number) => void;
+  acos: (value: number) => void;
+  mod: (value: number, divider: number) => void;
+  pi: () => void;
+  power: (value: number, exponent: number) => void;
+  radians: (value: number) => void;
+  sin: (value: number) => void;
+  sinh: (value: number) => void;
+  sqrt: (value: number) => void;
+  tan: (value: number) => void;
+  tanh: (value: number) => void;
+  trunc: (value: number) => void;
+  json: (text: string | Buffer) => void;
+  jsonExtract: (json: string | Buffer, path: string) => void;
 }
 
 export interface Compute<T> {
-  [key: string]: (column: T, method: ComputeMethod) => void;
+  [key: string]: (column: T, method: ComputeMethods) => void;
 }
 
 export interface VirtualQueries<T, W> {

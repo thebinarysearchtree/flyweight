@@ -19,44 +19,11 @@ const dbTypes = {
 }
 
 const typeMap = {
-  integer: 'Number',
-  real: 'Number',
-  text: 'String',
+  integer: 'number',
+  real: 'number',
+  text: 'string',
   blob: 'Buffer',
-  any: 'Number | String | Buffer | null'
-}
-
-const makeProxies = () => {
-  const tableTarget = {};
-  const tableHandler = {
-    get: function(target, property) {
-      if (!target.table) {
-        target.table = property;
-        return tableProxy;
-      }
-      if (property === 'where') {
-        return (args) => {
-          target.where = args;
-          return tableProxy;
-        }
-      }
-    }
-  };
-  const tableProxy = new Proxy(tableTarget, tableHandler);
-  const columnHandler = {
-    get: function(target, property) {
-      target.name = property;
-      return columnProxy;
-    }
-  }
-  const columnTarget = {};
-  const columnProxy = new Proxy(columnTarget, columnHandler);
-  return {
-    tableTarget,
-    tableProxy,
-    columnTarget,
-    columnProxy
-  };
+  any: 'number | string | Buffer | null'
 }
 
 class Database {
@@ -70,7 +37,7 @@ class Database {
     this.customTypes = {};
     this.columns = {};
     this.hasJson = {};
-    this.includes = new Map();
+    this.computed = new Map();
     this.statements = new Map();
     this.viewSet = new Set();
     this.virtualSet = new Set();
@@ -126,19 +93,55 @@ class Database {
     return makeClient(this);
   }
 
-  define(table, includes) {
-    let defined = this.includes.get(table);
-    if (!defined) {
-      defined = new Map();
-      this.includes.set(table, defined);
+  compute(table, properties) {
+    const map = new Map();
+    this.computed.set(table, map);
+    for (const [name, expression] of properties) {
+      const columnHandler = {
+        get: function(target, property) {
+          target.name = property;
+          const request = {
+            name: property
+          };
+          columnRequests.push(request);
+          return request;
+        }
+      }
+      const columnTarget = {};
+      const columnProxy = new Proxy(columnTarget, columnHandler);
+      const columnRequests = [];
+      const methodHandler = {
+        get: function(target, property) {
+          target.name = property;
+          return (...args) => target.args = args;
+        }
+      }
+      const methodTarget = {};
+      const methodProxy = new Proxy(methodTarget, methodHandler);
+      expression(columnProxy, methodProxy);
+      const method = methodTarget.name;
+      const args = methodTarget.args;
+      const create = (params, getPlaceholder) => {
+        const statements = [];
+        for (const arg of args) {
+          const column = columnRequests.find(r => r === arg);
+          if (column) {
+            statements.push(`${table}.${column.name}`);
+          }
+          else {
+            const placeholder = getPlaceholder();
+            params[placeholder] = arg;
+            statements.push(placeholder);
+          }
+        }
+        return `${method}(${statements.join(', ')}) as ${name}`;
+      }
+      const item = {
+        create,
+        method
+      };
+      map.set(name, item);
     }
-    const { tableTarget, tableProxy, columnTarget, columnProxy } = makeProxies();
-    includes(tableProxy, columnProxy);
-    defined.set(tableTarget.table, {
-      where: tableTarget.where,
-      columnProxy,
-      columnTarget
-    });
   }
 
   async getTables() {

@@ -226,8 +226,8 @@ const getResultType = (columns) => {
 const makeQueryHandler = (table, db, tx, dbClient) => {
   return {
     get: function(target, method) {
-      if (method === 'define') {
-        return (args) => db.define(table, args);
+      if (method === 'compute') {
+        return (args) => db.compute(table, args);
       }
       if (!target[method]) {
         if (basic[method]) {
