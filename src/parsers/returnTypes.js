@@ -4,6 +4,7 @@ const returnTypes = {
   char: 'text',
   format: 'text',
   hex: 'text',
+  unhex: 'blob',
   instr: 'integer',
   last_insert_rowid: 'integer',
   length: 'integer',
@@ -105,10 +106,18 @@ const returnTypes = {
   jsonb_group_object: 'jsonb',
   highlight: 'text',
   snippet: 'text',
-  sqlite_version: 'text'
+  sqlite_version: 'text',
+  if: 'any',
+  iif: 'any',
+  ifnull: 'any',
+  coalesce: 'any',
+  concat: 'text',
+  concat_ws: 'text'
 };
 
 const notNullFunctions = new Set([
+  'concat',
+  'concat_ws',
   'count',
   'changes',
   'char',

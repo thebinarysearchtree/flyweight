@@ -6,6 +6,7 @@ import { preprocess } from './preprocessor.js';
 import files from './files.js';
 import pluralize from 'pluralize';
 import getTypes from './json.js';
+import { returnTypes as methodTypes, notNullFunctions } from './returnTypes.js';
 
 const capitalize = (word) => word[0].toUpperCase() + word.substring(1);
 
@@ -48,7 +49,6 @@ const makeOverloads = (queryName, paramsName, unsafeName, returnName) => {
   overloads.push(`${queryName}<K extends keyof ${returnName}, U extends Includes<TypedDb, ${returnName}>>(query: ComplexSqlQueryObjectInclude${append}<${generics}ToWhere<${returnName}>, K, ${returnName}, U>): Promise<Array<MergeIncludes<Pick<${returnName}, K>, U>>>`);
   overloads.push(`${queryName}<K extends keyof ${returnName}, U extends Includes<TypedDb, ${returnName}>>(query: ComplexSqlQueryObjectIncludeOmit${append}<${generics}ToWhere<${returnName}>, K, ${returnName}, U>): Promise<Array<MergeIncludes<Omit<${returnName}, K>, U>>>`);
   overloads.push(`${queryName}<K extends keyof ${returnName}>(query: ComplexSqlQueryValue${append}<${generics}ToWhere<${returnName}>, K, ${returnName}>): Promise<Array<${returnName}[K]>>`);
-  overloads.push(`${queryName}<N>(query: ComplexSqlQuerySelector${append}<${generics}ToWhere<${returnName}>, ${returnName}, N>): Promise<Array<N>>`);
   return overloads;
 }
 
@@ -454,7 +454,14 @@ const createTypes = async (options) => {
     const capitalized = capitalize(singular);
     const interfaceName = makeUnique(capitalized, typeSet, i);
     const insertInterfaceName = makeUnique(`Insert${interfaceName}`, typeSet, i);
-    const whereInterfaceName = makeUnique(`Where${interfaceName}`, typeSet, i);
+    let computedInterfaceName;
+    const computed = db.computed.get(table.name);
+    if (!computed) {
+      computedInterfaceName = 'unknown';
+    }
+    else {
+      computedInterfaceName = makeUnique(`Computed${interfaceName}`, typeSet, i);
+    }
     let returnType;
     const primaryKey = table.columns.find(c => c.primaryKey !== undefined);
     let tsType;
@@ -468,13 +475,13 @@ const createTypes = async (options) => {
       tsType = 'undefined';
     }
     if (db.viewSet.has(table.name)) {
-      returnType = `  ${table.name}: Pick<Queries<${interfaceName}, ${insertInterfaceName}, ${whereInterfaceName}, undefined, TypedDb>, 'get' | 'many' | 'query' | 'first'>`;
+      returnType = `  ${table.name}: Omit<Queries<${interfaceName}, ${insertInterfaceName}, ToWhere<${interfaceName} & ${computedInterfaceName}>, ${computedInterfaceName}, undefined, TypedDb>, 'remove' | 'insert' | 'insertMany' | 'update' | 'upsert'>`;
     }
     else if (db.virtualSet.has(table.name)) {
-      returnType = `  ${table.name}: VirtualQueries<${interfaceName}, ${whereInterfaceName}>`;
+      returnType = `  ${table.name}: VirtualQueries<${interfaceName}, ToWhere<${interfaceName} & ${computedInterfaceName}>>`;
     }
     else {
-      returnType = `  ${table.name}: Queries<${interfaceName}, ${insertInterfaceName}, ${whereInterfaceName}, ${tsType}, TypedDb>`;
+      returnType = `  ${table.name}: Queries<${interfaceName}, ${insertInterfaceName}, ToWhere<${interfaceName} & ${computedInterfaceName}>, ${computedInterfaceName}, ${tsType}, TypedDb>`;
     }
     let queries;
     if (sqlDir) {
@@ -547,36 +554,18 @@ const createTypes = async (options) => {
       types += property;
     }
     types += '}\n\n';
-    types += `export interface ${whereInterfaceName} {\n`;
-    for (const column of table.columns) {
-      const { name, type, primaryKey, notNull } = column;
-      const tsType = toTsType({
-        type,
-        notNull: true
-      }, db.customTypes);
-      let property = `  ${name}`;
-      property += '?: ';
-      if (tsType === 'Json') {
-        const saved = jsonTypes.get(`${table.name} ${name}`);
-        const whereType = saved ? saved.columnType : tsType;
-        property += `WhereFunction<${whereType}>`;
+    if (computed) {
+      types += `export interface ${computedInterfaceName} {\n`;
+      for (const [name, item] of computed.entries()) {
+        const returnType = methodTypes[item.method];
+        let tsType = typeMap[returnType];
+        if (!notNullFunctions.has(item.method)) {
+          tsType += ' | null';
+        }
+        types += `  ${name}?: ${tsType};\n`;
       }
-      else {
-        property += tsType;
-        property += ` | Array<${tsType}> | WhereFunction<${tsType}>`;
-      }
-      if (!primaryKey && !notNull) {
-        property += ' | null';
-      }
-      property += ';\n';
-      types += property;
+      types += '}\n\n';
     }
-    if (db.virtualSet.has(table.name)) {
-      types += `  ${table.name}?: string;\n`;
-    }
-    types += `  and?: Array<${whereInterfaceName}>;\n`;
-    types += `  or?: Array<${whereInterfaceName}>;\n`;
-    types += '}\n\n';
     if (queries) {
       const interfaces = [...queries.queryInterfaces, ...queries.paramsInterfaces, ...queries.unsafeInterfaces];
       for (const queryInterface of interfaces) {
