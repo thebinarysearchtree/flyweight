@@ -561,9 +561,10 @@ const createTypes = async (options) => {
         let tsType = item.tsType;
         if (item.jsonPath && jsonTypes) {
           const { key, path } = item.jsonPath;
-          const interfaces = jsonTypes.get(key);
+          const jsonType = jsonTypes.get(key);
           const columnType = jsonColumnTypes.get(key);
-          if (interfaces && columnType) {
+          if (jsonType && columnType) {
+            const interfaces = jsonType.interfaces;
             const name = columnType.replaceAll(/\(|\)/g, '').split(' ').at(0);
             if (!name.startsWith('Array')) {
               let interfaceString = interfaces.find(s => s.startsWith(`interface ${name} `));
@@ -572,8 +573,8 @@ const createTypes = async (options) => {
                 let i = 0;
                 const pathLength = path.length;
                 for (const property of path) {
-                  const pattern = new RegExp('  ' + property + '?\\?' + ': \\((?<type>[^\s]+)[^\n]*?,\n');
-                  const match = interfaceString.match(pattern);
+                  const pattern = new RegExp('  ' + property + '?\\?' + ': \\(?(?<type>[^,\\s]+)[^\\s]*,?\\n', 'gm');
+                  const match = pattern.exec(interfaceString);
                   if (match) {
                     current = match.groups.type;
                     interfaceString = interfaces.find(s => s.startsWith(`interface ${current} `));
@@ -589,6 +590,9 @@ const createTypes = async (options) => {
                     break;
                   }
                   i++;
+                }
+                if (current) {
+                  tsType = current;
                 }
               }
             }

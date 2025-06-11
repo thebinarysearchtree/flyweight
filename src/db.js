@@ -107,12 +107,13 @@ class Database {
           };
           const pathHandler = {
             get: function(target, property) {
-              target.push(property);
+              const path = target.path;
+              path.push(property);
               return pathProxy;
             }
           };
           const pathProxy = new Proxy(request, pathHandler);
-          columnRequests.push(pathProxy);
+          columnRequests.push(request);
           return pathProxy;
         }
       }
@@ -167,7 +168,7 @@ class Database {
           tsType = typeMap[dbType];
         }
         else {
-          tsType = 'number | string | boolean | null';
+          tsType = 'number | string | null';
         }
       }
       let jsonPath;
