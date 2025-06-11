@@ -6,7 +6,6 @@ import { preprocess } from './preprocessor.js';
 import files from './files.js';
 import pluralize from 'pluralize';
 import getTypes from './json.js';
-import { returnTypes as methodTypes, notNullFunctions } from './returnTypes.js';
 
 const capitalize = (word) => word[0].toUpperCase() + word.substring(1);
 
@@ -449,6 +448,7 @@ const createTypes = async (options) => {
   catch {
     jsonTypes = new Map();
   }
+  const jsonColumnTypes = new Map();
   for (const table of tables) {
     const singular = pluralize.singular(table.name);
     const capitalized = capitalize(singular);
@@ -523,6 +523,7 @@ const createTypes = async (options) => {
             jsonInterfaces.push(...existing.interfaces);
           }
         }
+        jsonColumnTypes.set(key, tsType);
       }
       let property = `  ${name}`;
       property += ': ';
@@ -557,10 +558,41 @@ const createTypes = async (options) => {
     if (computed) {
       types += `export interface ${computedInterfaceName} {\n`;
       for (const [name, item] of computed.entries()) {
-        const returnType = methodTypes[item.method];
-        let tsType = typeMap[returnType];
-        if (!notNullFunctions.has(item.method)) {
-          tsType += ' | null';
+        let tsType = item.tsType;
+        if (item.jsonPath && jsonTypes) {
+          const { key, path } = item.jsonPath;
+          const interfaces = jsonTypes.get(key);
+          const columnType = jsonColumnTypes.get(key);
+          if (interfaces && columnType) {
+            const name = columnType.replaceAll(/\(|\)/g, '').split(' ').at(0);
+            if (!name.startsWith('Array')) {
+              let interfaceString = interfaces.find(s => s.startsWith(`interface ${name} `));
+              if (interfaceString) {
+                let current;
+                let i = 0;
+                const pathLength = path.length;
+                for (const property of path) {
+                  const pattern = new RegExp('  ' + property + '?\\?' + ': \\((?<type>[^\s]+)[^\n]*?,\n');
+                  const match = interfaceString.match(pattern);
+                  if (match) {
+                    current = match.groups.type;
+                    interfaceString = interfaces.find(s => s.startsWith(`interface ${current} `));
+                    if (i !== pathLength - 1) {
+                      if (!interfaceString) {
+                        current = null;
+                        break;
+                      }
+                    }
+                  }
+                  else {
+                    current = null;
+                    break;
+                  }
+                  i++;
+                }
+              }
+            }
+          }
         }
         types += `  ${name}?: ${tsType};\n`;
       }

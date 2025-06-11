@@ -8,6 +8,7 @@ import { preprocess } from './parsers/preprocessor.js';
 import { createTypes } from './parsers/types.js';
 import { migrate } from './migrations.js';
 import { makeClient } from './proxy.js';
+import { tsReturnTypes } from './parsers/returnTypes.js';
 
 const dbTypes = {
   integer: true,
@@ -23,7 +24,7 @@ const typeMap = {
   real: 'number',
   text: 'string',
   blob: 'Buffer',
-  any: 'number | string | Buffer | null'
+  any: 'number | string | Buffer'
 }
 
 class Database {
@@ -96,15 +97,23 @@ class Database {
   compute(table, properties) {
     const map = new Map();
     this.computed.set(table, map);
-    for (const [name, expression] of properties) {
+    for (const [name, expression] of Object.entries(properties)) {
       const columnHandler = {
         get: function(target, property) {
           target.name = property;
           const request = {
-            name: property
+            name: property,
+            path: []
           };
-          columnRequests.push(request);
-          return request;
+          const pathHandler = {
+            get: function(target, property) {
+              target.push(property);
+              return pathProxy;
+            }
+          };
+          const pathProxy = new Proxy(request, pathHandler);
+          columnRequests.push(pathProxy);
+          return pathProxy;
         }
       }
       const columnTarget = {};
@@ -122,6 +131,17 @@ class Database {
       const method = methodTarget.name;
       const args = methodTarget.args;
       const create = (params, getPlaceholder) => {
+        if (!method) {
+          const request = columnRequests.at(0);
+          const column = `${table}.${request.name}`;
+          if (request.path.length === 0) {
+            return `${column} as ${name}`;
+          }
+          const placeholder = getPlaceholder();
+          const path = `$.${request.path.join('.')}`;
+          params[placeholder] = path;
+          return `json_extract(${column}, $${placeholder}) as ${name}`;
+        }
         const statements = [];
         for (const arg of args) {
           const column = columnRequests.find(r => r === arg);
@@ -131,14 +151,51 @@ class Database {
           else {
             const placeholder = getPlaceholder();
             params[placeholder] = arg;
-            statements.push(placeholder);
+            statements.push(`$${placeholder}`);
           }
         }
         return `${method}(${statements.join(', ')}) as ${name}`;
       }
+      let tsType;
+      if (method) {
+        tsType = tsReturnTypes[method];
+      }
+      else {
+        const request = columnRequests.at(0);
+        if (request.path.length === 0) {
+          const dbType = this.columns[table][request.name];
+          tsType = typeMap[dbType];
+        }
+        else {
+          tsType = 'number | string | boolean | null';
+        }
+      }
+      let jsonPath;
+      if (!method) {
+        const request = columnRequests.at(0);
+        if (request.path.length > 0) {
+          jsonPath = {
+            key: `${table} ${request.name}`,
+            path: request.path
+          };
+        }
+      }
+      else if (method === 'json_extract') {
+        const column = args.at(0);
+        const path = args.at(1);
+        if (!path.includes('[')) {
+          const request = columnRequests.find(r => r === column);
+          const split = path.substring(2).split('.');
+          jsonPath = {
+            key: `${table} ${request.name}`,
+            path: split
+          };
+        }
+      }
       const item = {
         create,
-        method
+        tsType,
+        jsonPath
       };
       map.set(name, item);
     }
