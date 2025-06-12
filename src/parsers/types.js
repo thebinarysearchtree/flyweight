@@ -424,7 +424,8 @@ const createTypes = async (options) => {
     destinationPath,
     fileSystem,
     sampleData,
-    jsonPath
+    jsonPath,
+    computedPath
   } = options;
   const features = db.supports;
   let index = files.index;
@@ -449,6 +450,7 @@ const createTypes = async (options) => {
     jsonTypes = new Map();
   }
   const jsonColumnTypes = new Map();
+  const computedTypes = [];
   for (const table of tables) {
     const singular = pluralize.singular(table.name);
     const capitalized = capitalize(singular);
@@ -598,6 +600,15 @@ const createTypes = async (options) => {
             }
           }
         }
+        const isArray = tsType.includes('[]');
+        const isBoolean = tsType === 'boolean' || tsType === 'boolean | null';
+        const key = `${table.name} ${name}`;
+        if (isArray) {
+          computedTypes.push([key, 'json']);
+        }
+        else if (isBoolean) {
+          computedTypes.push([key, 'boolean']);
+        }
         types += `  ${name}?: ${tsType};\n`;
       }
       types += '}\n\n';
@@ -620,6 +631,9 @@ const createTypes = async (options) => {
   await fileSystem.writeFile(destinationPath, types, 'utf8');
   if (sampleData) {
     await fileSystem.writeFile(jsonPath, JSON.stringify(Array.from(jsonTypes)), 'utf8');
+    if (computedTypes.length > 0) {
+      await fileSystem.writeFile(computedPath, JSON.stringify(computedTypes), 'utf8');
+    }
   }
 }
 

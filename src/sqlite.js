@@ -24,6 +24,7 @@ class SQLiteDatabase extends Database {
     this.sqlPath = props.sql;
     this.viewsPath = props.views;
     this.tablesPath = props.tables;
+    this.computedPath = props.computed;
     this.extensionsPath = props.extensions;
     this.writer = null;
   }
@@ -54,6 +55,7 @@ class SQLiteDatabase extends Database {
     await this.setTables();
     await this.setVirtual();
     await this.setViews();
+    await this.setComputed();
     this.initialized = true;
   }
 
@@ -68,6 +70,10 @@ class SQLiteDatabase extends Database {
 
   async readViews() {
     return await this.adaptor.readSql(this.viewsPath);
+  }
+
+  async readComputed() {
+    return await this.adaptor.readFile(this.computedPath, 'utf8');
   }
 
   async runMigration(sql) {

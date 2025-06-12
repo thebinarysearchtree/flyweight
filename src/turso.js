@@ -23,6 +23,7 @@ class TursoDatabase extends Database {
     await this.setTables();
     await this.setVirtual();
     await this.setViews();
+    await this.setComputed();
     this.initialized = true;
   }
 
@@ -36,6 +37,10 @@ class TursoDatabase extends Database {
 
   async readViews() {
     return this.files.views;
+  }
+
+  async readComputed() {
+    return this.files.computed;
   }
 
   async runMigration(sql) {

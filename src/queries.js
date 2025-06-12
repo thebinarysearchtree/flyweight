@@ -61,7 +61,7 @@ const methods = new Map([
   ['eq', '=']
 ]);
 
-const getConditions = (verify, table, column, query, params) => {
+const getConditions = (table, column, query, params) => {
   const operatorHandler = {
     get: function(target, property) {
       target.push(property);
@@ -84,7 +84,7 @@ const getConditions = (verify, table, column, query, params) => {
   const columnTarget = {};
   const columnProxy = new Proxy(columnTarget, columnHandler);
   const chain = query(operatorProxy, columnProxy);
-  if (columnTarget.name && verify) {
+  if (columnTarget.name) {
     verify(columnTarget.name);
   }
   const value = chain.pop();
@@ -151,7 +151,7 @@ const getConditions = (verify, table, column, query, params) => {
   else if (method === 'some') {
     const alias = `${table}_${column.replace('.', '_')}_json`;
     fromClauses.push(`json_each(${selector}) as ${alias}`);
-    const result = getConditions(verify, alias, 'value', value, params);
+    const result = getConditions(alias, 'value', value, params);
     conditions.push(...result.conditions);
     fromClauses.push(...result.fromClauses);
   }
@@ -234,17 +234,22 @@ const processInsert = async (db, sql, params, primaryKey, tx) => {
   return post(result);
 }
 
+const verify = (columns) => {
+  const pattern = /^[_a-z][a-z0-9_]+$/i;
+  if (typeof columns === 'string') {
+    return pattern.test(columns);
+  }
+  return columns.every(c => pattern.test(c));
+}
+
 const upsert = async (db, table, options, tx) => {
   if (!db.initialized) {
     await db.initialize();
   }
   const { values, target, set } = options;
-  const columnSet = db.columnSets[table];
-  const verify = makeVerify(table, columnSet);
   const params = {};
   const query = adjust(db, table, values);
   let sql = makeInsertSql(db, table, query, params);
-  let allParams = { ...params };
   verify(Object.keys(values));
   if (target && set) {
     verify([target]);
@@ -265,8 +270,6 @@ const insert = async (db, table, values, tx) => {
   if (!db.initialized) {
     await db.initialize();
   }
-  const columnSet = db.columnSets[table];
-  const verify = makeVerify(table, columnSet);
   const columns = Object.keys(values);
   verify(columns);
   const adjusted = adjust(db, table, values);
@@ -303,9 +306,7 @@ const insertMany = async (db, table, items, tx) => {
   if (items.length === 0) {
     return;
   }
-  const columnSet = db.columnSets[table];
   const columnTypes = db.columns[table];
-  const verify = makeVerify(table, columnSet);
   const sample = items[0];
   const columns = Object.keys(sample);
   verify(columns);
@@ -333,27 +334,20 @@ const insertMany = async (db, table, items, tx) => {
   return await db.run(options);
 }
 
-const toWhere = (verify, table, query, params, type = 'and') => {
+const toWhere = (table, query, params, type = 'and') => {
   if (!query) {
-    return {
-      whereClauses: '',
-      fromClauses: ''
-    }
+    return '';
   }
   if (!params) {
     params = query;
   }
   const entries = Object.entries(query);
   if (entries.length === 0) {
-    return {
-      whereClauses: '',
-      fromClauses: ''
-    }
+    return '';
   }
   const conditions = [];
-  const fromClauses = [];
   for (const [column, param] of entries) {
-    if (verify && column !== 'and' && column !== 'or') {
+    if (column !== 'and' && column !== 'or') {
       verify(column);
     }
     if (param === undefined) {
@@ -366,18 +360,10 @@ const toWhere = (verify, table, query, params, type = 'and') => {
       }
       const filters = [];
       for (const query of param) {
-        const results = toWhere(verify, table, query, params, column);
-        filters.push(results.whereClauses);
-        if (results.fromClauses) {
-          fromClauses.push(results.fromClauses);
-        }
+        const clauses = toWhere(table, query, params, column);
+        filters.push(clauses);
       }
       conditions.push(`(${filters.join(` ${column} `)})`);
-    }
-    else if (typeof param === 'function') {
-      const result = getConditions(verify, table, column, param, params);
-      conditions.push(...result.conditions);
-      fromClauses.push(...result.fromClauses);
     }
     else if (Array.isArray(param)) {
       const placeholder = getPlaceholder();
@@ -393,10 +379,7 @@ const toWhere = (verify, table, query, params, type = 'and') => {
       conditions.push(`${selector} = $${placeholder}`);
     }
   }
-  return {
-    whereClauses: conditions.join(` ${type} `),
-    fromClauses: fromClauses.join(', ')
-  }
+  return conditions.join(` ${type} `);
 }
 
 const createSetClause = (db, table, query, params) => {
@@ -420,8 +403,6 @@ const update = async (db, table, options, tx) => {
     await db.initialize();
   }
   const { where, set } = options;
-  const columnSet = db.columnSets[table];
-  const verify = makeVerify(table, columnSet);
   const keys = Object.keys(set);
   verify(keys);
   const params = {};
@@ -429,7 +410,7 @@ const update = async (db, table, options, tx) => {
   const setString = createSetClause(db, table, query, params);
   let sql = `update ${table} set ${setString}`;
   if (where) {
-    sql += addClauses(verify, table, where, params);
+    sql += addClauses(table, where, params);
   }
   const runOptions = {
     query: sql,
@@ -437,56 +418,6 @@ const update = async (db, table, options, tx) => {
     tx
   };
   return await db.run(runOptions);
-}
-
-const makeVerify = (table, columnSet, include) => {
-  return (column, customFields) => {
-    if (typeof column === 'string') {
-      if (include && include.hasOwnProperty(column)) {
-        return;
-      }
-      if (customFields && customFields.hasOwnProperty(column)) {
-        return;
-      }
-      if (!columnSet.has(column)) {
-        throw Error(`Column ${column} does not exist on table ${table}`);
-      }
-    }
-    else {
-      const columns = column;
-      for (const column of columns) {
-        if (include && include.hasOwnProperty(column)) {
-          return;
-        }
-        if (customFields && customFields.hasOwnProperty(column)) {
-          return;
-        }
-        if (!columnSet.has(column)) {
-          throw Error(`Column ${column} does not exist on table ${table}`);
-        }
-      }
-    }
-  }
-}
-
-const traverse = (selector) => {
-  const chain = [];
-  const handler = {
-    get: function(target, property) {
-      chain.push(property);
-      return proxy;
-    }
-  }
-  const proxy = new Proxy([], handler);
-  selector(proxy);
-  const column = chain.shift();
-  const path = `$.${chain.join('.')}`;
-  const rename = chain.length === 0;
-  return {
-    column,
-    path,
-    rename
-  };
 }
 
 const expandStar = (db, table) => {
@@ -516,14 +447,19 @@ const expandStar = (db, table) => {
   }
 }
 
-const toSelect = (db, table, columns, types, verify, params, customFields) => {
+const toSelect = (db, table, columns, types, params) => {
   if (columns) {
+    const computed = db.computed.get(table);
+    const checkComputed = (name) => computed && computed.has(name);
     if (typeof columns === 'string') {
-      if (verify) {
-        verify(columns);
-      }
+      const isComputed = checkComputed(columns);
+      verify(columns);
       let clause;
-      if (db.supports.jsonb && types[columns] === 'json') {
+      if (isComputed) {
+        const item = computed.get(columns);
+        clause = item.createClause(params, getPlaceholder, 'select');
+      }
+      else if (db.supports.jsonb && types[columns] === 'json') {
         clause = `json(${table}.${columns}) as ${columns}`;
       }
       else {
@@ -539,12 +475,15 @@ const toSelect = (db, table, columns, types, verify, params, customFields) => {
       const statements = [];
       for (const column of columns) {
         if (typeof column === 'string') {
-          if (verify) {
-            verify(column);
-          }
+          const isComputed = checkComputed(column);
+          verify(column);
           names.push(column);
           let statement;
-          if (db.supports.jsonb && types[column] === 'json') {
+          if (isComputed) {
+            const item = computed.get(column);
+            statement = item.createClause(params, getPlaceholder, 'select');
+          }
+          else if (db.supports.jsonb && types[column] === 'json') {
             statement = `json(${table}.${column}) as ${column}`;
           }
           else {
@@ -552,104 +491,33 @@ const toSelect = (db, table, columns, types, verify, params, customFields) => {
           }
           statements.push(statement);
         }
-        else {
-          const { select, as } = column;
-          if (!/^[a-z][a-z0-9]*$/i.test(as)) {
-            throw Error(`Invalid alias: ${as}`);
-          }
-          names.push(as);
-          const result = traverse(select);
-          if (verify) {
-            verify(result.column);
-          }
-          if (result.rename) {
-            statements.push(`${table}.${result.column} as ${as}`);
-          }
-          else {
-            const placeholder = getPlaceholder();
-            params[placeholder] = result.path;
-            customFields[as] = 'any';
-            statements.push(`json_extract(${table}.${result.column}, $${placeholder}) as ${as}`);
-          }
-        }
       }
       return {
         names,
         clause: statements.join(', ')
       }
     }
-    else if (typeof columns === 'function') {
-      const { column, path } = traverse(columns);
-      if (verify) {
-        verify(column);
-      }
-      const placeholder = getPlaceholder();
-      params[placeholder] = path;
-      customFields['json_result'] = 'any';
-      const clause = `json_extract(${table}.${column}, $${placeholder}) as json_result`;
-      return {
-        names: ['json_result'],
-        clause
-      }
-    }
-    if (!verify) {
-      throw Error('Something went wrong');
-    }
     return expandStar(db, table);
-  }
-  if (!verify) {
-    throw Error('Something went wrong');
   }
   return expandStar(db, table);
 }
 
-const getOrderBy = (verify, keywords, customFields) => {
+const getOrderBy = (keywords) => {
   let orderBy = keywords.orderBy;
-  if (verify) {
-    verify(orderBy, customFields);
-  }
+  verify(orderBy);
   if (Array.isArray(orderBy)) {
     orderBy = orderBy.join(', ');
   }
   return orderBy;
 }
 
-const shouldSort = (keywords, included) => {
-  const orderBy = keywords.orderBy;
-  if (!orderBy) {
-    return false;
-  }
-  if (!included) {
-    return true;
-  }
-  if (keywords.offset !== undefined || keywords.limit !== undefined) {
-    return true;
-  }
-  if (typeof orderBy === 'string') {
-    if (included.hasOwnProperty(orderBy)) {
-      return false;
-    }
-  }
-  else {
-    for (const column of orderBy) {
-      if (included.hasOwnProperty(orderBy)) {
-        return false;
-      }
-    }
-  }
-  return true;
-}
-
-const toKeywords = (verify, keywords, params, customFields, included) => {
+const toKeywords = (keywords, params) => {
   let sql = '';
   if (keywords) {
-    const sort = shouldSort(keywords, included);
-    if (sort) {
-      const orderBy = getOrderBy(verify, keywords, customFields);
-      sql += ` order by ${orderBy}`;
-      if (keywords.desc) {
-        sql += ' desc';
-      }
+    const orderBy = getOrderBy(keywords);
+    sql += ` order by ${orderBy}`;
+    if (keywords.desc) {
+      sql += ' desc';
     }
     if (keywords.limit !== undefined) {
       if (Number.isInteger(keywords.limit)) {
@@ -669,7 +537,7 @@ const toKeywords = (verify, keywords, params, customFields, included) => {
   return sql;
 }
 
-const getVirtual = async (db, table, query, tx, keywords, select, returnValue, verify, once) => {
+const getVirtual = async (db, table, query, tx, keywords, select, returnValue, once) => {
   if (!db.initialized) {
     await db.initialize();
   }
@@ -709,7 +577,7 @@ const getVirtual = async (db, table, query, tx, keywords, select, returnValue, v
     for (const [column, param] of Object.entries(query)) {
       verify(column);
       if (typeof param === 'function') {
-        const result = getConditions(verify, column, param, params);
+        const result = getConditions(column, param, params);
         statements.push(...result.conditions);
         fromClauses.push(...result.fromClauses);
       }
@@ -744,7 +612,7 @@ const getVirtual = async (db, table, query, tx, keywords, select, returnValue, v
     sql += values.join(', ');
     sql += ')';
   }
-  sql += toKeywords(verify, keywords, params);
+  sql += toKeywords(keywords, params);
   const options = {
     query: sql,
     params,
@@ -801,11 +669,9 @@ const exists = async (config) => {
       }
     });
   }
-  const columnSet = db.columnSets[table];
-  const verify = makeVerify(table, columnSet);
   const params = {};
   let sql = `select exists(select 1 from ${table}`;
-  sql += addClauses(verify, table, query, params);
+  sql += addClauses(table, query, params);
   sql += ') as exists_result';
   const options = {
     query: sql,
@@ -831,14 +697,11 @@ const exists = async (config) => {
   return post(results);
 }
 
-const addClauses = (verify, table, query, params) => {
+const addClauses = (table, query, params) => {
   let sql = '';
-  const { whereClauses, fromClauses } = toWhere(verify, table, query, params);
-  if (fromClauses) {
-    sql += `, ${fromClauses}`;
-  }
-  if (whereClauses) {
-    sql += ` where ${whereClauses}`;
+  const where = toWhere(table, query, params);
+  if (where) {
+    sql += ` where ${where}`;
   }
   return sql;
 }
@@ -931,8 +794,6 @@ const group = async (config) => {
     }
   }
   const needsParsing = new Map();
-  const columnSet = db.columnSets[table];
-  const verify = makeVerify(table, columnSet);
   verify(by);
   const columnTypes = db.supports.jsonb ? db.columns[table] : null;
   const byClause = by.join(', ');
@@ -991,20 +852,20 @@ const group = async (config) => {
     sql += ` as ${methodAlias} from ${table}`;
   }
   if (adjustedWhere) {
-    const { whereClauses } = toWhere(verify, table, adjustedWhere, params);
-    if (whereClauses) {
-      sql += ` where ${whereClauses}`;
+    const clauses = toWhere(table, adjustedWhere, params);
+    if (clauses) {
+      sql += ` where ${clauses}`;
     }
   }
   sql += ` group by ${byClause}`;
   if (having) {
-    const { whereClauses } = toWhere(null, null, having, params);
-    if (whereClauses) {
-      sql += ` having ${whereClauses}`;
+    const clauses = toWhere(null, having, params);
+    if (clauses) {
+      sql += ` having ${clauses}`;
     }
   }
   if (hasKeywords && !partitionBy) {
-    sql += toKeywords(verify, keywords, params, { [methodAlias]: true });
+    sql += toKeywords(keywords, params);
   }
   else if (partitionBy) {
     const withTable = 'flyweight_wrapped';
@@ -1012,7 +873,7 @@ const group = async (config) => {
     const selectColumns = [methodAlias, ...by];
     let orderBy;
     if (keywords.orderBy) {
-      orderBy = getOrderBy(verify, keywords, { [methodAlias]: true });
+      orderBy = getOrderBy(keywords);
     }
     else {
       orderBy = db.getPrimaryKey(table);
@@ -1150,9 +1011,6 @@ const aggregate = async (config) => {
   const params = {};
   const query = config.query || {};
   const { where, column, distinct } = query;
-  const columnSet = db.columnSets[table];
-  const verify = makeVerify(table, columnSet);
-  const clauses = toWhere(verify, table, where, params);
   const primaryKey = db.getPrimaryKey(table);
   const alias = `${method}_result`;
   const actualMethod = method === 'sum' ? 'total' : method;
@@ -1161,12 +1019,7 @@ const aggregate = async (config) => {
     if (method !== 'count') {
       throw Error('Aggregate needs to specify a column');
     }
-    if (clauses.fromClauses && method === 'count') {
-      expression = `count(distinct ${table}.${primaryKey}) as ${alias}`;
-    }
-    else {
-      expression = `count(${table}.${primaryKey}) as ${alias}`;
-    }
+    expression = `count(${table}.${primaryKey}) as ${alias}`;
   }
   else if (distinct) {
     expression = `${actualMethod}(distinct ${table}.${distinct}) as ${alias}`;
@@ -1182,23 +1035,17 @@ const aggregate = async (config) => {
       .join(', ');
   }
   if (groupFields) {
-    const { whereClauses, fromClauses } = toWhere(verify, table, where, params);
+    const clauses = toWhere(table, where, params);
     sql = `select ${expression}, ${groupFields} from ${table}`;
-    if (fromClauses) {
-      sql += `, ${fromClauses}`;
-    }
-    if (whereClauses) {
-      sql += ` where ${whereClauses}`;
+    if (clauses) {
+      sql += ` where ${clauses}`;
     }
   }
   else {
-    const { whereClauses, fromClauses } = toWhere(verify, table, where, params);
+    const clauses = toWhere(table, where, params);
     sql = `select ${expression} from ${table}`;
-    if (fromClauses) {
-      sql += `, ${fromClauses}`;
-    }
-    if (whereClauses) {
-      sql += ` where ${whereClauses}`;
+    if (clauses) {
+      sql += ` where ${clauses}`;
     }
   }
   if (groupFields) {
@@ -1708,7 +1555,7 @@ const custom = async (config) => {
     sql = insertUnsafe(sql, unsafe);
   }
   const hasKeywords = Object.keys(keywords).length > 0;
-  const wrap = where || select || omit || alias || hasKeywords;
+  const wrap = where || select || omit || hasKeywords;
   const withTable = 'flyweight_wrapped';
   let fields;
   if (wrap) {
@@ -1720,17 +1567,6 @@ const custom = async (config) => {
     }
     else {
       fields = select;
-    }
-    if (alias) {
-      if (!fields) {
-        fields = [];
-      }
-      else if (typeof fields === 'string') {
-        fields = [fields];
-      }
-      for (const [key, value] of Object.entries(alias)) {
-        fields.push({ select: value, as: key });
-      }
     }
   }
   if (columns.length === 0) {
@@ -1786,7 +1622,7 @@ const custom = async (config) => {
   if (wrap) {
     let selectResult;
     if (fields) {
-      selectResult = toSelect(db, withTable, fields, parsers.types, null, params, customFields);
+      selectResult = toSelect(db, withTable, fields, parsers.types, null, params);
       const distinct = keywords && keywords.distinct ? 'distinct ' : '';
       sql += ` select ${distinct}${selectResult.clause}`;
     }
@@ -1797,7 +1633,7 @@ const custom = async (config) => {
     if (partitionBy) {
       let orderBy;
       if (keywords.orderBy) {
-        orderBy = getOrderBy(null, keywords, customFields);
+        orderBy = getOrderBy(keywords);
       }
       else {
         orderBy = fields.at(0);
@@ -1844,7 +1680,7 @@ const custom = async (config) => {
       sql += addClauses(null, withTable, where, params);
     }
     if (!partitionBy && hasKeywords) {
-      sql += toKeywords(null, keywords, params, customFields);
+      sql += toKeywords(keywords, params);
     }
     if (partitionBy) {
       const original = selectResult ? selectResult.names.join(', ') : columns.map(c => c.name).join(', ');
@@ -1966,7 +1802,7 @@ const all = async (config) => {
   let keywords;
   let debugResult;
   if (reservedWords.some(k => query.hasOwnProperty(k))) {
-    const { where, select, omit, include, alias, debug, ...rest } = query;
+    const { where, select, omit, include, debug, ...rest } = query;
     query = where || {};
     if (omit) {
       const all = Object.keys(db.columns[table]);
@@ -1977,17 +1813,6 @@ const all = async (config) => {
     }
     included = include;
     keywords = rest;
-    if (alias) {
-      if (!columns) {
-        columns = [];
-      }
-      else if (typeof columns === 'string') {
-        columns = [columns];
-      }
-      for (const [key, value] of Object.entries(alias)) {
-        columns.push({ select: value, as: key });
-      }
-    }
     if (debug) {
       debugResult = {
         result: undefined,
@@ -2015,19 +1840,17 @@ const all = async (config) => {
       columns.push(...remove);
     }
   }
-  const columnSet = db.columnSets[table];
-  const verify = makeVerify(table, columnSet, included);
   const customFields = {};
   const columnTypes = db.columns[table];
-  const select = toSelect(db, table, columns, columnTypes, verify, params, customFields);
+  const select = toSelect(db, table, columns, columnTypes, params);
   if (db.virtualSet.has(table)) {
-    return await getVirtual(db, table, query, tx, keywords, select.clause, returnValue, verify, false);
+    return await getVirtual(db, table, query, tx, keywords, select.clause, returnValue, false);
   }
   let sql = 'select ';
   if (partitionBy) {
     let orderBy;
     if (keywords.orderBy) {
-      orderBy = getOrderBy(verify, keywords, customFields);
+      orderBy = getOrderBy(keywords);
     }
     else {
       orderBy = db.getPrimaryKey(table);
@@ -2076,7 +1899,7 @@ const all = async (config) => {
       sql += 'distinct ';
     }
     sql += `${select.clause} from ${table}`;
-    sql += addClauses(verify, table, query, params);
+    sql += addClauses(table, query, params);
     sql = wrapQuery(sql);
   }
   else {
@@ -2084,8 +1907,8 @@ const all = async (config) => {
       sql += 'distinct ';
     }
     sql += `${select.clause} from ${table}`;
-    sql += addClauses(verify, table, query, params);
-    sql += toKeywords(verify, keywords, params, customFields);
+    sql += addClauses(table, query, params);
+    sql += toKeywords(keywords, params);
   }
   if (first) {
     sql += ' limit 1';
@@ -2228,11 +2051,9 @@ const remove = async (db, table, query, tx) => {
   if (!db.initialized) {
     await db.initialize();
   }
-  const columnSet = db.columnSets[table];
-  const verify = makeVerify(table, columnSet);
   let sql = `delete from ${table}`;
   const params = {};
-  sql += addClauses(verify, table, query, params);
+  sql += addClauses(table, query, params);
   const options = {
     query: sql,
     params,

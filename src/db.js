@@ -39,6 +39,7 @@ class Database {
     this.columns = {};
     this.hasJson = {};
     this.computed = new Map();
+    this.computedTypes = new Map();
     this.statements = new Map();
     this.viewSet = new Set();
     this.virtualSet = new Set();
@@ -84,6 +85,7 @@ class Database {
       db: this,
       sqlDir: paths.sql,
       destinationPath: paths.types,
+      customPath: paths.custom,
       jsonPath: paths.json,
       fileSystem,
       sampleData
@@ -131,7 +133,11 @@ class Database {
       expression(columnProxy, methodProxy);
       const method = methodTarget.name;
       const args = methodTarget.args;
-      const create = (params, getPlaceholder) => {
+      const createClause = (params, getPlaceholder, type) => {
+        let alias = '';
+        if (type === 'select') {
+          alias = ` as ${name}`;
+        }
         if (!method) {
           const request = columnRequests.at(0);
           const column = `${table}.${request.name}`;
@@ -141,7 +147,7 @@ class Database {
           const placeholder = getPlaceholder();
           const path = `$.${request.path.join('.')}`;
           params[placeholder] = path;
-          return `json_extract(${column}, $${placeholder}) as ${name}`;
+          return `json_extract(${column}, $${placeholder})${alias}`;
         }
         const statements = [];
         for (const arg of args) {
@@ -155,7 +161,7 @@ class Database {
             statements.push(`$${placeholder}`);
           }
         }
-        return `${method}(${statements.join(', ')}) as ${name}`;
+        return `${method}(${statements.join(', ')})${alias}`;
       }
       let tsType;
       if (method) {
@@ -194,7 +200,7 @@ class Database {
         }
       }
       const item = {
-        create,
+        createClause,
         tsType,
         jsonPath
       };
@@ -219,6 +225,10 @@ class Database {
   }
 
   async readViews() {
+    return;
+  }
+
+  async readComputed() {
     return;
   }
 
@@ -277,6 +287,12 @@ class Database {
       this.viewSet.add(view.name);
     }
     this.addTables(views);
+  }
+
+  async setComputed() {
+    const file = await this.readComputed();
+    const parsed = JSON.parse(file);
+    this.computedTypes = new Map(parsed);
   }
 
   async setVirtual() {

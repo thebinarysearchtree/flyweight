@@ -11,6 +11,7 @@ export interface SQLiteConfig extends DatabaseConfig {
   sql: string | URL;
   tables: string | URL;
   views: string | URL;
+  computed: string | URL;
   extensions?: string | URL | Array<string | URL>;
   adaptor: any;
 }
@@ -42,6 +43,7 @@ export interface Paths {
   migrations: string;
   wrangler?: string;
   files?: string;
+  computed: string;
 }
 
 export class Database {
