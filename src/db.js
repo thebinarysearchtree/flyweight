@@ -85,6 +85,7 @@ class Database {
       db: this,
       sqlDir: paths.sql,
       destinationPath: paths.types,
+      computedPath: paths.computed,
       customPath: paths.custom,
       jsonPath: paths.json,
       fileSystem,
@@ -133,14 +134,15 @@ class Database {
       expression(columnProxy, methodProxy);
       const method = methodTarget.name;
       const args = methodTarget.args;
-      const createClause = (params, getPlaceholder, type) => {
+      const createClause = (table, params, getPlaceholder, withAlias) => {
         let alias = '';
-        if (type === 'select') {
+        if (withAlias) {
           alias = ` as ${name}`;
         }
+        const tableClause = table ? `${table}.` : '';
         if (!method) {
           const request = columnRequests.at(0);
-          const column = `${table}.${request.name}`;
+          const column = `${tableClause}${request.name}`;
           if (request.path.length === 0) {
             return `${column} as ${name}`;
           }
@@ -153,7 +155,7 @@ class Database {
         for (const arg of args) {
           const column = columnRequests.find(r => r === arg);
           if (column) {
-            statements.push(`${table}.${column.name}`);
+            statements.push(`${tableClause}${column.name}`);
           }
           else {
             const placeholder = getPlaceholder();
@@ -164,14 +166,15 @@ class Database {
         return `${method}(${statements.join(', ')})${alias}`;
       }
       let tsType;
+      let columnType;
       if (method) {
         tsType = tsReturnTypes[method];
       }
       else {
         const request = columnRequests.at(0);
         if (request.path.length === 0) {
-          const dbType = this.columns[table][request.name];
-          tsType = typeMap[dbType];
+          columnType = this.columns[table][request.name];
+          tsType = typeMap[columnType];
         }
         else {
           tsType = 'number | string | null';
@@ -201,6 +204,7 @@ class Database {
       }
       const item = {
         createClause,
+        columnType,
         tsType,
         jsonPath
       };
@@ -400,11 +404,30 @@ class Database {
     return this.addStrict(converted);
   }
 
+  getComputedParser(table, column) {
+    const computed = this.computed.get(table);
+    if (computed) {
+      const item = computed.get(column);
+      if (item) {
+        if (item.columnType && !dbTypes[item.columnType]) {
+          return this.customTypes[item.columnType].dbToJs;
+        }
+        const computedType = this.computedTypes.get(`${table} ${key}`);
+        if (computedType) {
+          return this.customTypes[computedType].dbToJs;
+        }
+      }
+    }
+  }
+
   needsParsing(table, keys) {
     if (typeof keys === 'string') {
       keys = [keys];
     }
     for (const key of keys) {
+      if (this.getComputedParser(table, key)) {
+        return true;
+      }
       const type = this.columns[table][key];
       if (!dbTypes[type]) {
         return true;
@@ -421,6 +444,10 @@ class Database {
   convertToJs(table, column, value, customFields) {
     if (value === null) {
       return value;
+    }
+    const parser = this.getComputedParser(table, column);
+    if (parser) {
+      return parser(value);
     }
     let type;
     if (customFields && customFields[column]) {

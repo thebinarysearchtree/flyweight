@@ -237,9 +237,15 @@ const processInsert = async (db, sql, params, primaryKey, tx) => {
 const verify = (columns) => {
   const pattern = /^[_a-z][a-z0-9_]+$/i;
   if (typeof columns === 'string') {
-    return pattern.test(columns);
+    if (!pattern.test(columns)) {
+      throw Error(`Invalid column name ${columns}`);
+    }
   }
-  return columns.every(c => pattern.test(c));
+  for (const column of columns) {
+    if (!pattern.test(column)) {
+      throw Error(`Invalid column name ${column}`);
+    }
+  }
 }
 
 const upsert = async (db, table, options, tx) => {
@@ -334,7 +340,14 @@ const insertMany = async (db, table, items, tx) => {
   return await db.run(options);
 }
 
-const toWhere = (table, query, params, type = 'and') => {
+const toWhere = (options) => {
+  const { 
+    table, 
+    query, 
+    params, 
+    type, 
+    adjuster 
+  } = options;
   if (!query) {
     return '';
   }
@@ -347,20 +360,36 @@ const toWhere = (table, query, params, type = 'and') => {
   }
   const conditions = [];
   for (const [column, param] of entries) {
-    if (column !== 'and' && column !== 'or') {
-      verify(column);
-    }
     if (param === undefined) {
       continue;
     }
-    const selector = table ? `${table}.${column}` : column;
+    let adjustedName;
+    if (adjuster) {
+      const name = adjuster(column);
+      if (name !== column) {
+        adjustedName = name;
+      }
+    }
+    let selector;
+    if (adjustedName) {
+      selector = adjustedName;
+    }
+    else {
+      selector = table ? `${table}.${column}` : column;
+    }
     if (column === 'and' || column === 'or') {
       if (!Array.isArray(param)) {
         throw Error(`The "${column}" property value must be an array of conditions`);
       }
       const filters = [];
       for (const query of param) {
-        const clauses = toWhere(table, query, params, column);
+        const clauses = toWhere({
+          table,
+          query,
+          params,
+          type: column,
+          adjuster
+        });
         filters.push(clauses);
       }
       conditions.push(`(${filters.join(` ${column} `)})`);
@@ -379,7 +408,7 @@ const toWhere = (table, query, params, type = 'and') => {
       conditions.push(`${selector} = $${placeholder}`);
     }
   }
-  return conditions.join(` ${type} `);
+  return conditions.join(` ${type || 'and'} `);
 }
 
 const createSetClause = (db, table, query, params) => {
@@ -450,14 +479,12 @@ const expandStar = (db, table) => {
 const toSelect = (db, table, columns, types, params) => {
   if (columns) {
     const computed = db.computed.get(table);
-    const checkComputed = (name) => computed && computed.has(name);
     if (typeof columns === 'string') {
-      const isComputed = checkComputed(columns);
       verify(columns);
       let clause;
-      if (isComputed) {
+      if (computed && computed.has(columns)) {
         const item = computed.get(columns);
-        clause = item.createClause(params, getPlaceholder, 'select');
+        clause = item.createClause(table, params, getPlaceholder);
       }
       else if (db.supports.jsonb && types[columns] === 'json') {
         clause = `json(${table}.${columns}) as ${columns}`;
@@ -475,11 +502,10 @@ const toSelect = (db, table, columns, types, params) => {
       const statements = [];
       for (const column of columns) {
         if (typeof column === 'string') {
-          const isComputed = checkComputed(column);
           verify(column);
           names.push(column);
           let statement;
-          if (isComputed) {
+          if (computed && computed.has(column)) {
             const item = computed.get(column);
             statement = item.createClause(params, getPlaceholder, 'select');
           }
@@ -502,19 +528,25 @@ const toSelect = (db, table, columns, types, params) => {
   return expandStar(db, table);
 }
 
-const getOrderBy = (keywords) => {
+const getOrderBy = (keywords, adjuster) => {
   let orderBy = keywords.orderBy;
-  verify(orderBy);
   if (Array.isArray(orderBy)) {
-    orderBy = orderBy.join(', ');
+    orderBy = orderBy
+      .map(column => {
+        if (adjuster) {
+          return adjuster(column);
+        }
+        return column;
+      })
+      .join(', ');
   }
-  return orderBy;
+  return adjuster ? adjuster(orderBy) : orderBy;
 }
 
-const toKeywords = (keywords, params) => {
+const toKeywords = (keywords, params, adjuster) => {
   let sql = '';
   if (keywords) {
-    const orderBy = getOrderBy(keywords);
+    const orderBy = getOrderBy(keywords, adjuster);
     sql += ` order by ${orderBy}`;
     if (keywords.desc) {
       sql += ' desc';
@@ -723,6 +755,36 @@ const makeJsonArray = (types, columns) => {
   return sql;
 }
 
+const adjustName = (options) => {
+  const {
+    table,
+    column,
+    withAlias,
+    selectColumns,
+    params,
+    computed 
+  } = options;
+  if (!/^[_a-z][a-z0-9_]+$/i.test(column)) {
+    throw Error(`Invalid column name ${column}`);
+  }
+  if (!computed) {
+    return column;
+  }
+  const item = computed.get(column);
+  if (!item) {
+    return column;
+  }
+  if (withAlias) {
+    return item.createClause(table, params, getPlaceholder, true);
+  }
+  else {
+    if (selectColumns && selectColumns.includes(column)) {
+      return column;
+    }
+    return item.createClause(table, params, getPlaceholder, false);
+  }
+}
+
 const group = async (config) => {
   const {
     db,
@@ -737,8 +799,8 @@ const group = async (config) => {
     await db.initialize();
   }
   const { select, column, distinct, where, include, alias, debug, ...keywords } = query;
-  if (alias && !/^[_a-z][a-z0-9_]+$/i.test(alias)) {
-    throw Error('Invalid alias');
+  if (alias) {
+    verify(alias);
   }
   let having;
   let adjustedWhere = where;
@@ -760,8 +822,19 @@ const group = async (config) => {
     }
   }
   const hasKeywords = Object.keys(keywords).length > 0;
-  const by = Array.isArray(config.by) ? config.by : [config.by];
+  const rawBy = Array.isArray(config.by) ? config.by : [config.by];
   const params = {};
+  const computed = db.computed.get(table);
+  if (alias && computed && computed.has(alias)) {
+    throw Error(`The alias cannot have the same name as a computed field.`);
+  }
+  const by = rawBy.map(column => adjustName({
+    table,
+    column,
+    withAlias: true,
+    params,
+    computed
+  }));
   let debugResult;
   if (debug) {
     debugResult = {
@@ -789,15 +862,17 @@ const group = async (config) => {
   const includeResults = [];
   if (include) {
     for (const [column, handler] of Object.entries(include)) {
+      if (computed && computed.has(column)) {
+        throw Error(`Includes cannot have the same name as computed fields.`);
+      }
       const result = processInclude(column, handler, null, null, debugResult);
       includeResults.push({ column, result });
     }
   }
   const needsParsing = new Map();
-  verify(by);
   const columnTypes = db.supports.jsonb ? db.columns[table] : null;
   const byClause = by.join(', ');
-  for (const column of by) {
+  for (const column of rawBy) {
     if (db.needsParsing(table, column)) {
       needsParsing.set(column, { type: 'value' });
     }
@@ -813,8 +888,12 @@ const group = async (config) => {
       if (distinct) {
         body += 'distinct ';
       }
-      verify(field);
-      body += field;
+      body += adjustName({
+        table,
+        column: field,
+        params,
+        computed
+      });
     }
     else {
       body = '*';
@@ -825,16 +904,24 @@ const group = async (config) => {
   else {
     const types = db.columns[table];
     let columns;
+    let rawColumns;
     if (!select) {
       columns = Object.keys(db.columns[table]);
+      rawColumns = columns;
     }
     else if (Array.isArray(select)) {
-      columns = select;
+      columns = select.map(column => adjustName({
+        table,
+        column,
+        params,
+        computed
+      }));
+      rawColumns = select;
     }
     if (columns) {
       sql += makeJsonArray(columnTypes, columns);
       const fields = new Map();
-      for (const column of columns) {
+      for (const column of rawColumns) {
         if (db.needsParsing(table, column) && types[column] !== 'json') {
           fields.set(column, true);
         }
@@ -842,7 +929,13 @@ const group = async (config) => {
       needsParsing.set(alias || methodAlias, { jsonParse: true, fields });
     }
     else {
-      sql += `json_group_array(${select})`;
+      const name = adjustName({
+        table,
+        column: select,
+        params,
+        computed
+      });
+      sql += `json_group_array(${name})`;
       let field;
       if (db.needsParsing(table, select) && types[select] !== 'json') {
         field = select;
@@ -852,20 +945,41 @@ const group = async (config) => {
     sql += ` as ${methodAlias} from ${table}`;
   }
   if (adjustedWhere) {
-    const clauses = toWhere(table, adjustedWhere, params);
+    const adjuster = (name) => adjustName({
+      table,
+      column: name,
+      selectColumns: rawBy,
+      params,
+      computed
+    });
+    const clauses = toWhere({
+      table,
+      query: adjustedWhere,
+      params,
+      adjuster
+    });
     if (clauses) {
       sql += ` where ${clauses}`;
     }
   }
   sql += ` group by ${byClause}`;
   if (having) {
-    const clauses = toWhere(null, having, params);
+    const clauses = toWhere({
+      query: having,
+      params
+    });
     if (clauses) {
       sql += ` having ${clauses}`;
     }
   }
   if (hasKeywords && !partitionBy) {
-    sql += toKeywords(keywords, params);
+    const adjuster = (name) => adjustName({
+      column: name,
+      selectColumns: rawBy,
+      params,
+      computed
+    });
+    sql += toKeywords(keywords, params, adjuster);
   }
   else if (partitionBy) {
     const withTable = 'flyweight_wrapped';
@@ -873,7 +987,13 @@ const group = async (config) => {
     const selectColumns = [methodAlias, ...by];
     let orderBy;
     if (keywords.orderBy) {
-      orderBy = getOrderBy(keywords);
+      const adjuster = (name) => adjustName({
+        column: name,
+        selectColumns: rawBy,
+        params,
+        computed
+      });
+      orderBy = getOrderBy(keywords, adjuster);
     }
     else {
       orderBy = db.getPrimaryKey(table);
@@ -1820,6 +1940,7 @@ const all = async (config) => {
       };
     }
   }
+  const computed = db.computed(table);
   const returnValue = ['string', 'function'].includes(typeof columns);
   const includeResults = [];
   const columnsToRemove = [];
