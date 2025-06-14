@@ -106,7 +106,8 @@ class Database {
           target.name = property;
           const request = {
             name: property,
-            path: []
+            path: [],
+            proxy: null
           };
           const pathHandler = {
             get: function(target, property) {
@@ -116,6 +117,7 @@ class Database {
             }
           };
           const pathProxy = new Proxy(request, pathHandler);
+          request.proxy = pathProxy;
           columnRequests.push(request);
           return pathProxy;
         }
@@ -134,15 +136,14 @@ class Database {
       expression(columnProxy, methodProxy);
       const method = methodTarget.name;
       const args = methodTarget.args;
-      const createClause = (table, params, getPlaceholder, withAlias) => {
+      const createClause = (params, getPlaceholder, withAlias) => {
         let alias = '';
         if (withAlias) {
           alias = ` as ${name}`;
         }
-        const tableClause = table ? `${table}.` : '';
         if (!method) {
           const request = columnRequests.at(0);
-          const column = `${tableClause}${request.name}`;
+          const column = request.name;
           if (request.path.length === 0) {
             return `${column} as ${name}`;
           }
@@ -153,9 +154,9 @@ class Database {
         }
         const statements = [];
         for (const arg of args) {
-          const column = columnRequests.find(r => r === arg);
+          const column = columnRequests.find(r => r.proxy === arg);
           if (column) {
-            statements.push(`${tableClause}${column.name}`);
+            statements.push(column.name);
           }
           else {
             const placeholder = getPlaceholder();
@@ -194,7 +195,7 @@ class Database {
         const column = args.at(0);
         const path = args.at(1);
         if (!path.includes('[')) {
-          const request = columnRequests.find(r => r === column);
+          const request = columnRequests.find(r => r.proxy === column);
           const split = path.substring(2).split('.');
           jsonPath = {
             key: `${table} ${request.name}`,
@@ -272,7 +273,13 @@ class Database {
   }
 
   async setTables() {
-    const sql = await this.readTables();
+    let sql = '';
+    try {
+      sql = await this.readTables();
+    }
+    catch {
+      return;
+    }
     if (!sql.trim()) {
       return;
     }
@@ -281,7 +288,13 @@ class Database {
   }
 
   async setViews() {
-    let sql = await this.readViews();
+    let sql = '';
+    try {
+      sql = await this.readViews();
+    }
+    catch {
+      return;
+    }
     if (!sql.trim()) {
       return;
     }
@@ -294,9 +307,14 @@ class Database {
   }
 
   async setComputed() {
-    const file = await this.readComputed();
-    const parsed = JSON.parse(file);
-    this.computedTypes = new Map(parsed);
+    try {
+      const file = await this.readComputed();
+      const parsed = JSON.parse(file);
+      this.computedTypes = new Map(parsed);
+    }
+    catch {
+      this.computedTypes = new Map();
+    }
   }
 
   async setVirtual() {
@@ -412,7 +430,7 @@ class Database {
         if (item.columnType && !dbTypes[item.columnType]) {
           return this.customTypes[item.columnType].dbToJs;
         }
-        const computedType = this.computedTypes.get(`${table} ${key}`);
+        const computedType = this.computedTypes.get(`${table} ${column}`);
         if (computedType) {
           return this.customTypes[computedType].dbToJs;
         }
@@ -448,6 +466,10 @@ class Database {
     const parser = this.getComputedParser(table, column);
     if (parser) {
       return parser(value);
+    }
+    const computed = this.computed.get(table);
+    if (computed && computed.has(column)) {
+      return value;
     }
     let type;
     if (customFields && customFields[column]) {
