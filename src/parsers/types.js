@@ -609,7 +609,7 @@ const createTypes = async (options) => {
         else if (isBoolean) {
           computedTypes.push([key, 'boolean']);
         }
-        types += `  ${name}?: ${tsType};\n`;
+        types += `  ${name}: ${tsType};\n`;
       }
       types += '}\n\n';
     }

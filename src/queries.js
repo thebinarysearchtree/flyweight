@@ -55,13 +55,10 @@ const methods = new Map([
   ['like', 'like'],
   ['match', 'match'],
   ['glob', 'glob'],
-  ['range', null],
-  ['includes', null],
-  ['some', null],
   ['eq', '=']
 ]);
 
-const getConditions = (column, query, params) => {
+const getConditions = (column, query, params, adjuster) => {
   const operatorHandler = {
     get: function(target, property) {
       target.push(property);
@@ -97,7 +94,7 @@ const getConditions = (column, query, params) => {
   if (path) {
     params[placeholder] = path;
   }
-  const select = column;
+  const select = adjuster ? adjuster(column) : column;
   const selector = path ? `json_extract(${select}, $${placeholder})` : select;
   const conditions = [];
   const expression = columnTarget.name;
@@ -117,22 +114,6 @@ const getConditions = (column, query, params) => {
       const placeholder = getPlaceholder();
       params[placeholder] = value;
       conditions.push(`${selector} != $${placeholder}`);
-    }
-  }
-  else if (method === 'range') {
-    for (const [method, param] of Object.entries(value)) {
-      if (!['gt', 'gte', 'lt', 'lte'].includes(method)) {
-        throw Error('Invalid range statement');
-      }
-      const operator = methods.get(method);
-      if (param === columnProxy) {
-        conditions.push(`${selector} ${operator} ${expression}`);
-      }
-      else {
-        const placeholder = getPlaceholder();
-        params[placeholder] = param;
-        conditions.push(`${selector} ${operator} $${placeholder}`);
-      }
     }
   }
   else {
@@ -343,7 +324,6 @@ const toWhere = (options) => {
       const filters = [];
       for (const query of param) {
         const clauses = toWhere({
-          table,
           query,
           params,
           type: column,
@@ -354,7 +334,7 @@ const toWhere = (options) => {
       conditions.push(`(${filters.join(` ${column} `)})`);
     }
     else if (typeof param === 'function') {
-      const result = getConditions(column, param, params);
+      const result = getConditions(column, param, params, adjuster);
       conditions.push(...result);
     }
     else if (Array.isArray(param)) {
@@ -504,6 +484,50 @@ const toSelect = (db, table, columns, types, params) => {
 }
 
 const getOrderBy = (orderBy, adjuster) => {
+  if (typeof orderBy === 'function') {
+    const columnHandler = {
+      get: function(target, property) {
+        target.name = property;
+        const request = {
+          name: property
+        };
+        columnRequests.push(request);
+        return request;
+      }
+    }
+    const columnTarget = {};
+    const columnProxy = new Proxy(columnTarget, columnHandler);
+    const columnRequests = [];
+    const methodHandler = {
+      get: function(target, property) {
+        target.name = property;
+        return (...args) => target.args = args;
+      }
+    }
+    const methodTarget = {};
+    const methodProxy = new Proxy(methodTarget, methodHandler);
+    orderBy(methodProxy, columnProxy);
+    const method = methodTarget.name;
+    const args = methodTarget.args;
+    if (!method) {
+      throw Error('orderBy functions must use a method');
+    }
+    const statements = [];
+    for (const arg of args) {
+      const column = columnRequests.find(r => r === arg);
+      if (column) {
+        const name = column.name;
+        const selector = adjuster ? adjuster(name) : name;
+        statements.push(selector);
+      }
+      else {
+        const placeholder = getPlaceholder();
+        params[placeholder] = arg;
+        statements.push(`$${placeholder}`);
+      }
+    }
+    return `${method}(${statements.join(', ')})`;
+  }
   const columns = Array.isArray(orderBy) ? orderBy : [orderBy];
   return columns
     .map(column => {
@@ -2025,7 +2049,7 @@ const all = async (config) => {
     if (clause) {
       sql += ` where ${clause}`;
     }
-    sql += toKeywords(keywords, params);
+    sql += toKeywords(keywords, params, adjuster);
   }
   if (first) {
     sql += ' limit 1';

@@ -193,7 +193,16 @@ You can use the ```query``` or ```first``` syntax for more complex queries. ```q
 
 ```include```: include other tables in the result.
 
-```orderBy```: a string representing the column to order the result by, or an array of columns to order the result by.
+```orderBy```: a string representing the column to order the result by, or an array of columns to order the result by. This can also be a function that utilises the built-in SQLite functions.
+
+```js
+const orderBy = await db.fighters.query({
+  where: {
+    hometown: 'Brisbane, Australia'
+  },
+  orderBy: (f, c) => f.lower(c.instagram)
+});
+```
 
 ```desc```: set to true when using ```orderBy``` if you want the results in descending order.
 
@@ -226,16 +235,16 @@ const locations = await db.locations.query({
 });
 ```
 
-While the default interpretation of the query parameters is ```=```, you can pass in a function to use ```not```, ```gt```, ```gte```, ```lt```, ```lte```, ```like```, ```range```, ```match``` and ```glob```.
+While the default interpretation of the query parameters is ```=```, you can pass in a function to use ```not```, ```gt```, ```gte```, ```lt```, ```lte```, ```like```, ```match``` and ```glob```.
 
 For example:
 
 ```js
 const excluded = [1, 2, 3];
-const users = await db.users.many({ id: i => i.not(excluded) });
+const users = await db.users.many({ id: c => c.not(excluded) });
 const count = await db.users.count({
   where: {
-    id: i => i.range({ gt: 10, lt: 15 })
+    id: c => c.gt(10)
   }
 });
 ```
@@ -248,12 +257,12 @@ If you need to perform complex logic in the ```where``` clause, you can use the 
 const events = await db.events.query({
   where: {
     or: [
-      { name: n => n.like('UFC 1_: The%') },
-      { id: n => n.lt(10) },
+      { name: c => c.like('UFC 1_: The%') },
+      { id: c => c.lt(10) },
       {
         and: [
-          { startTime: n => n.gt(time) },
-          { name: n => n.like('%Japan%') }
+          { startTime: c => c.gt(time) },
+          { name: c => c.like('%Japan%') }
         ]
       }
     ]
@@ -301,7 +310,7 @@ const towns = await db.fighters
     limit: 3,
     alias: 'height',
     where: {
-      avg: a => a.gt(170)
+      avg: c => c.gt(170)
     }
   });
 ```
@@ -318,6 +327,35 @@ const groupValues = await db.events
     alias: 'startTimes',
     limit: 3
   });
+```
+
+### Computed fields
+
+All of the functions built into SQLite, such as ```concat```, ```round```, and ```substring``` can be used to create fields that are computed inside the database and can therefore be used in all of the clauses, such as ```orderBy``` or ```where```.
+
+These fields should be defined before the database is exported to other parts of your program.
+
+```js
+db.fighters.compute({
+  displayName: (c, f) => f.concat(c.name, ' (', c.nickname, ')'),
+  instagram: c => c.social.instagram
+});
+```
+
+The ```instagram``` example nagivates a JSON type to extract a specific field. You can then use these fields in the rest of the API in exactly the same way as you do with standard columns.
+
+```js
+const orderBy = await db.fighters.query({
+  select: 'instagram',
+  where: {
+    and: [
+      { id: c => c.gt(100) },
+      { id: c => c.lt(120) },
+      { instagram: c => c.not(null) }
+    ]
+  },
+  orderBy: (f, c) => f.lower(c.instagram)
+});
 ```
 
 ### Remove
@@ -449,7 +487,7 @@ try {
     name: 'Eugene Bareman',
     city: 'Auckland'
   });
-  const fighterId = await tx.fighters.get({ name: n => n.like('Israel%') }, 'id');
+  const fighterId = await tx.fighters.get({ name: c => c.like('Israel%') }, 'id');
   await tx.fighterCoaches.insert({
     fighterId,
     coachId
