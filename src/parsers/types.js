@@ -427,10 +427,9 @@ const createTypes = async (options) => {
     jsonPath,
     computedPath
   } = options;
-  const features = db.supports;
   let index = files.index;
   index = index.replace(/export \{[^\}]+\}/, '');
-  index = index.replace('getClient<T>(): T; ', 'getClient(): TypedDb; ');
+  index = index.replace('getClient(): any; ', 'getClient(): TypedDb; ');
   const definitions = files.interfaces;
   const typeSet = new Set();
   let i = 1;
@@ -594,7 +593,7 @@ const createTypes = async (options) => {
                   i++;
                 }
                 if (current) {
-                  tsType = current;
+                  tsType = `${current} | null`;
                 }
               }
             }
@@ -624,7 +623,7 @@ const createTypes = async (options) => {
     }
   }
   types = types.replace('getClient(): any;', 'getClient(): TypedDb;');
-  const exportSection = files[features.types];
+  const exportSection = files[db.name];
   const replaced = exportSection.replace(/(\[key: string\]: any;\s)/, `$1${returnTypes.join('')}`);
   types += replaced;
 

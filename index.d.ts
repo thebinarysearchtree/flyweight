@@ -1,33 +1,24 @@
-export interface QueryOptions {
+interface QueryOptions {
   parse: boolean;
 }
 
-export interface DatabaseConfig {
+interface DatabaseConfig {
   debug?: boolean;
 }
 
-export interface SQLiteConfig extends DatabaseConfig {
+interface SQLiteConfig extends DatabaseConfig {
   db: string | URL;
-  sql: string | URL;
-  tables: string | URL;
-  views: string | URL;
-  computed: string | URL;
-  extensions?: string | URL | Array<string | URL>;
+  paths: SQLitePaths;
   adaptor: any;
 }
 
-export interface TursoConfig extends DatabaseConfig {
+interface TursoConfig extends DatabaseConfig {
   db: any;
-  files: any;
+  paths: Paths;
+  adaptor: any;
 }
 
-export interface D1Config extends DatabaseConfig {
-  db: any;
-  files: any;
-  getSample?: any;
-}
-
-export interface FileSystem {
+interface FileSystem {
   readFile: (path: string, encoding: string) => Promise<string>;
   writeFile: (path: string, content: string) => Promise<void>;
   readdir: (path: string) => Promise<string[]>;
@@ -35,15 +26,18 @@ export interface FileSystem {
   readSql: (path: string) => Promise<string>;
 }
 
-export interface Paths {
-  tables: string;
-  views: string;
-  sql: string;
-  types: string;
-  migrations: string;
-  wrangler?: string;
-  files?: string;
-  computed: string;
+interface Paths {
+  tables: string | URL;
+  views: string | URL;
+  sql: string | URL;
+  types: string | URL;
+  migrations: string | URL;
+  computed: string | URL;
+}
+
+interface SQLitePaths extends Paths {
+  db: string | URL;
+  extensions?: string | URL | Array<string | URL>;
 }
 
 export class Database {
@@ -56,6 +50,7 @@ export class Database {
   run(args: { query: any, params?: any }): Promise<number>;
   all<T>(args: { query: any, params?: any, options?: QueryOptions }): Promise<Array<T>>;
   exec(query: string): Promise<void>;
+  close(): Promise<void>;
 }
 
 export class SQLiteDatabase extends Database {
@@ -63,7 +58,6 @@ export class SQLiteDatabase extends Database {
   begin(): Promise<void>;
   commit(): Promise<void>;
   rollback(): Promise<void>;
-  close(): Promise<void>;
 }
 
 export class TursoDatabase extends Database {
@@ -71,10 +65,5 @@ export class TursoDatabase extends Database {
   begin(): Promise<void>;
   commit(): Promise<void>;
   rollback(): Promise<void>;
-  batch(handler: (batcher: any) => any[]): Promise<any[]>;
-}
-
-export class D1Database extends Database {
-  constructor(options: D1Config);
   batch(handler: (batcher: any) => any[]): Promise<any[]>;
 }

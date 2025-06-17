@@ -4,16 +4,8 @@ import { isWrite } from './parsers/queries.js';
 
 class TursoDatabase extends Database {
   constructor(props) {
-    const supports = {
-      jsonb: true,
-      migrations: true,
-      files: false,
-      closing: false,
-      types: 'turso'
-    };
-    super({ ...props, supports });
+    super({ ...props, name: 'turso' });
     this.raw = props.db;
-    this.files = props.files;
   }
 
   async initialize() {
@@ -28,19 +20,20 @@ class TursoDatabase extends Database {
   }
 
   async readQuery(table, queryName) {
-    return this.files.queries[table][queryName];
+    const path = this.adaptor.join(this.paths.sql, table, `${queryName}.sql`);
+    return await this.adaptor.readFile(path, 'utf8');
   }
 
   async readTables() {
-    return this.files.tables;
+    return await this.adaptor.readSql(this.paths.tables);
   }
 
   async readViews() {
-    return this.files.views;
+    return await this.adaptor.readSql(this.paths.views);
   }
 
   async readComputed() {
-    return this.files.computed;
+    return await this.adaptor.readFile(this.paths.computed, 'utf8');
   }
 
   async runMigration(sql) {

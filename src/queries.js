@@ -130,12 +130,12 @@ const getConditions = (column, query, params, adjuster) => {
   return conditions;
 }
 
-const getPlaceholders = (supports, query, params, columnTypes) => {
+const getPlaceholders = (query, params, columnTypes) => {
   const columns = Object.keys(query);
   return columns.map(columnName => {
     const placeholder = getPlaceholder();
     params[placeholder] = query[columnName];
-    if (supports.jsonb && columnTypes[columnName] === 'json') {
+    if (columnTypes[columnName] === 'json') {
       return `jsonb($${placeholder})`;
     }
     return `$${placeholder}`;
@@ -147,7 +147,7 @@ const adjust = (db, table, params) => {
   const adjusted = db.adjust(params);
   const processed = {};
   for (const [name, value] of Object.entries(adjusted)) {
-    if (db.supports.jsonb && columnTypes[name] === 'json') {
+    if (columnTypes[name] === 'json') {
       processed[name] = JSON.stringify(value);
     }
     else {
@@ -160,7 +160,7 @@ const adjust = (db, table, params) => {
 const makeInsertSql = (db, table, query, params) => {
   const columns = Object.keys(query);
   const columnTypes = db.columnSets[table];
-  const placeholders = getPlaceholders(db.supports, query, params, columnTypes);
+  const placeholders = getPlaceholders(query, params, columnTypes);
   return `insert into ${table}(${columns.join(', ')}) values(${placeholders.join(', ')})`;
 }
 
@@ -275,7 +275,7 @@ const insertMany = async (db, table, items, tx) => {
   }
   let sql = `insert into ${table}(${columns.join(', ')}) select `;
   const select = columns.map(column => {
-    if (db.supports.jsonb && columnTypes[column] === 'json') {
+    if (columnTypes[column] === 'json') {
       return `jsonb(json_each.value ->> '${column}')`;
     }
     return `json_each.value ->> '${column}'`;
@@ -360,7 +360,7 @@ const createSetClause = (db, table, query, params) => {
   for (const [column, param] of Object.entries(query)) {
     const placeholder = getPlaceholder();
     params[placeholder] = param;
-    if (columnTypes[column] === 'json' && db.supports.jsonb) {
+    if (columnTypes[column] === 'json') {
       statements.push(`${column} = jsonb($${placeholder})`);
     }
     else {
@@ -409,7 +409,7 @@ const update = async (db, table, options, tx) => {
 const expandStar = (db, table) => {
   const columnTypes = db.columns[table];
   const names = Object.keys(columnTypes);
-  if (!db.supports.jsonb || !db.hasJson[table]) {
+  if (!db.hasJson[table]) {
     const clause = names.join(', ');
     return {
       names,
@@ -441,7 +441,7 @@ const toSelect = (db, table, columns, types, params) => {
         const item = computed.get(columns);
         clause = item.createClause(params, getPlaceholder, true);
       }
-      else if (db.supports.jsonb && types[columns] === 'json') {
+      else if (types[columns] === 'json') {
         clause = `json(${columns}) as ${columns}`;
       }
       else {
@@ -464,7 +464,7 @@ const toSelect = (db, table, columns, types, params) => {
             const item = computed.get(column);
             statement = item.createClause(params, getPlaceholder, true);
           }
-          else if (db.supports.jsonb && types[column] === 'json') {
+          else if (types[column] === 'json') {
             statement = `json(${column}) as ${column}`;
           }
           else {
@@ -859,7 +859,7 @@ const group = async (config) => {
     }
   }
   const needsParsing = new Map();
-  const columnTypes = db.supports.jsonb ? db.columns[table] : null;
+  const columnTypes = db.columns[table];
   const byClause = by.join(', ');
   for (const column of rawBy) {
     if (db.needsParsing(table, column)) {

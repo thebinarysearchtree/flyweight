@@ -1,11 +1,11 @@
 # Flyweight
-Flyweight is a NodeJS and edge ORM with first-class support for databases that are compatible with SQLite, including Cloudflare D1 and Turso.
+Flyweight is a NodeJS ORM for SQLite and Turso.
 
 Features include a comprehensive API, the ability to automatically type and query inside JSON, and advanced typing of raw SQL queries so that you are not without TypeScript support in any situation.
 
 ## Creating tables
 
-Tables are created the same way as they are in SQL. The native types available in strict mode are ```integer```, ```real```, ```text```, ```blob```, and ```any```. In addition to these types, four additional types are included by default: ```boolean```, ```date```, and ```json```. ```boolean``` is a column in which the values are restricted to 1 or 0, ```date``` is a JavaScript ```Date``` stored as an ISO8601 string, and ```json``` is ```jsonb``` stored as a blob if the database supports it, otherwise it is text. These additional types are automatically parsed by the ORM.
+Tables are created the same way as they are in SQL. The native types available in strict mode are ```integer```, ```real```, ```text```, ```blob```, and ```any```. In addition to these types, four additional types are included by default: ```boolean```, ```date```, and ```json```. ```boolean``` is a column in which the values are restricted to 1 or 0, ```date``` is a JavaScript ```Date``` stored as an ISO8601 string, and ```json``` is ```jsonb``` stored as a blob. These additional types are automatically parsed by the ORM.
 
 ```sql
 create table events (
@@ -43,7 +43,18 @@ const id = await db.coaches.insert({
 mkdir test
 cd test
 npm init
+```
+
+For a standard SQLite database, then run
+
+```
 npx create-flyweight database
+```
+
+For Turso, run
+
+```
+npx create-flyweight turso database
 ```
 
 You can run the ```npx``` command at the root of either an existing or a new project. Once that is done, you can import the database this way:
@@ -59,6 +70,8 @@ console.log(users);
 A ```users``` table has already been created for you to play around with.
 
 You can update types whenever you change the SQL by either calling ```npm run watch``` to automatically update the types, or ```npm run types``` to do it manually.
+
+Configuration options can be found in the ```config.js``` file.
 
 ## Migrations
 
@@ -333,8 +346,6 @@ const groupValues = await db.events
 
 All of the functions built into SQLite, such as ```concat```, ```round```, and ```substring``` can be used to create fields that are computed inside the database and can therefore be used in all of the clauses, such as ```orderBy``` or ```where```.
 
-These fields should be defined before the database is exported to other parts of your program.
-
 ```js
 db.fighters.compute({
   displayName: (c, f) => f.concat(c.name, ' (', c.nickname, ')'),
@@ -357,6 +368,8 @@ const orderBy = await db.fighters.query({
   orderBy: (f, c) => f.lower(c.instagram)
 });
 ```
+
+Computed fields are not automatically included in results and have to be specifically selected. They should be defined in the ```db.js``` file.
 
 ### Remove
 
@@ -503,29 +516,17 @@ catch (e) {
 
 ## Batches
 
-You can also run multiple statements inside a single transaction without any logic using ```batch```. This is supported by all databases. Here is an example using D1.
+You can also run multiple statements inside a single transaction without any logic using ```batch```.
 
 ```ts
-import createClient from './database/db';
+const projectId = 1;
+const [project, tags, issues] = await db.batch((bx) => [
+  bx.projects.get({ id: projectId }),
+  bx.tags.many({ projectId }),
+  bx.issues.many({ projectId })
+]);
 
-export default {
-  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    const db = createClient(env.DB);
-
-    const projectId = 1;
-    const [project, tags, issues] = await db.batch((bx) => [
-      bx.projects.get({ id: projectId }),
-      bx.tags.many({ projectId }),
-      bx.issues.many({ projectId })
-    ]);
-
-    return Response.json({
-      ...project
-      tags,
-      issues
-    });
-  }
-};
+const result = { ...project, tags, issues };
 ```
 
 ## Views
@@ -544,59 +545,4 @@ import { db } from './database/db.js';
 
 const user = await db.activeUsers.get({ id: 100 }, ['name', 'email']);
 console.log(user.email);
-```
-
-## Cloudflare D1
-
-Flyweight provides first-class support for D1. The only difference between the D1 API and the SQLite API is that D1 doesn't support transactions other than ```batch```.
-
-To get started, run this command in the root of your Cloudflare Workers project.
-
-```
-npx create-flyweight d1 src/database
-```
-
-The first thing you will want to do is go into ```src/database/config.js``` and set the database name. If you want to use JSON sampling, you should also set the ```localPath``` to the path of the local SQLite file, which is usually somewhere in the ```.wrangler``` folder.
-
-If your database already has tables created on it, go into ```src/database/sql/tables.sql``` and add all of the ```create``` statements and then run:
-
-```
-npm run reset
-```
-
-to reset the migration system to the current state of the database. All migration commands work on the local version of the database and interface with the wrangler migration system so that you can run ```apply``` on the remote database yourself to add any migrations.
-
-If you have more than one database and want to create a migration for a specific database, you can run:
-
-```
-npm run migrate dbName migrationName
-```
-
-You should run ```npm run watch``` to keep the ```src/database/files.js``` updated with any new sql files or table changes while you write the code.
-
-## Turso
-
-Turso uses ```npm run watch``` to keep the same file D1 uses updated so that the database can run in edge-based environments where necessary. Turso also supports the same transaction API that the standard SQLite database uses. The only difference is that the ```getTransaction``` function for Turso needs a type of either ```read``` or ```write```.
-
-In the root directory of the project, you can install flyweight with
-
-```
-npx create-flyweight turso database
-```
-
-You will then need to edit the file in ```database/db.js``` to change the ```url``` and any other arguments you need. You will also want to change the import statement for turso to use the web version of the client if you are running in a edge-based environment.
-
-You can then use it like this:
-
-```ts
-import createClient from './database/db';
-
-export default {
-  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    const db = createClient();
-    const users = await db.users.many();
-
-    return Response.json(users);
-  }
-};
 ```

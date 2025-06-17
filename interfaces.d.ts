@@ -1,6 +1,6 @@
 type ExtractKeys<U> = U extends Record<string, any> ? keyof U : keyof {};
 
-export interface Keywords<T, K> {
+interface Keywords<T, K> {
   orderBy?: K | ((method: ComputeMethods, column: T) => void);
   desc?: boolean;
   limit?: number;
@@ -8,7 +8,7 @@ export interface Keywords<T, K> {
   distinct?: boolean;
 }
 
-export interface Includes<T, R> {
+interface Includes<T, R> {
   [key: string]: (tables: T, columns: R) => any;
 }
 
@@ -33,242 +33,242 @@ type IncludeWhere<U extends ObjectFunction> = {
     ? R extends string | number | Date | boolean ? R | Array<R> | WhereFunction<R> | null : never : never;
 }
 
-export interface VirtualKeywords<T> {
+interface VirtualKeywords<T> {
   rank?: true;
   bm25?: Record<keyof Omit<T, "rowid">, number>;
   limit?: number;
   offset?: number;
 }
 
-export interface Highlight<T> extends VirtualKeywords<T> {
+interface Highlight<T> extends VirtualKeywords<T> {
   highlight: { column: keyof T, tags: [string, string] };
 }
 
-export interface Snippet<T> extends VirtualKeywords<T> {
+interface Snippet<T> extends VirtualKeywords<T> {
   snippet: { column: keyof T, tags: [string, string], trailing: string, tokens: number };
 }
 
-export interface HighlightQuery<W, T> extends Highlight<T> {
+interface HighlightQuery<W, T> extends Highlight<T> {
   where?: W;
 }
 
-export interface SnippetQuery<W, T> extends Snippet<T> {
+interface SnippetQuery<W, T> extends Snippet<T> {
   where?: W;
 }
 
-export interface VirtualQuery<W, T> extends VirtualKeywords<T> {
+interface VirtualQuery<W, T> extends VirtualKeywords<T> {
   where?: W;
 }
 
-export interface VirtualQueryObject<W, K, T> extends VirtualQuery<W, T> {
+interface VirtualQueryObject<W, K, T> extends VirtualQuery<W, T> {
   select: (keyof T)[] | K[];
 }
 
-export interface VirtualQueryValue<W, K, T> extends VirtualQuery<W, T> {
+interface VirtualQueryValue<W, K, T> extends VirtualQuery<W, T> {
   select: K;
 }
 
-export interface AggregateQuery<W, K> {
+interface AggregateQuery<W, K> {
   where?: W;
   column?: K;
   distinct?: K;
 }
 
-export interface AggregateQueryDebug<W, K> extends AggregateQuery<W, K> {
+interface AggregateQueryDebug<W, K> extends AggregateQuery<W, K> {
   debug: true;
 }
 
-export interface GroupQueryObjectDebug<T, W, K, U> extends GroupQueryObject<T, W, K, U> {
+interface GroupQueryObjectDebug<T, W, K, U> extends GroupQueryObject<T, W, K, U> {
   debug: true;
 }
 
-export interface GroupQueryObjectAliasDebug<T, W, K, U, A> extends GroupQueryObjectAlias<T, W, K, U, A> {
+interface GroupQueryObjectAliasDebug<T, W, K, U, A> extends GroupQueryObjectAlias<T, W, K, U, A> {
   debug: true;
 }
 
-export interface ComplexQueryInclude<W, T, U extends ObjectFunction, C> extends Keywords<T & C, Array<keyof (T & C)> | keyof (T & C)> {
+interface ComplexQueryInclude<W, T, U extends ObjectFunction, C> extends Keywords<T & C, Array<keyof (T & C)> | keyof (T & C)> {
   where?: W;
   select?: undefined;
   include?: U;
 }
 
-export interface ComplexSqlQueryIncludeParamsUnsafe<P, U, W, T, R extends ObjectFunction> extends ComplexQueryInclude<W, T, R, unknown> {
+interface ComplexSqlQueryIncludeParamsUnsafe<P, U, W, T, R extends ObjectFunction> extends ComplexQueryInclude<W, T, R, unknown> {
   params: P;
   unsafe: U;
 }
 
-export interface ComplexSqlQueryIncludeParams<P, W, T, R extends ObjectFunction> extends ComplexQueryInclude<W, T, R, unknown> {
+interface ComplexSqlQueryIncludeParams<P, W, T, R extends ObjectFunction> extends ComplexQueryInclude<W, T, R, unknown> {
   params: P;
   unsafe?: undefined;
 }
 
-export interface ComplexSqlQueryIncludeUnsafe<U, W, T, R extends ObjectFunction> extends ComplexQueryInclude<W, T, R, unknown> {
+interface ComplexSqlQueryIncludeUnsafe<U, W, T, R extends ObjectFunction> extends ComplexQueryInclude<W, T, R, unknown> {
   params?: undefined;
   unsafe: U;
 }
 
-export interface ComplexSqlQueryInclude<W, T, R extends ObjectFunction> extends ComplexQueryInclude<W, T, R, unknown> {
+interface ComplexSqlQueryInclude<W, T, R extends ObjectFunction> extends ComplexQueryInclude<W, T, R, unknown> {
   params?: undefined;
   unsafe?: undefined;
 }
 
-export interface ComplexSqlQueryIncludeParamsUnsafeDebug<P, U, W, T, R extends ObjectFunction> extends ComplexSqlQueryIncludeParamsUnsafe<P, U, W, T, R> {
+interface ComplexSqlQueryIncludeParamsUnsafeDebug<P, U, W, T, R extends ObjectFunction> extends ComplexSqlQueryIncludeParamsUnsafe<P, U, W, T, R> {
   debug: true;
 }
 
-export interface ComplexSqlQueryIncludeParamsDebug<P, W, T, R extends ObjectFunction> extends ComplexSqlQueryIncludeParams<P, W, T, R> {
+interface ComplexSqlQueryIncludeParamsDebug<P, W, T, R extends ObjectFunction> extends ComplexSqlQueryIncludeParams<P, W, T, R> {
   debug: true;
 }
 
-export interface ComplexSqlQueryIncludeUnsafeDebug<U, W, T, R extends ObjectFunction> extends ComplexSqlQueryIncludeUnsafe<U, W, T, R> {
+interface ComplexSqlQueryIncludeUnsafeDebug<U, W, T, R extends ObjectFunction> extends ComplexSqlQueryIncludeUnsafe<U, W, T, R> {
   debug: true;
 }
 
-export interface ComplexSqlQueryIncludeDebug<W, T, R extends ObjectFunction> extends ComplexSqlQueryInclude<W, T, R> {
+interface ComplexSqlQueryIncludeDebug<W, T, R extends ObjectFunction> extends ComplexSqlQueryInclude<W, T, R> {
   debug: true;
 }
 
-export interface ComplexQueryIncludeDebug<W, T, U extends ObjectFunction, C> extends ComplexQueryInclude<W, T, U, C> {
+interface ComplexQueryIncludeDebug<W, T, U extends ObjectFunction, C> extends ComplexQueryInclude<W, T, U, C> {
   debug: true;
 }
 
-export interface ComplexQueryObjectInclude<W, K, T, U extends ObjectFunction, C> extends Keywords<T & C, keyof (T & C) | Array<keyof (T & C)>> {
+interface ComplexQueryObjectInclude<W, K, T, U extends ObjectFunction, C> extends Keywords<T & C, keyof (T & C) | Array<keyof (T & C)>> {
   where?: W;
   select: (keyof (T & C))[] | K[];
   include?: U;
 }
 
-export interface ComplexSqlQueryObjectIncludeParamsUnsafe<P, U, W, K, T, R extends ObjectFunction> extends ComplexQueryObjectInclude<W, K, T, R, unknown> {
+interface ComplexSqlQueryObjectIncludeParamsUnsafe<P, U, W, K, T, R extends ObjectFunction> extends ComplexQueryObjectInclude<W, K, T, R, unknown> {
   params: P;
   unsafe: U;
 }
 
-export interface ComplexSqlQueryObjectIncludeParams<P, W, K, T, R extends ObjectFunction> extends ComplexQueryObjectInclude<W, K, T, R, unknown> {
+interface ComplexSqlQueryObjectIncludeParams<P, W, K, T, R extends ObjectFunction> extends ComplexQueryObjectInclude<W, K, T, R, unknown> {
   params: P;
   unsafe?: undefined;
 }
 
-export interface ComplexSqlQueryObjectIncludeUnsafe<U, W, K, T, R extends ObjectFunction> extends ComplexQueryObjectInclude<W, K, T, R, unknown> {
+interface ComplexSqlQueryObjectIncludeUnsafe<U, W, K, T, R extends ObjectFunction> extends ComplexQueryObjectInclude<W, K, T, R, unknown> {
   params?: undefined;
   unsafe: U;
 }
 
-export interface ComplexSqlQueryObjectInclude<W, K, T, R extends ObjectFunction> extends ComplexQueryObjectInclude<W, K, T, R, unknown> {
+interface ComplexSqlQueryObjectInclude<W, K, T, R extends ObjectFunction> extends ComplexQueryObjectInclude<W, K, T, R, unknown> {
   params?: undefined;
   unsafe?: undefined;
 }
 
-export interface ComplexSqlQueryObjectIncludeParamsUnsafeDebug<P, U, W, K, T, R extends ObjectFunction> extends ComplexSqlQueryObjectIncludeParamsUnsafe<P, U, W, K, T, R> {
+interface ComplexSqlQueryObjectIncludeParamsUnsafeDebug<P, U, W, K, T, R extends ObjectFunction> extends ComplexSqlQueryObjectIncludeParamsUnsafe<P, U, W, K, T, R> {
   debug: true;
 }
 
-export interface ComplexSqlQueryObjectIncludeParamsDebug<P, W, K, T, R extends ObjectFunction> extends ComplexSqlQueryObjectIncludeParams<P, W, K, T, R> {
+interface ComplexSqlQueryObjectIncludeParamsDebug<P, W, K, T, R extends ObjectFunction> extends ComplexSqlQueryObjectIncludeParams<P, W, K, T, R> {
   debug: true;
 }
 
-export interface ComplexSqlQueryObjectIncludeUnsafeDebug<U, W, K, T, R extends ObjectFunction> extends ComplexSqlQueryObjectIncludeUnsafe<U, W, K, T, R> {
+interface ComplexSqlQueryObjectIncludeUnsafeDebug<U, W, K, T, R extends ObjectFunction> extends ComplexSqlQueryObjectIncludeUnsafe<U, W, K, T, R> {
   debug: true;
 }
 
-export interface ComplexSqlQueryObjectIncludeDebug<W, K, T, R extends ObjectFunction> extends ComplexSqlQueryObjectInclude<W, K, T, R> {
+interface ComplexSqlQueryObjectIncludeDebug<W, K, T, R extends ObjectFunction> extends ComplexSqlQueryObjectInclude<W, K, T, R> {
   debug: true;
 }
 
-export interface ComplexQueryObjectIncludeDebug<W, K, T, U extends ObjectFunction, C> extends ComplexQueryObjectInclude<W, K, T, U, C> {
+interface ComplexQueryObjectIncludeDebug<W, K, T, U extends ObjectFunction, C> extends ComplexQueryObjectInclude<W, K, T, U, C> {
   debug: true;
 }
 
-export interface ComplexQueryObjectIncludeOmit<W, K, T, U extends ObjectFunction, C> extends Keywords<T & C, keyof (T & C) | Array<keyof (T & C)>> {
+interface ComplexQueryObjectIncludeOmit<W, K, T, U extends ObjectFunction, C> extends Keywords<T & C, keyof (T & C) | Array<keyof (T & C)>> {
   where?: W;
   select?: undefined;
   omit: (keyof T)[] | K[] | K;
   include?: U;
 }
 
-export interface ComplexSqlQueryObjectIncludeOmitParamsUnsafe<P, U, W, K, T, R extends ObjectFunction> extends ComplexQueryObjectIncludeOmit<W, K, T, R, unknown> {
+interface ComplexSqlQueryObjectIncludeOmitParamsUnsafe<P, U, W, K, T, R extends ObjectFunction> extends ComplexQueryObjectIncludeOmit<W, K, T, R, unknown> {
   params: P;
   unsafe: U;
 }
 
-export interface ComplexSqlQueryObjectIncludeOmitParams<P, W, K, T, R extends ObjectFunction> extends ComplexQueryObjectIncludeOmit<W, K, T, R, unknown> {
+interface ComplexSqlQueryObjectIncludeOmitParams<P, W, K, T, R extends ObjectFunction> extends ComplexQueryObjectIncludeOmit<W, K, T, R, unknown> {
   params: P;
   unsafe?: undefined;
 }
 
-export interface ComplexSqlQueryObjectIncludeOmitUnsafe<U, W, K, T, R extends ObjectFunction> extends ComplexQueryObjectIncludeOmit<W, K, T, R, unknown> {
+interface ComplexSqlQueryObjectIncludeOmitUnsafe<U, W, K, T, R extends ObjectFunction> extends ComplexQueryObjectIncludeOmit<W, K, T, R, unknown> {
   params?: undefined;
   unsafe: U;
 }
 
-export interface ComplexSqlQueryObjectIncludeOmit<W, K, T, R extends ObjectFunction> extends ComplexQueryObjectIncludeOmit<W, K, T, R, unknown> {
+interface ComplexSqlQueryObjectIncludeOmit<W, K, T, R extends ObjectFunction> extends ComplexQueryObjectIncludeOmit<W, K, T, R, unknown> {
   params?: undefined;
   unsafe?: undefined;
 }
 
-export interface ComplexSqlQueryObjectIncludeOmitParamsUnsafeDebug<P, U, W, K, T, R extends ObjectFunction> extends ComplexSqlQueryObjectIncludeOmitParamsUnsafe<P, U, W, K, T, R> {
+interface ComplexSqlQueryObjectIncludeOmitParamsUnsafeDebug<P, U, W, K, T, R extends ObjectFunction> extends ComplexSqlQueryObjectIncludeOmitParamsUnsafe<P, U, W, K, T, R> {
   debug: true;
 }
 
-export interface ComplexSqlQueryObjectIncludeOmitParamsDebug<P, W, K, T, R extends ObjectFunction> extends ComplexSqlQueryObjectIncludeOmitParams<P, W, K, T, R> {
+interface ComplexSqlQueryObjectIncludeOmitParamsDebug<P, W, K, T, R extends ObjectFunction> extends ComplexSqlQueryObjectIncludeOmitParams<P, W, K, T, R> {
   debug: true;
 }
 
-export interface ComplexSqlQueryObjectIncludeOmitUnsafeDebug<U, W, K, T, R extends ObjectFunction> extends ComplexSqlQueryObjectIncludeOmitUnsafe<U, W, K, T, R> {
+interface ComplexSqlQueryObjectIncludeOmitUnsafeDebug<U, W, K, T, R extends ObjectFunction> extends ComplexSqlQueryObjectIncludeOmitUnsafe<U, W, K, T, R> {
   debug: true;
 }
 
-export interface ComplexSqlQueryObjectIncludeOmitDebug<W, K, T, R extends ObjectFunction> extends ComplexSqlQueryObjectIncludeOmit<W, K, T, R> {
+interface ComplexSqlQueryObjectIncludeOmitDebug<W, K, T, R extends ObjectFunction> extends ComplexSqlQueryObjectIncludeOmit<W, K, T, R> {
   debug: true;
 }
 
-export interface ComplexQueryObjectIncludeOmitDebug<W, K, T, U extends ObjectFunction, C> extends ComplexQueryObjectIncludeOmit<W, K, T, U, C> {
+interface ComplexQueryObjectIncludeOmitDebug<W, K, T, U extends ObjectFunction, C> extends ComplexQueryObjectIncludeOmit<W, K, T, U, C> {
   debug: true;
 }
 
-export interface ComplexQueryValue<W, K, T, C> extends Keywords<T & C, Array<keyof (T & C)> | keyof (T & C)> {
+interface ComplexQueryValue<W, K, T, C> extends Keywords<T & C, Array<keyof (T & C)> | keyof (T & C)> {
   where?: W;
   select: K;
   omit?: undefined;
   include?: undefined;
 }
 
-export interface ComplexSqlQueryValueParamsUnsafe<P, U, W, K, T> extends ComplexQueryValue<W, K, T, unknown> {
+interface ComplexSqlQueryValueParamsUnsafe<P, U, W, K, T> extends ComplexQueryValue<W, K, T, unknown> {
   params: P;
   unsafe: U;
 }
 
-export interface ComplexSqlQueryValueParams<P, W, K, T> extends ComplexQueryValue<W, K, T, unknown> {
+interface ComplexSqlQueryValueParams<P, W, K, T> extends ComplexQueryValue<W, K, T, unknown> {
   params: P;
   unsafe?: undefined;
 }
 
-export interface ComplexSqlQueryValueUnsafe<U, W, K, T> extends ComplexQueryValue<W, K, T, unknown> {
+interface ComplexSqlQueryValueUnsafe<U, W, K, T> extends ComplexQueryValue<W, K, T, unknown> {
   params?: undefined;
   unsafe: U;
 }
 
-export interface ComplexSqlQueryValue<W, K, T> extends ComplexQueryValue<W, K, T, unknown> {
+interface ComplexSqlQueryValue<W, K, T> extends ComplexQueryValue<W, K, T, unknown> {
   params?: undefined;
   unsafe?: undefined;
 }
 
-export interface ComplexSqlQueryValueParamsUnsafeDebug<P, U, W, K, T> extends ComplexSqlQueryValueParamsUnsafe<P, U, W, K, T> {
+interface ComplexSqlQueryValueParamsUnsafeDebug<P, U, W, K, T> extends ComplexSqlQueryValueParamsUnsafe<P, U, W, K, T> {
   debug: true;
 }
 
-export interface ComplexSqlQueryValueParamsDebug<P, W, K, T> extends ComplexSqlQueryValueParams<P, W, K, T> {
+interface ComplexSqlQueryValueParamsDebug<P, W, K, T> extends ComplexSqlQueryValueParams<P, W, K, T> {
   debug: true;
 }
 
-export interface ComplexSqlQueryValueUnsafeDebug<U, W, K, T> extends ComplexSqlQueryValueUnsafe<U, W, K, T> {
+interface ComplexSqlQueryValueUnsafeDebug<U, W, K, T> extends ComplexSqlQueryValueUnsafe<U, W, K, T> {
   debug: true;
 }
 
-export interface ComplexSqlQueryValueDebug<W, K, T> extends ComplexSqlQueryValue<W, K, T> {
+interface ComplexSqlQueryValueDebug<W, K, T> extends ComplexSqlQueryValue<W, K, T> {
   debug: true;
 }
 
-export interface ComplexQueryValueDebug<W, K, T, C> extends ComplexQueryValue<W, K, T, C> {
+interface ComplexQueryValueDebug<W, K, T, C> extends ComplexQueryValue<W, K, T, C> {
   debug: true;
 }
 
@@ -276,28 +276,28 @@ type MakeOptionalNullable<T> = {
   [K in keyof T]: undefined extends T[K] ? T[K] | null : T[K];
 };
 
-export interface UpdateQuery<W, T> {
+interface UpdateQuery<W, T> {
   where?: W | null;
   set: Partial<MakeOptionalNullable<T>>;
 }
 
-export interface UpsertQuery<T, K> {
+interface UpsertQuery<T, K> {
   values: T;
   target?: K;
   set?: Partial<MakeOptionalNullable<T>>;
 }
 
-export interface DebugQuery {
+interface DebugQuery {
   sql: string;
   params?: any;
 }
 
-export interface DebugResult<R> {
+interface DebugResult<R> {
   result: R;
   queries: Array<DebugQuery>;
 }
 
-export interface GroupQueryObject<T, W, K, U> {
+interface GroupQueryObject<T, W, K, U> {
   where?: W;
   column?: keyof T;
   distinct?: keyof T;
@@ -309,7 +309,7 @@ export interface GroupQueryObject<T, W, K, U> {
   alias?: undefined;
 }
 
-export interface GroupQueryObjectAlias<T, W, K, U, A> {
+interface GroupQueryObjectAlias<T, W, K, U, A> {
   where?: W;
   column?: keyof T;
   distinct?: keyof T;
@@ -321,7 +321,7 @@ export interface GroupQueryObjectAlias<T, W, K, U, A> {
   alias: A;
 }
 
-export interface GroupArrayKeywords<T, W, K, U> {
+interface GroupArrayKeywords<T, W, K, U> {
   where?: W;
   column?: keyof T;
   distinct?: keyof T;
@@ -332,37 +332,37 @@ export interface GroupArrayKeywords<T, W, K, U> {
   include?: U;
 }
 
-export interface GroupArray<T, W, K, U> extends GroupArrayKeywords<T, W, K, U> {
+interface GroupArray<T, W, K, U> extends GroupArrayKeywords<T, W, K, U> {
   select?: undefined;
   alias?: undefined;
 }
 
-export interface GroupArrayAlias<T, W, K, U, A> extends GroupArrayKeywords<T, W, K, U> {
+interface GroupArrayAlias<T, W, K, U, A> extends GroupArrayKeywords<T, W, K, U> {
   select?: undefined;
   alias: A;
 }
 
-export interface GroupArraySelect<T, W, K, U, S> extends GroupArrayKeywords<T, W, K, U> {
+interface GroupArraySelect<T, W, K, U, S> extends GroupArrayKeywords<T, W, K, U> {
   select: S[];
   alias?: undefined;
 }
 
-export interface GroupArraySelectAlias<T, W, K, U, A, S> extends GroupArrayKeywords<T, W, K, U> {
+interface GroupArraySelectAlias<T, W, K, U, A, S> extends GroupArrayKeywords<T, W, K, U> {
   select: S[];
   alias: A;
 }
 
-export interface GroupArrayValue<T, W, K, U, S> extends GroupArrayKeywords<T, W, K, U> {
+interface GroupArrayValue<T, W, K, U, S> extends GroupArrayKeywords<T, W, K, U> {
   select: S;
   alias?: undefined;
 }
 
-export interface GroupArrayValueAlias<T, W, K, U, A, S> extends GroupArrayKeywords<T, W, K, U> {
+interface GroupArrayValueAlias<T, W, K, U, A, S> extends GroupArrayKeywords<T, W, K, U> {
   select: S;
   alias: A;
 }
 
-export interface AggregateMethods<T, W, C, K extends keyof (T & C), Y> {
+interface AggregateMethods<T, W, C, K extends keyof (T & C), Y> {
   count<U extends Includes<Y, (Pick<(T & C), K> & { count: number })>>(params?: GroupQueryObject<T, W & ToWhere<{ count: number }>, K | 'count', U>): Promise<Array<MergeIncludes<Pick<(T & C), K> & { count: number }, U>>>;
   count<A extends string, U extends Includes<Y, (Pick<(T & C), K> & { count: number })>>(params?: GroupQueryObjectAlias<T, W & ToWhere<{ count: number }>, K | 'count', U, A>): Promise<Array<MergeIncludes<Pick<(T & C), K> & Record<A, number>, U>>>;
   avg<U extends Includes<Y, (Pick<(T & C), K> & { avg: number })>>(params: GroupQueryObject<T, W & ToWhere<{ avg: number }>, K | 'avg', U>): Promise<Array<MergeIncludes<Pick<(T & C), K> & { avg: number }, U>>>;
@@ -381,7 +381,7 @@ export interface AggregateMethods<T, W, C, K extends keyof (T & C), Y> {
   array<A extends string, S extends keyof (T & C), U extends Includes<Y, Pick<(T & C), K>>>(params: GroupArraySelectAlias<T, W & ToWhere<{ sum: number }>, K | 'items', U, A, S>): Promise<Array<MergeIncludes<Pick<(T & C), K> & Record<A, Array<Pick<(T & C), S>>>, U>>>;
 }
 
-export interface ComputeMethods {
+interface ComputeMethods {
   abs: (n: number) => void;
   coalesce: (a: any, b: any, ...rest: any[]) => void;
   concat: (...args: any[]) => void;
@@ -443,11 +443,11 @@ export interface ComputeMethods {
   jsonExtract: (json: string | Buffer, path: string) => void;
 }
 
-export interface Compute<T> {
+interface Compute<T> {
   [key: string]: (column: T, method: ComputeMethods) => void;
 }
 
-export interface VirtualQueries<T, W> {
+interface VirtualQueries<T, W> {
   [key: string]: any;
   get(params?: W | null): Promise<T | undefined>;
   get<K extends keyof T>(params: W | null, columns: Array<keyof T>): Promise<Pick<T, K> | undefined>;
@@ -466,7 +466,7 @@ export interface VirtualQueries<T, W> {
   query(query: SnippetQuery<W, T>): Promise<Array<{ id: number, snippet: string }>>;
 }
 
-export interface Queries<T, I, W, C, R, Y> {
+interface Queries<T, I, W, C, R, Y> {
   [key: string]: any;
   insert(params: I): Promise<R>;
   insertMany(params: Array<I>): Promise<void>;
@@ -513,56 +513,20 @@ export interface Queries<T, I, W, C, R, Y> {
 
 type CompareMethods<T> = {
   not: (value: T) => void;
-	gt: (value: T) => void;
-	lt: (value: T) => void;
-	lte: (value: T) => void;
-	like: (pattern: string) => void;
-	match: (pattern: string) => void;
-	glob: (pattern: string) => void;
+	gt: (value: NonNullable<T>) => void;
+	lt: (value: NonNullable<T>) => void;
+	lte: (value: NonNullable<T>) => void;
+	like: (pattern: NonNullable<T>) => void;
+	match: (pattern: NonNullable<T>) => void;
+	glob: (pattern: NonNullable<T>) => void;
 	eq: (value: T) => void;
 }
 
-type BooleanMethods<T> = {
-  not: (value: T) => void;
-  eq: (value: T) => void;
-}
-
-type ArrayMethods<T> = {
-  includes: (value: T) => void;
-  some: (selector: (value: ArrayTransform<T>) => void) => void;
-}
-
-type ArrayTransform<T> = T extends string | number | Date
+type Transform<T> = NonNullable<T> extends string | number | Date
   ? CompareMethods<T>
-  : T extends boolean
-  ? BooleanMethods<T>
-  : T extends Array<infer U>
-  ? ArrayMethods<U>
-  : {
-  [K in keyof T]: T[K] extends string | number | undefined
-    ? CompareMethods<T[K]>
-    : T[K] extends boolean | undefined
-    ? BooleanMethods<T[K]>
-    : T[K] extends Array<infer U>
-    ? ArrayMethods<U>
-    : T[K];
-};
-
-type Transform<T> = T extends string | number | Date
-  ? CompareMethods<T>
-  : T extends boolean
-  ? BooleanMethods<T>
-  : T extends Array<infer U>
-  ? ArrayMethods<U>
-  : {
-  [K in keyof T]: T[K] extends string | number | undefined
-    ? CompareMethods<T[K]>
-    : T[K] extends boolean | undefined
-    ? BooleanMethods<T[K]>
-    : T[K] extends Array<infer U>
-    ? ArrayMethods<U>
-    : T[K];
-};
+  : NonNullable<T> extends boolean
+  ? Pick<CompareMethods<T>, 'not' | 'eq'>
+  : T;
 
 type WhereFunction<T> = (builder: Transform<T>) => void;
 
@@ -588,30 +552,38 @@ type TableObject<T> = {
   [key in keyof T]: TableProperty;
 }
 
-export interface SqlQueryParamsUnsafe<P, U> {
+interface SqlQueryParamsUnsafe<P, U> {
   params: P;
   unsafe: U;
 }
 
-export interface SqlQueryParams<P> {
+interface SqlQueryParams<P> {
   params: P;
   unsafe?: undefined;
 }
 
-export interface SqlQueryUnsafe<U> {
+interface SqlQueryUnsafe<U> {
   params?: undefined;
   unsafe: U;
 }
 
-type WhereField<T> = NonNullable<T> | Array<NonNullable<T>> | WhereFunction<NonNullable<T>>;
+type WhereField<T> = T | Array<NonNullable<T>> | WhereFunction<T>;
 
-type MaybeNullWhereField<T> = 
-  T extends null ? null :
-  null extends T ? WhereField<T> | null :
-  WhereField<T>;
+type OptionalToNull<T> = {
+  [K in keyof T]-?: undefined extends T[K] ? Exclude<T[K], undefined> | null : T[K];
+};
 
-export type ToWhere<T> = {
-  [K in keyof T]?: MaybeNullWhereField<T[K]>;
+type ReplaceJson<T> =
+  null extends T
+    ? ReplaceJson<Exclude<T, null>> | null
+    : JsonObject extends T
+      ? string
+      : [] extends T
+        ? string
+        : T;
+
+type ToWhere<T> = {
+  [K in keyof T]?: WhereField<ReplaceJson<T[K]>>;
 } & {
   and?: Array<ToWhere<T>>;
   or?: Array<ToWhere<T>>;

@@ -10,22 +10,8 @@ const isEmpty = (params) => {
 
 class SQLiteDatabase extends Database {
   constructor(props) {
-    const supports = {
-      jsonb: true,
-      migrations: true,
-      files: true,
-      closing: true,
-      types: 'sqlite'
-    };
-    super({ ...props, supports });
-    this.dbPath = props.db;
-    this.extensionsPath = props.extensions;
-    this.adaptor = props.adaptor;
-    this.sqlPath = props.sql;
-    this.viewsPath = props.views;
-    this.tablesPath = props.tables;
-    this.computedPath = props.computed;
-    this.extensionsPath = props.extensions;
+    super({ ...props, name: 'sqlite' });
+    this.config = props.config;
     this.writer = null;
   }
 
@@ -60,20 +46,20 @@ class SQLiteDatabase extends Database {
   }
 
   async readQuery(table, queryName) {
-    const path = this.adaptor.join(this.sqlPath, table, `${queryName}.sql`);
+    const path = this.adaptor.join(this.paths.sql, table, `${queryName}.sql`);
     return await this.adaptor.readFile(path, 'utf8');
   }
 
   async readTables() {
-    return await this.adaptor.readSql(this.tablesPath);
+    return await this.adaptor.readSql(this.paths.tables);
   }
 
   async readViews() {
-    return await this.adaptor.readSql(this.viewsPath);
+    return await this.adaptor.readSql(this.paths.views);
   }
 
   async readComputed() {
-    return await this.adaptor.readFile(this.computedPath, 'utf8');
+    return await this.adaptor.readFile(this.paths.computed, 'utf8');
   }
 
   async runMigration(sql) {
@@ -96,14 +82,15 @@ class SQLiteDatabase extends Database {
   }
 
   async createDatabase() {
-    const db = new this.adaptor.sqlite3(this.dbPath);
+    const db = new this.adaptor.sqlite3(this.paths.db, this.config);
     await this.enableForeignKeys(db);
-    if (this.extensionsPath) {
-      if (typeof this.extensionsPath === 'string') {
-        await this.loadExtension(this.extensionsPath, db);
+    const extensions = this.paths.extensions;
+    if (extensions) {
+      if (typeof extensions === 'string') {
+        await this.loadExtension(extensions, db);
       }
       else {
-        for (const extension of this.extensionsPath) {
+        for (const extension of extensions) {
           await this.loadExtension(extension, db);
         }
       }

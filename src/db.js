@@ -29,6 +29,9 @@ const typeMap = {
 
 class Database {
   constructor(props) {
+    this.paths = props.paths;
+    this.adaptor = props.adaptor;
+    this.name = props.name;
     this.read = null;
     this.write = null;
     this.transact = null;
@@ -47,7 +50,6 @@ class Database {
     this.queryVariations = new Map();
     this.closed = false;
     this.initialized = false;
-    this.supports = props.supports;
     this.registerTypes([
       {
         name: 'boolean',
@@ -72,7 +74,7 @@ class Database {
         dbToJs: (v) => JSON.parse(v),
         jsToDb: (v) => JSON.stringify(v),
         tsType: 'Json',
-        dbType: this.supports.jsonb ? 'blob' : 'text'
+        dbType: 'blob'
       }
     ]);
   }
@@ -584,6 +586,10 @@ class Database {
   }
 
   async exec() {
+    return;
+  }
+
+  async close() {
     return;
   }
 }
