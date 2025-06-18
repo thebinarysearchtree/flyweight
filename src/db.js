@@ -1,4 +1,4 @@
-import { toValues } from './utils.js';
+import { toValues, expressionHandler } from './utils.js';
 import { parse } from './parsers.js';
 import { mapOne, mapMany } from './map.js';
 import { getTables, getViews, getVirtual } from './parsers/tables.js';
@@ -103,103 +103,13 @@ class Database {
     const map = new Map();
     this.computed.set(table, map);
     for (const [name, expression] of Object.entries(properties)) {
-      const columnHandler = {
-        get: function(target, property) {
-          const request = {
-            name: property,
-            path: [],
-            proxy: null
-          };
-          const pathHandler = {
-            get: function(target, property) {
-              const path = target.path;
-              path.push(property);
-              return pathProxy;
-            }
-          };
-          const pathProxy = new Proxy(request, pathHandler);
-          request.proxy = pathProxy;
-          columnRequests.push(request);
-          return pathProxy;
-        }
-      }
-      const columnTarget = {};
-      const columnProxy = new Proxy(columnTarget, columnHandler);
-      const columnRequests = [];
-      const methodHandler = {
-        get: function(target, property) {
-          const request = {
-            name: property,
-            args: null
-          };
-          methodRequests.push(request);
-          return (...args) => {
-            request.args = args;
-            return request;
-          };
-        }
-      }
-      const methodTarget = {};
-      const methodProxy = new Proxy(methodTarget, methodHandler);
-      const methodRequests = [];
-      expression(columnProxy, methodProxy);
+      const {
+        operators,
+        columnRequests,
+        methodRequests,
+        createClause 
+      } = expressionHandler(expression);
       const method = methodRequests.at(0);
-      const operators = new Map([
-        ['plus', '+'],
-        ['minus', '-'],
-        ['divide', '/'],
-        ['multiply', '*']
-      ]);
-      const createClause = (params, getPlaceholder, withAlias) => {
-        let alias = '';
-        if (withAlias) {
-          alias = ` as ${name}`;
-        }
-        const processColumn = (column) => {
-          if (column.path.length === 0) {
-            return column.name;
-          }
-          const placeholder = getPlaceholder();
-          const path = `$.${column.path.join('.')}`;
-          params[placeholder] = path;
-          return `json_extract(${column.name}, $${placeholder})`;
-        }
-        const processMethod = (method) => {
-          const statements = [];
-          for (const arg of method.args) {
-            const subMethod = methodRequests.find(r => r === arg);
-            if (subMethod) {
-              const statement = processMethod(subMethod);
-              statements.push(statement);
-              continue;
-            }
-            const column = columnRequests.find(r => r.proxy === arg);
-            if (column) {
-              const statement = processColumn(column);
-              statements.push(statement);
-            }
-            else {
-              const placeholder = getPlaceholder();
-              params[placeholder] = arg;
-              statements.push(`$${placeholder}`);
-            }
-          }
-          const operator = operators.get(method.name);
-          if (operator) {
-            return statements.join(` ${operator} `);
-          }
-          return `${method.name}(${statements.join(', ')})`;
-        }
-        let statement;
-        if (!method) {
-          const column = columnRequests.at(0);
-          statement = processColumn(column);
-        }
-        else {
-          statement = processMethod(method);
-        }
-        return `${statement}${alias}`;
-      }
       let tsType;
       let columnType;
       if (method) {

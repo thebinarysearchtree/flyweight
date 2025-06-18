@@ -1,5 +1,6 @@
 import { parseQuery, isWrite } from './parsers/queries.js';
 import { preprocess, insertUnsafe } from './parsers/preprocessor.js';
+import { expressionHandler } from './utils.js';
 
 let paramCount = 1;
 
@@ -350,10 +351,20 @@ const toWhere = (options) => {
   return conditions.join(` ${type || 'and'} `);
 }
 
-const createSetClause = (db, table, query, params) => {
+const createSetClause = (db, table, query, params, adjuster) => {
   const statements = [];
   const columnTypes = db.columns[table];
   for (const [column, param] of Object.entries(query)) {
+    if (typeof param === 'function') {
+      const { createClause } = expressionHandler(param);
+      const clause = createClause({
+        params,
+        getPlaceholder,
+        adjuster
+      });
+      statements.push(`${column} = ${clause}`);
+      continue;
+    }
     const placeholder = getPlaceholder();
     params[placeholder] = param;
     if (columnTypes[column] === 'json') {
@@ -375,20 +386,20 @@ const update = async (db, table, options, tx) => {
   verify(keys);
   const params = {};
   const query = adjust(db, table, set);
-  const setString = createSetClause(db, table, query, params);
+  const computed = db.computed.get(table);
+  const adjuster = (name) => adjustName({
+    column: name,
+    params,
+    computed
+  });
+  const setString = createSetClause(db, table, query, params, adjuster);
   let sql = `update ${table} set ${setString}`;
   if (where) {
-    const computed = db.computed.get(table);
-    const adjuster = (name) => adjustName({
-      table,
-      column: name,
-      params,
-      computed
-    });
     const clause = toWhere({
       table,
       query: where,
-      params
+      params,
+      adjuster
     });
     if (clause) {
       sql += ` where ${clause}`;
@@ -435,7 +446,11 @@ const toSelect = (db, table, columns, types, params) => {
       let clause;
       if (computed && computed.has(columns)) {
         const item = computed.get(columns);
-        clause = item.createClause(params, getPlaceholder, true);
+        clause = item.createClause({
+          params,
+          getPlaceholder,
+          alias: columns
+        });
       }
       else if (types[columns] === 'json') {
         clause = `json(${columns}) as ${columns}`;
@@ -458,7 +473,11 @@ const toSelect = (db, table, columns, types, params) => {
           let statement;
           if (computed && computed.has(column)) {
             const item = computed.get(column);
-            statement = item.createClause(params, getPlaceholder, true);
+            statement = item.createClause({
+              params,
+              getPlaceholder,
+              alias: column
+            });
           }
           else if (types[column] === 'json') {
             statement = `json(${column}) as ${column}`;
@@ -481,90 +500,12 @@ const toSelect = (db, table, columns, types, params) => {
 
 const getOrderBy = (orderBy, params, adjuster) => {
   if (typeof orderBy === 'function') {
-    const columnHandler = {
-      get: function(target, property) {
-        const request = {
-          name: property,
-          path: [],
-          proxy: null
-        };
-        const pathHandler = {
-          get: function(target, property) {
-            const path = target.path;
-            path.push(property);
-            return pathProxy;
-          }
-        };
-        const pathProxy = new Proxy(request, pathHandler);
-        request.proxy = pathProxy;
-        columnRequests.push(request);
-        return pathProxy;
-      }
-    }
-    const columnTarget = {};
-    const columnProxy = new Proxy(columnTarget, columnHandler);
-    const columnRequests = [];
-    const methodHandler = {
-      get: function(target, property) {
-        const request = {
-          name: property,
-          args: null
-        };
-        methodRequests.push(request);
-        return (...args) => {
-          request.args = args;
-          return request;
-        };
-      }
-    }
-    const methodTarget = {};
-    const methodProxy = new Proxy(methodTarget, methodHandler);
-    const methodRequests = [];
-    orderBy(columnProxy, methodProxy);
-    const method = methodRequests.at(0);
-    const processColumn = (column) => {
-      const selector = adjuster ? adjuster(column.name) : column.name;
-      if (column.path.length === 0) {
-        return selector;
-      }
-      const placeholder = getPlaceholder();
-      const path = `$.${column.path.join('.')}`;
-      params[placeholder] = path;
-      return `json_extract(${selector}, $${placeholder})`;
-    }
-    const processMethod = (method) => {
-      const statements = [];
-      for (const arg of method.args) {
-        const subMethod = methodRequests.find(r => r === arg);
-        if (subMethod) {
-          const statement = processMethod(subMethod);
-          statements.push(statement);
-          continue;
-        }
-        const column = columnRequests.find(r => r.proxy === arg);
-        if (column) {
-          const statement = processColumn(column);
-          statements.push(statement);
-        }
-        else {
-          const placeholder = getPlaceholder();
-          params[placeholder] = arg;
-          statements.push(`$${placeholder}`);
-        }
-      }
-      const operators = new Map([
-        ['plus', '+'],
-        ['minus', '-'],
-        ['divide', '/'],
-        ['multiply', '*']
-      ]);
-      const operator = operators.get(method.name);
-      if (operator) {
-        return statements.join(` ${operator} `);
-      }
-      return `${method.name}(${statements.join(', ')})`;
-    }
-    return processMethod(method);
+    const { createClause } = expressionHandler(orderBy);
+    return createClause({
+      params,
+      getPlaceholder,
+      adjuster
+    });
   }
   const columns = Array.isArray(orderBy) ? orderBy : [orderBy];
   return columns
@@ -802,13 +743,20 @@ const adjustName = (options) => {
     return column;
   }
   if (withAlias) {
-    return item.createClause(params, getPlaceholder, true);
+    return item.createClause({
+      params,
+      getPlaceholder,
+      alias: column
+    });
   }
   else {
     if (selectColumns && selectColumns.includes(column)) {
       return column;
     }
-    return item.createClause(params, getPlaceholder, false);
+    return item.createClause({
+      params,
+      getPlaceholder
+    });
   }
 }
 

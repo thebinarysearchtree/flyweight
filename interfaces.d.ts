@@ -276,9 +276,13 @@ type MakeOptionalNullable<T> = {
   [K in keyof T]: undefined extends T[K] ? T[K] | null : T[K];
 };
 
+type AddComputed<T> = {
+  [K in keyof T]: T[K] | ((column: T, methods: ComputeMethods) => void);
+};
+
 interface UpdateQuery<W, T> {
   where?: W | null;
-  set: Partial<MakeOptionalNullable<T>>;
+  set: Partial<AddComputed<MakeOptionalNullable<T>>>;
 }
 
 interface UpsertQuery<T, K> {
