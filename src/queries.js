@@ -294,8 +294,7 @@ const insertMany = async (db, table, items, tx) => {
 }
 
 const toWhere = (options) => {
-  const { 
-    table, 
+  const {
     query, 
     params, 
     type, 
@@ -303,9 +302,6 @@ const toWhere = (options) => {
   } = options;
   if (!query) {
     return '';
-  }
-  if (!params) {
-    params = query;
   }
   const entries = Object.entries(query);
   if (entries.length === 0) {
@@ -483,16 +479,26 @@ const toSelect = (db, table, columns, types, params) => {
   return expandStar(db, table);
 }
 
-const getOrderBy = (orderBy, adjuster) => {
+const getOrderBy = (orderBy, params, adjuster) => {
   if (typeof orderBy === 'function') {
     const columnHandler = {
       get: function(target, property) {
-        target.name = property;
         const request = {
-          name: property
+          name: property,
+          path: [],
+          proxy: null
         };
+        const pathHandler = {
+          get: function(target, property) {
+            const path = target.path;
+            path.push(property);
+            return pathProxy;
+          }
+        };
+        const pathProxy = new Proxy(request, pathHandler);
+        request.proxy = pathProxy;
         columnRequests.push(request);
-        return request;
+        return pathProxy;
       }
     }
     const columnTarget = {};
@@ -500,33 +506,55 @@ const getOrderBy = (orderBy, adjuster) => {
     const columnRequests = [];
     const methodHandler = {
       get: function(target, property) {
-        target.name = property;
-        return (...args) => target.args = args;
+        const request = {
+          name: property,
+          args: null
+        };
+        methodRequests.push(request);
+        return (...args) => {
+          request.args = args;
+          return request;
+        };
       }
     }
     const methodTarget = {};
     const methodProxy = new Proxy(methodTarget, methodHandler);
-    orderBy(methodProxy, columnProxy);
-    const method = methodTarget.name;
-    const args = methodTarget.args;
-    if (!method) {
-      throw Error('orderBy functions must use a method');
-    }
-    const statements = [];
-    for (const arg of args) {
-      const column = columnRequests.find(r => r === arg);
-      if (column) {
-        const name = column.name;
-        const selector = adjuster ? adjuster(name) : name;
-        statements.push(selector);
+    const methodRequests = [];
+    orderBy(columnProxy, methodProxy);
+    const method = methodRequests.at(0);
+    const processColumn = (column) => {
+      const selector = adjuster ? adjuster(column.name) : column.name;
+      if (column.path.length === 0) {
+        return selector;
       }
-      else {
-        const placeholder = getPlaceholder();
-        params[placeholder] = arg;
-        statements.push(`$${placeholder}`);
-      }
+      const placeholder = getPlaceholder();
+      const path = `$.${column.path.join('.')}`;
+      params[placeholder] = path;
+      return `json_extract(${selector}, $${placeholder})`;
     }
-    return `${method}(${statements.join(', ')})`;
+    const processMethod = (method) => {
+      const statements = [];
+      for (const arg of method.args) {
+        const subMethod = methodRequests.find(r => r === arg);
+        if (subMethod) {
+          const statement = processMethod(subMethod);
+          statements.push(statement);
+          continue;
+        }
+        const column = columnRequests.find(r => r.proxy === arg);
+        if (column) {
+          const statement = processColumn(column);
+          statements.push(statement);
+        }
+        else {
+          const placeholder = getPlaceholder();
+          params[placeholder] = arg;
+          statements.push(`$${placeholder}`);
+        }
+      }
+      return `${method.name}(${statements.join(', ')})`;
+    }
+    return processMethod(method);
   }
   const columns = Array.isArray(orderBy) ? orderBy : [orderBy];
   return columns
@@ -540,7 +568,7 @@ const toKeywords = (keywords, params, adjuster) => {
   let sql = '';
   if (keywords) {
     if (keywords.orderBy) {
-      const orderBy = getOrderBy(keywords.orderBy, adjuster);
+      const orderBy = getOrderBy(keywords.orderBy, params, adjuster);
       sql += ` order by ${orderBy}`;
       if (keywords.desc) {
         sql += ' desc';
@@ -983,7 +1011,7 @@ const group = async (config) => {
         params,
         computed
       });
-      orderBy = getOrderBy(keywords.orderBy, adjuster);
+      orderBy = getOrderBy(keywords.orderBy, params, adjuster);
     }
     else {
       orderBy = `${withTable}.${db.getPrimaryKey(table)}`;
@@ -1747,7 +1775,7 @@ const custom = async (config) => {
     if (partitionBy) {
       let orderBy;
       if (keywords.orderBy) {
-        orderBy = getOrderBy(keywords.orderBy);
+        orderBy = getOrderBy(keywords.orderBy, params);
       }
       else {
         orderBy = fields.at(0);
@@ -1977,7 +2005,7 @@ const all = async (config) => {
   if (partitionBy) {
     let orderBy;
     if (keywords.orderBy) {
-      orderBy = getOrderBy(keywords.orderBy);
+      orderBy = getOrderBy(keywords.orderBy, params);
     }
     else {
       orderBy = db.getPrimaryKey(table);

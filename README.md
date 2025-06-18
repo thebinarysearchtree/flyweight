@@ -213,7 +213,7 @@ const orderBy = await db.fighters.query({
   where: {
     hometown: 'Brisbane, Australia'
   },
-  orderBy: (f, c) => f.lower(c.instagram)
+  orderBy: (c, f) => f.lower(c.instagram)
 });
 ```
 
@@ -365,7 +365,7 @@ const orderBy = await db.fighters.query({
       { instagram: c => c.not(null) }
     ]
   },
-  orderBy: (f, c) => f.lower(c.instagram)
+  orderBy: (c, f) => f.lower(c.instagram)
 });
 ```
 

@@ -105,7 +105,6 @@ class Database {
     for (const [name, expression] of Object.entries(properties)) {
       const columnHandler = {
         get: function(target, property) {
-          target.name = property;
           const request = {
             name: property,
             path: [],
@@ -129,49 +128,72 @@ class Database {
       const columnRequests = [];
       const methodHandler = {
         get: function(target, property) {
-          target.name = property;
-          return (...args) => target.args = args;
+          const request = {
+            name: property,
+            args: null
+          };
+          methodRequests.push(request);
+          return (...args) => {
+            request.args = args;
+            return request;
+          };
         }
       }
       const methodTarget = {};
       const methodProxy = new Proxy(methodTarget, methodHandler);
+      const methodRequests = [];
       expression(columnProxy, methodProxy);
-      const method = methodTarget.name;
-      const args = methodTarget.args;
+      const method = methodRequests.at(0);
       const createClause = (params, getPlaceholder, withAlias) => {
         let alias = '';
         if (withAlias) {
           alias = ` as ${name}`;
         }
-        if (!method) {
-          const request = columnRequests.at(0);
-          const column = request.name;
-          if (request.path.length === 0) {
-            return `${column} as ${name}`;
+        const processColumn = (column) => {
+          if (column.path.length === 0) {
+            return column.name;
           }
           const placeholder = getPlaceholder();
-          const path = `$.${request.path.join('.')}`;
+          const path = `$.${column.path.join('.')}`;
           params[placeholder] = path;
-          return `json_extract(${column}, $${placeholder})${alias}`;
+          return `json_extract(${column.name}, $${placeholder})`;
         }
-        const statements = [];
-        for (const arg of args) {
-          const column = columnRequests.find(r => r.proxy === arg);
-          if (column) {
-            statements.push(column.name);
+        const processMethod = (method) => {
+          const statements = [];
+          for (const arg of method.args) {
+            const subMethod = methodRequests.find(r => r === arg);
+            if (subMethod) {
+              const statement = processMethod(subMethod);
+              statements.push(statement);
+              continue;
+            }
+            const column = columnRequests.find(r => r.proxy === arg);
+            if (column) {
+              const statement = processColumn(column);
+              statements.push(statement);
+            }
+            else {
+              const placeholder = getPlaceholder();
+              params[placeholder] = arg;
+              statements.push(`$${placeholder}`);
+            }
           }
-          else {
-            const placeholder = getPlaceholder();
-            params[placeholder] = arg;
-            statements.push(`$${placeholder}`);
-          }
+          return `${method.name}(${statements.join(', ')})`;
         }
-        return `${method}(${statements.join(', ')})${alias}`;
+        let statement;
+        if (!method) {
+          const column = columnRequests.at(0);
+          statement = processColumn(column);
+        }
+        else {
+          statement = processMethod(method);
+        }
+        return `${statement}${alias}`;
       }
       let tsType;
       let columnType;
       if (method) {
-        tsType = tsReturnTypes[method];
+        tsType = tsReturnTypes[method.name];
       }
       else {
         const request = columnRequests.at(0);
@@ -193,9 +215,9 @@ class Database {
           };
         }
       }
-      else if (method === 'json_extract') {
-        const column = args.at(0);
-        const path = args.at(1);
+      else if (method.name === 'json_extract') {
+        const column = method.args.at(0);
+        const path = method.args.at(1);
         if (!path.includes('[')) {
           const request = columnRequests.find(r => r.proxy === column);
           const split = path.substring(2).split('.');
