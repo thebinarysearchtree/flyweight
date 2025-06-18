@@ -215,7 +215,13 @@ const upsert = async (db, table, options, tx) => {
     verify([target]);
     verify(Object.keys(set));
     const query = adjust(db, table, set);
-    const setClause = createSetClause(db, table, query, params);
+    const computed = db.computed.get(table);
+    const adjuster = (name) => adjustName({
+      column: name,
+      params,
+      computed
+    });
+    const setClause = createSetClause(db, table, query, params, adjuster);
     sql += ` on conflict(${target}) do update set ${setClause}`;
   }
   else {
