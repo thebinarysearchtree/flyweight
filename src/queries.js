@@ -552,6 +552,16 @@ const getOrderBy = (orderBy, params, adjuster) => {
           statements.push(`$${placeholder}`);
         }
       }
+      const operators = new Map([
+        ['plus', '+'],
+        ['minus', '-'],
+        ['divide', '/'],
+        ['multiply', '*']
+      ]);
+      const operator = operators.get(method.name);
+      if (operator) {
+        return statements.join(` ${operator} `);
+      }
       return `${method.name}(${statements.join(', ')})`;
     }
     return processMethod(method);

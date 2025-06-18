@@ -144,6 +144,12 @@ class Database {
       const methodRequests = [];
       expression(columnProxy, methodProxy);
       const method = methodRequests.at(0);
+      const operators = new Map([
+        ['plus', '+'],
+        ['minus', '-'],
+        ['divide', '/'],
+        ['multiply', '*']
+      ]);
       const createClause = (params, getPlaceholder, withAlias) => {
         let alias = '';
         if (withAlias) {
@@ -178,6 +184,10 @@ class Database {
               statements.push(`$${placeholder}`);
             }
           }
+          const operator = operators.get(method.name);
+          if (operator) {
+            return statements.join(` ${operator} `);
+          }
           return `${method.name}(${statements.join(', ')})`;
         }
         let statement;
@@ -193,7 +203,12 @@ class Database {
       let tsType;
       let columnType;
       if (method) {
-        tsType = tsReturnTypes[method.name];
+        if (operators.has(method.name)) {
+          tsType = 'number | null';
+        }
+        else {
+          tsType = tsReturnTypes[method.name];
+        }
       }
       else {
         const request = columnRequests.at(0);
