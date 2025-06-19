@@ -383,6 +383,14 @@ const [project, tags, issues] = await db.batch((bx) => [
 const result = { ...project, tags, issues };
 ```
 
+## Migrations
+
+Tables are defined in ```./database/sql/tables.sql```. You can add or change tables from here and then run the migration command ```npm run migrate <migration-name>```.
+
+If you want to reset the migration system to a new database that already has tables created on it, edit the ```tables.sql``` file and then run ```npm run reset```.
+
+If you want to add a new column to a table without needing to drop the table, make sure you put the column at the end of the list of columns.
+
 ## Creating tables
 
 Tables are created the same way as they are in SQL. The native types available in strict mode are ```integer```, ```real```, ```text```, ```blob```, and ```any```. In addition to these types, four additional types are included by default: ```boolean```, ```date```, and ```json```. ```boolean``` is a column in which the values are restricted to 1 or 0, ```date``` is a JavaScript ```Date``` stored as an ISO8601 string, and ```json``` is ```jsonb``` stored as a blob. These additional types are automatically parsed by the ORM.
@@ -409,20 +417,6 @@ create table users (
 ```
 
 ```current_timestamp``` will not work properly when wanting to set the default date to the current time. This is because ```current_timestamp``` does not include timezone information and therefore when parsing the date string from the database, JavaScript will assume it is in local time when it is in fact in UTC time.
-
-## Migrations
-
-Tables are defined in ```./database/sql/tables.sql```. You can add or change tables from here and then run the migration command ```npm run migrate <migration-name>```.
-
-If you want to reset the migration system to a new database that already has tables created on it, edit the ```tables.sql``` file and then run ```npm run reset```.
-
-If you want to add a new column to a table without needing to drop the table, make sure you put the column at the end of the list of columns.
-
-## JSON support
-
-Flyweight can sample columns that are declared with the ```json``` by querying the database. From these samples, types will be automatically created for both the return type of queries and for creating queries themselves.
-
-To sample your local database, run ```npm run sample```.
 
 ## Creating SQL queries
 
@@ -547,3 +541,9 @@ import { db } from './database/db.js';
 const user = await db.activeUsers.get({ id: 100 }, ['name', 'email']);
 console.log(user.email);
 ```
+
+## JSON support
+
+Flyweight can sample columns that are declared with the ```json``` type to create richer type information that can be used in various parts of the API.
+
+To sample your local database, run ```npm run sample```.
