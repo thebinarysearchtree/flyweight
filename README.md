@@ -526,7 +526,7 @@ from
 
 ## Views
 
-Views are treated like read-only tables. They have a ```get``` and ```many``` method available to them that works the same as with tables. If you want to create a view called ```activeUsers``` you can add a file in the ```views``` folder called ```./database/views/activeUsers.sql``` that might have SQL like this:
+Views are treated like read-only tables. If you want to create a view called ```activeUsers``` you can add a file in the ```views``` folder called ```./database/views/activeUsers.sql``` that might have SQL like this:
 
 ```sql
 create view activeUsers as
