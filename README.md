@@ -41,7 +41,7 @@ Configuration options can be found in the ```config.js``` file. Go to the [migra
 
 ## The API
 
-Every table has ```get```, ```many```, ```query```, ```update```, ```upsert```, ```insert```, ```insertMany```, and ```remove``` methods available to it, along with any of the custom methods that are created when you add a new SQL file to the corresponding table's folder. Views only have the ```get```, ```many```, and ```query``` methods available to them.
+Every table has ```get```, ```many```, ```first```, ```query```, ```update```, ```upsert```, ```insert```, ```insertMany```, and ```remove``` methods available to it, along with any of the custom methods that are created when you add a new SQL file to the corresponding table's folder. Views only have the ```get```, ```many```, ```first```, and ```query``` methods available to them.
 
 ### Insert
 
