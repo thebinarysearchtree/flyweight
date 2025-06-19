@@ -166,7 +166,7 @@ You can use the ```query``` or ```first``` syntax for more complex queries. ```q
 
 ```include```: include other tables in the result.
 
-```orderBy```: a string representing the column to order the result by, or an array of columns to order the result by. This can also be a function that utilises the built-in SQLite functions.
+```orderBy```: a string or an array representing the column or columns to order the result by. This can also be a function that utilises the built-in SQLite functions.
 
 ```js
 const orderBy = await db.fighters.query({
@@ -259,7 +259,7 @@ All of these functions take three arguments:
 
 ```column```: the column to aggregate. This is optional for ```count```.
 
-```distinct```: the same as ```column``` but it adds ```distinct``` to the front.
+```distinct```: the same as ```column``` but it aggregates by distinct values.
 
 ```js
 const count = await db.fighters.count({
@@ -293,9 +293,9 @@ const towns = await db.fighters
   });
 ```
 
-An aggregate function comes after the ```groupBy``` method. ```distinct``` can be used instead of ```column``` to aggregate by distinct values. ```distinct``` or ```column``` need to be an object with a single property where the key is the alias for the aggregate function, and the value is the column to aggregate by.
+An aggregate function should come after the ```groupBy``` method. ```distinct``` can be used instead of ```column``` to aggregate by distinct values. ```distinct``` or ```column``` needs to be an object with a single property representing the alias for the aggregrate function, and the column to aggregate by.
 
-In addition to aggregate functions such as ```avg``` or ```count```, there is also an ```array``` function that simply groups the rows into an array. You can use the ```select``` option to limit which columns are included in the array. It takes an object in the same way as ```distinct``` or ```column``` in the other functions.
+In addition to aggregate functions such as ```avg``` or ```count```, there is also an ```array``` function that simply groups the rows into an array. The ```select``` option takes an object with a single property representing the name of the resulting array, and the column or columns to select.
 
 ```js
 const groupValues = await db.events
