@@ -279,25 +279,27 @@ You can write ```group by``` statements like this:
 const towns = await db.fighters
   .groupBy('hometown')
   .avg({
-    column: 'heightCm',
+    column: {
+      height: 'heightCm'
+    },
     limit: 3,
-    alias: 'height',
     where: {
       avg: c => c.gt(170)
     }
   });
 ```
 
-An aggregate function comes after the ```groupBy``` method. ```distinct``` can be used instead of ```column``` to aggregate by distinct values. ```count``` does not need to be supplied with any column.
+An aggregate function comes after the ```groupBy``` method. ```distinct``` can be used instead of ```column``` to aggregate by distinct values. ```distinct``` or ```column``` need to be an object with a single property where the key is the alias for the aggregate function, and the value is the column to aggregate by.
 
-In addition to aggregate functions such as ```avg``` or ```count```, there is also an ```array``` function that simply groups the rows into an array. You can use the ```select``` option to limit which columns are included in the array. If ```select``` is a string, the array will contain values instead of objects.
+In addition to aggregate functions such as ```avg``` or ```count```, there is also an ```array``` function that simply groups the rows into an array. You can use the ```select``` option to limit which columns are included in the array. It takes an object in the same way as ```distinct``` or ```column``` in the other functions.
 
 ```js
 const groupValues = await db.events
   .groupBy('locationId')
   .array({
-    select: 'startTime',
-    alias: 'startTimes',
+    select: {
+      startTimes: 'startTime'
+    },
     limit: 3
   });
 ```

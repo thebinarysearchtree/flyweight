@@ -779,17 +779,15 @@ const group = async (config) => {
   if (!db.initialized) {
     await db.initialize();
   }
-  const { select, column, distinct, where, include, alias, debug, ...keywords } = query;
-  if (alias) {
-    verify(alias);
-  }
+  const { select, column, distinct, where, include, debug, ...keywords } = query;
+  const alias = Object.keys(select || column || distinct).at(0);
+  verify(alias);
   let having;
   let adjustedWhere = where;
   const whereKeys = where ? Object.keys(where) : [];
-  const methodAlias = method === 'array' ? 'items' : method;
   if (whereKeys.includes(method)) {
     having = {
-      [methodAlias]: where[methodAlias]
+      [method]: where[method]
     };
     adjustedWhere = {};
     for (const [key, value] of Object.entries(where)) {
@@ -806,7 +804,7 @@ const group = async (config) => {
   const rawBy = Array.isArray(config.by) ? config.by : [config.by];
   const params = {};
   const computed = db.computed.get(table);
-  if (alias && computed && computed.has(alias)) {
+  if (computed && computed.has(alias)) {
     throw Error(`The alias cannot have the same name as a computed field.`);
   }
   const by = rawBy.map(column => adjustName({
@@ -860,15 +858,16 @@ const group = async (config) => {
   }
   let sql = `select ${byClause}, `;
   if (method !== 'array') {
-    const field = column || distinct;
-    if (!field && method !== 'count') {
-      throw Error(`The ${method} method requires a column`);
-    }
+    const options = column || distinct;
+    const field = options[alias];
     let body = '';
-    if (field) {
-      if (distinct) {
-        body += 'distinct ';
-      }
+    if (distinct) {
+      body += 'distinct ';
+    }
+    if (field === true) {
+      body += '*';
+    }
+    else {
       body += adjustName({
         table,
         column: field,
@@ -876,22 +875,20 @@ const group = async (config) => {
         computed
       });
     }
-    else {
-      body = '*';
-    }
     const actualMethod = method === 'sum' ? 'total' : method;
-    sql += `${actualMethod}(${body}) as ${methodAlias} from ${table}`;
+    sql += `${actualMethod}(${body}) as ${method} from ${table}`;
   }
   else {
     const types = db.columns[table];
     let columns;
     let rawColumns;
-    if (!select) {
+    const fields = select[alias];
+    if (fields === true) {
       columns = Object.keys(db.columns[table]);
       rawColumns = columns;
     }
-    else if (Array.isArray(select)) {
-      columns = select.map(column => adjustName({
+    else if (Array.isArray(fields)) {
+      columns = fields.map(column => adjustName({
         table,
         column,
         params,
@@ -907,23 +904,24 @@ const group = async (config) => {
           fields.set(column, true);
         }
       }
-      needsParsing.set(alias || methodAlias, { jsonParse: true, fields });
+      needsParsing.set(alias, { jsonParse: true, fields });
     }
     else {
+      const column = fields;
       const name = adjustName({
         table,
-        column: select,
+        column,
         params,
         computed
       });
       sql += `json_group_array(${name})`;
       let field;
-      if (db.needsParsing(table, select) && types[select] !== 'json') {
-        field = select;
+      if (db.needsParsing(table, column) && types[column] !== 'json') {
+        field = column;
       }
-      needsParsing.set(alias || methodAlias, { jsonParse: true, field });
+      needsParsing.set(alias, { jsonParse: true, field });
     }
-    sql += ` as ${methodAlias} from ${table}`;
+    sql += ` as ${method} from ${table}`;
   }
   if (adjustedWhere) {
     const adjuster = (name) => adjustName({
@@ -965,7 +963,7 @@ const group = async (config) => {
   else if (partitionBy) {
     const withTable = 'flyweight_wrapped';
     sql = `with ${withTable} as (${sql})`;
-    const selectColumns = [methodAlias, ...by];
+    const selectColumns = [alias, ...by];
     let orderBy;
     if (keywords.orderBy) {
       const adjuster = (name) => adjustName({
@@ -1015,10 +1013,8 @@ const group = async (config) => {
       sql += ` > $${placeholder}`;
     }
   }
-  if (alias) {
-    const withTable = 'flyweight_alias';
-    sql = `with ${withTable} as (${sql}) select ${by.join(', ')}, ${methodAlias} as ${alias} from ${withTable}`;
-  }
+  const withTable = 'flyweight_alias';
+  sql = `with ${withTable} as (${sql}) select ${by.join(', ')}, ${method} as ${alias} from ${withTable}`;
   const options = {
     query: sql,
     params,
