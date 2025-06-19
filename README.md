@@ -532,7 +532,7 @@ from
 
 ## Views
 
-Views are treated like read-only tables. If you want to create a view called ```activeUsers``` you can add a file in the ```views``` folder called ```./database/views/activeUsers.sql``` that might have SQL like this:
+Views are treated like read-only tables. If you want to create a view called ```activeUsers```, you can add a file in the ```views``` folder called ```./database/views/activeUsers.sql``` that might have SQL like this:
 
 ```sql
 create view activeUsers as
@@ -550,6 +550,6 @@ console.log(user.email);
 
 ## JSON support
 
-Flyweight can sample columns that are declared with the ```json``` type to create richer type information that can be used in various parts of the API.
+Flyweight can sample columns that are declared with the ```json``` type to create richer type information.
 
 To sample your local database, run ```npm run sample```.
