@@ -126,6 +126,21 @@ which corresponds to
 update coaches set city = 'Brisbane' where id = 100;
 ```
 
+If you want to update columns based on their existing value, you can pass a function into the ```set``` properties like this:
+
+```js
+await db.coaches.update({
+  set: {
+    city: (c, f) => f.concat(c.city, ', Australia')
+  },
+  where: {
+    id: coachId
+  }
+});
+```
+
+All of the built-in SQLite functions are available, in addition to the mathematical operators ```plus```, ```minus```, ```divide```, and ```multiply```.
+
 ### Upsert
 
 ```upsert``` will update the row if the target's uniqueness contraint is violated by the insert. If ```target``` or ```set``` are not provided, the upsert will do nothing when there is a conflict. ```upsert``` returns the primary key of the inserted or updated row.
