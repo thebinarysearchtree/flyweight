@@ -3,40 +3,6 @@ Flyweight is a NodeJS ORM for SQLite and Turso.
 
 Features include a comprehensive API, the ability to automatically type and query inside JSON, and advanced typing of raw SQL queries so that you are not without TypeScript support in any situation.
 
-## Creating tables
-
-Tables are created the same way as they are in SQL. The native types available in strict mode are ```integer```, ```real```, ```text```, ```blob```, and ```any```. In addition to these types, four additional types are included by default: ```boolean```, ```date```, and ```json```. ```boolean``` is a column in which the values are restricted to 1 or 0, ```date``` is a JavaScript ```Date``` stored as an ISO8601 string, and ```json``` is ```jsonb``` stored as a blob. These additional types are automatically parsed by the ORM.
-
-```sql
-create table events (
-    id integer primary key,
-    name text not null,
-    startTime date not null,
-    locationId integer references locations
-);
-```
-
-If you want to get one row with the basic API, you can use:
-
-```js
-const event = await db.events.get({ id: 100 });
-```
-
-If you want to get many rows, you can use:
-
-```js
-const names = await db.events.many({ id: eventIds }, 'name');
-```
-
-If you want to insert a row, you can do:
-
-```js
-const id = await db.coaches.insert({
-  name: 'Eugene Bareman',
-  city: 'Auckland'
-});
-```
-
 ## Getting started
 
 ```
@@ -71,35 +37,7 @@ A ```users``` table has already been created for you to play around with.
 
 You can update types whenever you change the SQL by either calling ```npm run watch``` to automatically update the types, or ```npm run types``` to do it manually.
 
-Configuration options can be found in the ```config.js``` file.
-
-## Migrations
-
-Tables are defined in ```./database/sql/tables.sql```. You can add or change tables from here and then run the migration command ```npm run migrate <migration-name>```.
-
-If you want to reset the migration system to a new database that already has tables created on it, edit the ```tables.sql``` file and then run ```npm run reset```.
-
-If you want to add a new column to a table without needing to drop the table, make sure you put the column at the end of the list of columns.
-
-## JSON support
-
-Flyweight can sample columns that are declared with the ```json``` by querying the database. From these samples, types will be automatically created for both the return type of queries and for creating queries themselves.
-
-To sample your local database, run ```npm run sample```.
-
-## Default values
-
-Default values can be set for boolean and date columns using the following syntax:
-
-```sql
-create table users (
-  id integer primary key,
-  isDisabled boolean not null default false,
-  createdAt date not null default now()
-);
-```
-
-```current_timestamp``` will not work properly when wanting to set the default date to the current time. This is because ```current_timestamp``` does not include timezone information and therefore when parsing the date string from the database, JavaScript will assume it is in local time when it is in fact in UTC time.
+Configuration options can be found in the ```config.js``` file. Go to the [migrations](#migrations) section to learn how to start adding columns and tables.
 
 ## The API
 
@@ -108,6 +46,13 @@ Every table has ```get```, ```many```, ```query```, ```update```, ```upsert```, 
 ### Insert
 
 ```insert``` simply takes one argument - ```params```, with the keys and values corresponding to the column names and values you want to insert. It returns the primary key, or part of the primary key if the table has a composite primary key. For batch inserts you can use ```insertMany``` and it takes an array of ```params```. It doesn't return anything.
+
+```js
+const id = await db.coaches.insert({
+  name: 'Eugene Bareman',
+  city: 'Auckland'
+});
+```
 
 ### Update
 
@@ -394,6 +339,91 @@ Computed fields are not automatically included in results and have to be specifi
 const changes = await db.fighters.remove({ id: 100 });
 ```
 
+## Transactions
+
+Transactions involve locking writes to the database with ```getTransaction```. If multiple transactions try to run at the same time, they will wait until the current transaction is complete.
+
+```js
+import { db } from './db.js';
+
+try {
+  const tx = await db.getTransaction();
+  await tx.begin();
+
+  const coachId = await tx.coaches.insert({
+    name: 'Eugene Bareman',
+    city: 'Auckland'
+  });
+  const fighterId = await tx.fighters.get({ name: c => c.like('Israel%') }, 'id');
+  await tx.fighterCoaches.insert({
+    fighterId,
+    coachId
+  });
+  
+  await tx.commit();
+}
+catch (e) {
+  console.log(e);
+  await tx.rollback();
+}
+```
+
+## Batches
+
+You can also run multiple statements inside a single transaction without any logic using ```batch```.
+
+```ts
+const projectId = 1;
+const [project, tags, issues] = await db.batch((bx) => [
+  bx.projects.get({ id: projectId }),
+  bx.tags.many({ projectId }),
+  bx.issues.many({ projectId })
+]);
+
+const result = { ...project, tags, issues };
+```
+
+## Creating tables
+
+Tables are created the same way as they are in SQL. The native types available in strict mode are ```integer```, ```real```, ```text```, ```blob```, and ```any```. In addition to these types, four additional types are included by default: ```boolean```, ```date```, and ```json```. ```boolean``` is a column in which the values are restricted to 1 or 0, ```date``` is a JavaScript ```Date``` stored as an ISO8601 string, and ```json``` is ```jsonb``` stored as a blob. These additional types are automatically parsed by the ORM.
+
+```sql
+create table events (
+    id integer primary key,
+    name text not null,
+    startTime date not null,
+    locationId integer references locations
+);
+```
+
+## Default values
+
+Default values can be set for boolean and date columns using the following syntax:
+
+```sql
+create table users (
+  id integer primary key,
+  isDisabled boolean not null default false,
+  createdAt date not null default now()
+);
+```
+
+```current_timestamp``` will not work properly when wanting to set the default date to the current time. This is because ```current_timestamp``` does not include timezone information and therefore when parsing the date string from the database, JavaScript will assume it is in local time when it is in fact in UTC time.
+
+## Migrations
+
+Tables are defined in ```./database/sql/tables.sql```. You can add or change tables from here and then run the migration command ```npm run migrate <migration-name>```.
+
+If you want to reset the migration system to a new database that already has tables created on it, edit the ```tables.sql``` file and then run ```npm run reset```.
+
+If you want to add a new column to a table without needing to drop the table, make sure you put the column at the end of the list of columns.
+
+## JSON support
+
+Flyweight can sample columns that are declared with the ```json``` by querying the database. From these samples, types will be automatically created for both the return type of queries and for creating queries themselves.
+
+To sample your local database, run ```npm run sample```.
+
 ## Creating SQL queries
 
 When the API doesn't do what you need it to do, you can create SQL queries. You can do this by creating a folder with the same name as the table, such as ```./database/sql/users```. You can then put SQL files in this folder that will be available in the API.
@@ -498,50 +528,6 @@ select
 from 
     events e join
     locations l on e.locationId = l.id
-```
-
-## Transactions
-
-Transactions involve locking writes to the database with ```getTransaction```. If multiple transactions try to run at the same time, they will wait until the current transaction is complete.
-
-```js
-import { db } from './db.js';
-
-try {
-  const tx = await db.getTransaction();
-  await tx.begin();
-
-  const coachId = await tx.coaches.insert({
-    name: 'Eugene Bareman',
-    city: 'Auckland'
-  });
-  const fighterId = await tx.fighters.get({ name: c => c.like('Israel%') }, 'id');
-  await tx.fighterCoaches.insert({
-    fighterId,
-    coachId
-  });
-  
-  await tx.commit();
-}
-catch (e) {
-  console.log(e);
-  await tx.rollback();
-}
-```
-
-## Batches
-
-You can also run multiple statements inside a single transaction without any logic using ```batch```.
-
-```ts
-const projectId = 1;
-const [project, tags, issues] = await db.batch((bx) => [
-  bx.projects.get({ id: projectId }),
-  bx.tags.many({ projectId }),
-  bx.issues.many({ projectId })
-]);
-
-const result = { ...project, tags, issues };
 ```
 
 ## Views
