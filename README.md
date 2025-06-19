@@ -203,7 +203,11 @@ You can also include additional relations:
 ```js
 const locations = await db.locations.query({
   include: {
-    events: (t, c) => t.events.many({ locationId: c.id })
+    events: (t, c) => t.events.query({ 
+      where: {
+        locationId: c.id
+      }
+    })
   }
 });
 ```
@@ -282,10 +286,10 @@ const towns = await db.fighters
     column: {
       height: 'heightCm'
     },
-    limit: 3,
     where: {
       avg: c => c.gt(170)
-    }
+    },
+    limit: 3
   });
 ```
 
