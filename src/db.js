@@ -36,13 +36,13 @@ class Database {
     this.write = null;
     this.transact = null;
     this.tables = {};
-    this.columnSets = {};
     this.mappers = {};
     this.customTypes = {};
     this.columns = {};
     this.hasJson = {};
     this.computed = new Map();
     this.computedTypes = new Map();
+    this.subQueries = new Map();
     this.statements = new Map();
     this.viewSet = new Set();
     this.virtualSet = new Set();
@@ -97,6 +97,84 @@ class Database {
 
   getClient() {
     return makeClient(this);
+  }
+
+  async view(expression) {
+    if (!this.initialized) {
+      await this.initialize();
+    }
+    const makeHandler = (table) => {
+      const keys = Object.keys(this.columns[table]);
+      const handler = {
+        get: function(target, property) {
+          const request = {
+            column: property,
+            table
+          };
+          columnRequests.push(request);
+          return request;
+        },
+        ownKeys: function(target) {
+          return keys;
+        },
+        getOwnPropertyDescriptor: function(target, property) {
+          if (keys.includes(property)) {
+            return {
+              enumerable: true,
+              configurable: true
+            };
+          }
+          return undefined;
+        }
+      };
+      const target = {};
+      const proxy = new Proxy(target, handler);
+      return proxy;
+    }
+    const columnRequests = [];
+    const handler = {
+      get: function(target, property) {
+        return makeHandler(property);
+      }
+    };
+    const target = {};
+    const proxy = new Proxy(target, handler);
+    const result = expression(proxy);
+    const { select, join, leftJoin, as } = result;
+    const from = join || leftJoin;
+    const joinClause = leftJoin ? ' left join ' : ' join ';
+    const used = new Set();
+    const [first] = from;
+    used.add(first);
+    let sql = 'select ';
+    const columns = [];
+    const statements = [];
+    this.columns[as] = {};
+    for (const [key, value] of Object.entries(select)) {
+      const { table, column } = columnRequests.find(r => r === value);
+      statements.push(`${table}.${column} as ${key}`);
+      const original = this.tables[table].find(c => c.name === column);
+      this.columns[as][key] = original.type;
+      if (column.type === 'json') {
+        this.hasJson[as] = true;
+      }
+      columns.push({
+        name: key,
+        type: original.type,
+        notNull: original.notNull && (!leftJoin || first.table === table) 
+      });
+    }
+    sql += statements.join(', ');
+    sql += ' from ';
+    used.add(first);
+    sql += first.table;
+    for (const [l, r] of from) {
+      const [join, other] = used.has(l) ? [r, l] : [l, r];
+      used.add(join);
+      sql += ` ${joinClause} ${join.table} on ${join.table}.${join.column} = ${other.table}.${other.column}`;
+    }
+    this.subQueries.set(as, sql);
+    this.tables[as] = columns;
   }
 
   compute(table, properties) {
@@ -209,7 +287,6 @@ class Database {
   addTables(tables) {
     for (const table of tables) {
       this.tables[table.name] = table.columns;
-      this.columnSets[table.name] = table.columnSet;
       this.columns[table.name] = {};
       this.hasJson[table.name] = false;
       for (const column of table.columns) {
@@ -275,7 +352,6 @@ class Database {
     this.addTables(tables);
     for (const table of tables) {
       this.virtualSet.add(table.name);
-      this.columnSets[table.name].add(table.name);
     }
   }
 

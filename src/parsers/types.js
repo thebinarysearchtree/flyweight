@@ -272,7 +272,7 @@ const getQueries = async (fileSystem, db, sqlDir, tableName, typeSet, i) => {
       let paramsString;
       if (params.length > 0) {
         paramsName = `${interfaceName}Params`;
-        paramsString = `export interface ${paramsName} {\n`;
+        paramsString = `interface ${paramsName} {\n`;
         for (const param of params) {
           paramsString += `  ${param}: any;\n`;
         }
@@ -282,7 +282,7 @@ const getQueries = async (fileSystem, db, sqlDir, tableName, typeSet, i) => {
       let unsafeString;
       if (unsafe.length > 0) {
         unsafeName = `${interfaceName}Unsafe`;
-        unsafeString = `export interface ${unsafeName} {\n`;
+        unsafeString = `interface ${unsafeName} {\n`;
         for (const param of unsafe) {
           unsafeString += `  ${param}: any;\n`;
         }
@@ -300,7 +300,7 @@ const getQueries = async (fileSystem, db, sqlDir, tableName, typeSet, i) => {
         });
         continue;
       }
-      let interfaceString = `export interface ${interfaceName} {\n`;
+      let interfaceString = `interface ${interfaceName} {\n`;
       const sample = {};
       for (const column of columns) {
         const tsType = getTsType(column, db.customTypes);
@@ -367,7 +367,7 @@ const getQueries = async (fileSystem, db, sqlDir, tableName, typeSet, i) => {
   }
   const singular = pluralize.singular(tableName);
   const interfaceName = makeUnique(capitalize(singular) + 'Queries', typeSet, i);
-  let interfaceString = `export interface ${interfaceName} {\n`;
+  let interfaceString = `interface ${interfaceName} {\n`;
   for (const query of parsedQueries) {
     const {
       queryName,
@@ -433,7 +433,7 @@ const createTypes = async (options) => {
   const definitions = files.interfaces;
   const typeSet = new Set();
   let i = 1;
-  const matches = (index + '\n' + definitions).matchAll(/^(export )?(default )?(interface|class) (?<name>[a-z0-9_]+)/gmi);
+  const matches = (index + '\n' + definitions).matchAll(/^(export )?(default )?(declare )?(interface|class) (?<name>[a-z0-9_]+)/gmi);
   for (const match of matches) {
     typeSet.add(match.groups.name);
   }
@@ -450,10 +450,13 @@ const createTypes = async (options) => {
   }
   const jsonColumnTypes = new Map();
   const computedTypes = [];
+  let tableInterfaces = 'interface Tables {\n';
   for (const table of tables) {
+    const isDerived = db.viewSet.has(table.name) || db.subQueries.has(table.name);
     const singular = pluralize.singular(table.name);
     const capitalized = capitalize(singular);
     const interfaceName = makeUnique(capitalized, typeSet, i);
+    tableInterfaces += `  ${table.name}: ${interfaceName};\n`;
     const insertInterfaceName = makeUnique(`Insert${interfaceName}`, typeSet, i);
     let computedInterfaceName;
     const computed = db.computed.get(table.name);
@@ -475,7 +478,7 @@ const createTypes = async (options) => {
     else {
       tsType = 'undefined';
     }
-    if (db.viewSet.has(table.name)) {
+    if (isDerived) {
       returnType = `  ${table.name}: Omit<Queries<${interfaceName}, ${insertInterfaceName}, ToWhere<${interfaceName} & ${computedInterfaceName}>, ${computedInterfaceName}, undefined, TypedDb>, 'remove' | 'insert' | 'insertMany' | 'update' | 'upsert'>`;
     }
     else if (db.virtualSet.has(table.name)) {
@@ -494,7 +497,7 @@ const createTypes = async (options) => {
     returnType += ';\n';
     returnTypes.push(returnType);
     const jsonInterfaces = [];
-    types += `export interface ${interfaceName} {\n`;
+    types += `interface ${interfaceName} {\n`;
     for (const column of table.columns) {
       const { name, type, primaryKey, notNull } = column;
       let tsType = toTsType({
@@ -503,7 +506,7 @@ const createTypes = async (options) => {
       }, db.customTypes);
       if (type === 'json') {
         const key = `${table.name} ${name}`;
-        if (sampleData) {
+        if (sampleData && !isDerived) {
           const sample = await db.getSample(table.name, name);
           const types = getTypes(name, sample, typeSet);
           tsType = tsType.replace('Json', types.columnType);
@@ -537,27 +540,29 @@ const createTypes = async (options) => {
       types += jsonInterfaces.join('\n\n');
       types += '\n\n';
     }
-    types += `export interface ${insertInterfaceName} {\n`;
-    for (const column of table.columns) {
-      const { name, type, primaryKey, notNull, hasDefault } = column;
-      const tsType = toTsType({
-        type,
-        notNull: true
-      }, db.customTypes);
-      let property = `  ${name}`;
-      if (primaryKey || !notNull || hasDefault) {
-        property += '?: ';
+    if (!isDerived) {
+      types += `interface ${insertInterfaceName} {\n`;
+      for (const column of table.columns) {
+        const { name, type, primaryKey, notNull, hasDefault } = column;
+        const tsType = toTsType({
+          type,
+          notNull: true
+        }, db.customTypes);
+        let property = `  ${name}`;
+        if (primaryKey || !notNull || hasDefault) {
+          property += '?: ';
+        }
+        else {
+          property += ': ';
+        }
+        property += tsType;
+        property += ';\n';
+        types += property;
       }
-      else {
-        property += ': ';
-      }
-      property += tsType;
-      property += ';\n';
-      types += property;
+      types += '}\n\n'; 
     }
-    types += '}\n\n';
     if (computed) {
-      types += `export interface ${computedInterfaceName} {\n`;
+      types += `interface ${computedInterfaceName} {\n`;
       for (const [name, item] of computed.entries()) {
         let tsType = item.tsType;
         if (item.jsonPath && jsonTypes) {
@@ -622,6 +627,8 @@ const createTypes = async (options) => {
       types += '\n';
     }
   }
+  tableInterfaces += '}';
+  types = types.replace(/^interface Tables \{[^\}]+}/m, tableInterfaces);
   types = types.replace('getClient(): any;', 'getClient(): TypedDb;');
   const exportSection = files[db.name];
   const replaced = exportSection.replace(/(\[key: string\]: any;\s)/, `$1${returnTypes.join('')}`);

@@ -144,7 +144,7 @@ const getPlaceholders = (query, params, columnTypes) => {
 }
 
 const adjust = (db, table, params) => {
-  const columnTypes = db.columnSets[table];
+  const columnTypes = db.columns[table];
   const adjusted = db.adjust(params);
   const processed = {};
   for (const [name, value] of Object.entries(adjusted)) {
@@ -160,7 +160,7 @@ const adjust = (db, table, params) => {
 
 const makeInsertSql = (db, table, query, params) => {
   const columns = Object.keys(query);
-  const columnTypes = db.columnSets[table];
+  const columnTypes = db.columns[table];
   const placeholders = getPlaceholders(query, params, columnTypes);
   return `insert into ${table}(${columns.join(', ')}) values(${placeholders.join(', ')})`;
 }

@@ -41,8 +41,7 @@ const getVirtual = (sql) => {
     }
     tables.push({
       name: tableName,
-      columns,
-      columnSet: new Set(columns.map(c => c.name))
+      columns
     });
   }
   return tables;
@@ -73,8 +72,7 @@ const getViews = (sql, db) => {
     });
     views.push({
       name,
-      columns,
-      columnSet: new Set(columns.map(c => c.name))
+      columns
     });
   }
   return views;
@@ -157,8 +155,7 @@ const getTables = (sql) => {
   for (const match of matches) {
     const table = {
       name: match.groups.tableName,
-      columns: [],
-      columnSet: null
+      columns: []
     };
     const columns = blank(match.groups.columns)
       .replaceAll(/\s+/gm, ' ')
@@ -207,7 +204,6 @@ const getTables = (sql) => {
         hasDefault: false
       });
     }
-    table.columnSet = new Set(table.columns.map(c => c.name));
     tables.push(table);
   }
   return tables;

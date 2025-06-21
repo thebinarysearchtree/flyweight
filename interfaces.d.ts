@@ -450,6 +450,10 @@ interface Compute<T> {
   [key: string]: (column: T, method: ComputeMethods) => void;
 }
 
+interface Tables {
+  name: string;
+}
+
 interface VirtualQueries<T, W> {
   [key: string]: any;
   get(params?: W | null): Promise<T | undefined>;
@@ -511,6 +515,7 @@ interface Queries<T, I, W, C, R, Y> {
   exists(params: W | null): Promise<boolean>;
   groupBy<K extends keyof (T & C)>(columns: K | Array<K>): AggregateMethods<T, W, C, K, Y>;
   compute(properties: Compute<T>): void;
+  view(expression: (tables: Tables) => any): Promise<void>;
   remove(params?: W): Promise<number>;
 }
 
