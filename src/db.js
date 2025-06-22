@@ -109,7 +109,8 @@ class Database {
         get: function(target, property) {
           const request = {
             column: property,
-            table
+            table,
+            toString: () => `${table}.${property}`
           };
           columnRequests.push(request);
           return request;
@@ -140,12 +141,39 @@ class Database {
     const target = {};
     const proxy = new Proxy(target, handler);
     const result = expression(proxy);
-    const { select, join, leftJoin, as } = result;
+    const { 
+      select, 
+      join, 
+      leftJoin, 
+      where, 
+      orderBy,
+      desc,
+      offset, 
+      limit, 
+      as 
+    } = result;
     const from = join || leftJoin;
-    const joinClause = leftJoin ? ' left join ' : ' join ';
+    const joinClause = leftJoin ? 'left join' : 'join';
     const used = new Set();
-    const [first] = from;
-    used.add(first);
+    const [first] = from.at(0);
+    used.add(first.table);
+    const verify = (key) => {
+      let table;
+      let column;
+      if (typeof key === 'string') {
+        const [t, c] = key.split('.');
+        table = t;
+        column = c;
+      }
+      else {
+        table = key.table;
+        column = key.column;
+      }
+      if (!this.tables[table] || !this.columns[table][column]) {
+        throw Error(`Table or column from ${key} does not exist`);
+      }
+      return `${table}.${column}`;
+    }
     let sql = 'select ';
     const columns = [];
     const statements = [];
@@ -165,13 +193,63 @@ class Database {
       });
     }
     sql += statements.join(', ');
-    sql += ' from ';
-    used.add(first);
-    sql += first.table;
+    sql += ` from ${first.table}`;
     for (const [l, r] of from) {
-      const [join, other] = used.has(l) ? [r, l] : [l, r];
-      used.add(join);
-      sql += ` ${joinClause} ${join.table} on ${join.table}.${join.column} = ${other.table}.${other.column}`;
+      const [join, other] = used.has(l.table) ? [r, l] : [l, r];
+      const joinSelector = verify(join);
+      const otherSelector = verify(other);
+      used.add(join.table);
+      sql += ` ${joinClause} ${join.table} on ${joinSelector} = ${otherSelector}`;
+    }
+    if (where) {
+      const statements = [];
+      for (const [key, value] of Object.entries(where)) {
+        const selector = verify(key);
+        if (value === null) {
+          statements.push(`${selector} is null`);
+        }
+        else if (typeof value === 'boolean') {
+          const literal = value === true ? 1 : 0;
+          statements.push(`${selector} = ${literal}`);
+        }
+        else if (typeof value === 'number') {
+          statements.push(`${selector} = ${value}`);
+        }
+        else {
+          throw Error(`Invalid value for ${key}`);
+        }
+      }
+      if (statements.length > 0) {
+        sql += ` where ${statements.join(' and ')}`;
+      }
+    }
+    if (orderBy) {
+      if (typeof orderBy === 'string') {
+        const selector = verify(orderBy);
+        sql += ` order by ${selector}`;
+      }
+      else if (Array.isArray(orderBy)) {
+        const selectors = orderBy.map(c => verify(c)).join(', ');
+        sql += ` order by ${selectors}`;
+      }
+      else {
+        throw Error(`Invalid orderBy`);
+      }
+      if (desc) {
+        sql += ' desc';
+      }
+    }
+    if (offset) {
+      if (typeof offset !== 'number' || !Number.isInteger(offset)) {
+        throw Error('Invalid offset');
+      }
+      sql += ` offset ${offset}`;
+    }
+    if (limit) {
+      if (typeof limit !== 'number' || !Number.isInteger(limit)) {
+        throw Error('Invalid offset');
+      }
+      sql += ` limit ${limit}`;
     }
     this.subQueries.set(as, sql);
     this.tables[as] = columns;

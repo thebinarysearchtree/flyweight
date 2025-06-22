@@ -479,7 +479,7 @@ const createTypes = async (options) => {
       tsType = 'undefined';
     }
     if (isDerived) {
-      returnType = `  ${table.name}: Omit<Queries<${interfaceName}, undefined, ToWhere<${interfaceName} & ${computedInterfaceName}>, ${computedInterfaceName}, undefined, TypedDb>, 'remove' | 'insert' | 'insertMany' | 'update' | 'upsert'>`;
+      returnType = `  ${table.name}: Pick<Queries<${interfaceName}, undefined, ToWhere<${interfaceName} & ${computedInterfaceName}>, ${computedInterfaceName}, undefined, TypedDb>, 'get' | 'many' | 'query' | 'first' | 'groupBy' | 'count' | 'avg' | 'min' | 'max' | 'sum'>`;
     }
     else if (db.virtualSet.has(table.name)) {
       returnType = `  ${table.name}: VirtualQueries<${interfaceName}, ToWhere<${interfaceName} & ${computedInterfaceName}>>`;

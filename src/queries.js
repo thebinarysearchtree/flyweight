@@ -653,6 +653,11 @@ const getVirtual = async (db, table, query, tx, keywords, select, returnValue, o
   return post(results);
 }
 
+const getTableClause = (db, table) => {
+  const sql = db.subQueries.get(table);
+  return sql ? `(${sql}) as ${table}` : table;
+}
+
 const exists = async (config) => {
   const {
     db,
@@ -677,7 +682,8 @@ const exists = async (config) => {
     });
   }
   const params = {};
-  let sql = `select exists(select 1 from ${table}`;
+  const clause = getTableClause(db, table);
+  let sql = `select exists(select 1 from ${clause}`;
   sql += addClauses(table, query, params);
   sql += ') as exists_result';
   const options = {
@@ -876,7 +882,8 @@ const group = async (config) => {
       });
     }
     const actualMethod = method === 'sum' ? 'total' : method;
-    sql += `${actualMethod}(${body}) as ${method} from ${table}`;
+    const clause = getTableClause(db, table);
+    sql += `${actualMethod}(${body}) as ${method} from ${clause}`;
   }
   else {
     const types = db.columns[table];
@@ -921,7 +928,8 @@ const group = async (config) => {
       }
       needsParsing.set(alias, { jsonParse: true, field });
     }
-    sql += ` as ${method} from ${table}`;
+    const clause = getTableClause(db, table);
+    sql += ` as ${method} from ${clause}`;
   }
   if (adjustedWhere) {
     const adjuster = (name) => adjustName({
@@ -1146,7 +1154,8 @@ const aggregate = async (config) => {
     adjuster
   });
   const groupClause = groupFields ? `, ${groupFields}` : '';
-  sql = `select ${expression}${groupClause} from ${table}`;
+  const tableClause = getTableClause(db, table);
+  sql = `select ${expression}${groupClause} from ${tableClause}`;
   if (clause) {
     sql += ` where ${clause}`;
   }
@@ -2013,7 +2022,8 @@ const all = async (config) => {
     if (keywords.distinct) {
       sql += 'distinct ';
     }
-    sql += `${select.clause} from ${table}`;
+    const tableClause = getTableClause(db, table);
+    sql += `${select.clause} from ${tableClause}`;
     const clause = toWhere({
       query,
       params,
@@ -2028,7 +2038,8 @@ const all = async (config) => {
     if (keywords && keywords.distinct) {
       sql += 'distinct ';
     }
-    sql += `${select.clause} from ${table}`;
+    const tableClause = getTableClause(db, table);
+    sql += `${select.clause} from ${tableClause}`;
     const clause = toWhere({
       query,
       params,
