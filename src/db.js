@@ -107,13 +107,9 @@ class Database {
       const keys = Object.keys(this.columns[table]);
       const handler = {
         get: function(target, property) {
-          const request = {
-            column: property,
-            table,
-            toString: () => `${table}.${property}`
-          };
-          columnRequests.push(request);
-          return request;
+          const symbol = Symbol(`${table}.${property}`);
+          columnRequests.push(symbol);
+          return symbol;
         },
         ownKeys: function(target) {
           return keys;
@@ -155,56 +151,53 @@ class Database {
     const from = join || leftJoin;
     const joinClause = leftJoin ? 'left join' : 'join';
     const used = new Set();
-    const [first] = from.at(0);
-    used.add(first.table);
-    const verify = (key) => {
-      let table;
-      let column;
-      if (typeof key === 'string') {
-        const [t, c] = key.split('.');
-        table = t;
-        column = c;
-      }
-      else {
-        table = key.table;
-        column = key.column;
-      }
+    const verify = (symbol) => {
+      const [table, column] = symbol.description.split('.');
+      const selector = `${table}.${column}`;
       if (!this.tables[table] || !this.columns[table][column]) {
-        throw Error(`Table or column from ${key} does not exist`);
+        throw Error(`Table or column from ${selector} does not exist`);
       }
-      return `${table}.${column}`;
-    }
+      return {
+        table,
+        column,
+        selector
+      }
+    };
+    const adjustedFrom = from.map(arr => [verify(arr[0]), verify(arr[1])]);
+    const [first] = adjustedFrom.at(0);
+    used.add(first.table);
     let sql = 'select ';
     const columns = [];
     const statements = [];
     this.columns[as] = {};
     for (const [key, value] of Object.entries(select)) {
-      const { table, column } = columnRequests.find(r => r === value);
-      statements.push(`${table}.${column} as ${key}`);
+      const symbol = columnRequests.find(r => r === value);
+      const { table, column, selector } = verify(symbol);
+      statements.push(`${selector} as ${key}`);
       const original = this.tables[table].find(c => c.name === column);
       this.columns[as][key] = original.type;
-      if (column.type === 'json') {
+      if (original.type === 'json') {
         this.hasJson[as] = true;
       }
       columns.push({
         name: key,
         type: original.type,
-        notNull: original.notNull && (!leftJoin || first.table === table) 
+        notNull: (original.primaryKey || original.notNull) && (!leftJoin || first.table === table) 
       });
     }
     sql += statements.join(', ');
     sql += ` from ${first.table}`;
-    for (const [l, r] of from) {
+    for (const [l, r] of adjustedFrom) {
       const [join, other] = used.has(l.table) ? [r, l] : [l, r];
-      const joinSelector = verify(join);
-      const otherSelector = verify(other);
       used.add(join.table);
-      sql += ` ${joinClause} ${join.table} on ${joinSelector} = ${otherSelector}`;
+      sql += ` ${joinClause} ${join.table} on ${join.selector} = ${other.selector}`;
     }
     if (where) {
       const statements = [];
-      for (const [key, value] of Object.entries(where)) {
-        const selector = verify(key);
+      const whereKeys = Object.getOwnPropertySymbols(where);
+      for (const symbol of whereKeys) {
+        const value = where[symbol];
+        const { selector } = verify(symbol);
         if (value === null) {
           statements.push(`${selector} is null`);
         }
@@ -224,12 +217,14 @@ class Database {
       }
     }
     if (orderBy) {
-      if (typeof orderBy === 'string') {
-        const selector = verify(orderBy);
+      if (typeof orderBy === 'symbol') {
+        const { selector } = verify(orderBy);
         sql += ` order by ${selector}`;
       }
       else if (Array.isArray(orderBy)) {
-        const selectors = orderBy.map(c => verify(c)).join(', ');
+        const selectors = orderBy
+          .map(c => verify(c).selector)
+          .join(', ');
         sql += ` order by ${selectors}`;
       }
       else {

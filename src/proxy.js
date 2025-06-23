@@ -37,8 +37,8 @@ const basic = {
   sum: (database, table, tx) => async (query, config) => await aggregate({ db: database, table, query, tx, method: 'sum', ...config }),
   get: (database, table, tx) => async (query, columns, config) => await all({ db: database, table, query, columns, first: true, tx, ...config }),
   many: (database, table, tx) => async (query, columns, config) => await all({ db: database, table, query, columns, tx, ...config }),
-  query: (database, table, tx, dbClient) => async (query, config) => await all({ db: database, table, query, tx, dbClient, ...config }),
-  first: (database, table, tx, dbClient) => async (query, config) => await all({ db: database, table, query, first: true, tx, dbClient, ...config }),
+  query: (database, table, tx, dbClient) => async (query, config) => await all({ db: database, table, query, tx, dbClient, type: 'complex', ...config }),
+  first: (database, table, tx, dbClient) => async (query, config) => await all({ db: database, table, query, first: true, tx, dbClient, type: 'complex', ...config }),
   remove: (database, table, tx) => async (query) => await remove(database, table, query, tx)
 }
 

@@ -10,6 +10,7 @@ interface TypedDb {
   getTransaction(type: ('read' | 'write' | 'deferred')): Promise<TypedDb>;
   batch:<T extends any[]> (batcher: (bx: TypedDb) => T) => Promise<Unwrap<T>>;
   sync(): Promise<void>;
+  view(expression: (tables: Tables) => any): Promise<void>;
 }
 
 export const database: TursoDatabase;

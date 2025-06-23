@@ -456,7 +456,7 @@ const createTypes = async (options) => {
     const singular = pluralize.singular(table.name);
     const capitalized = capitalize(singular);
     const interfaceName = makeUnique(capitalized, typeSet, i);
-    tableInterfaces += `  ${table.name}: ${interfaceName};\n`;
+    tableInterfaces += `  ${table.name}: Record<keyof ${interfaceName}, Symbol>;\n`;
     const insertInterfaceName = makeUnique(`Insert${interfaceName}`, typeSet, i);
     let computedInterfaceName;
     const computed = db.computed.get(table.name);

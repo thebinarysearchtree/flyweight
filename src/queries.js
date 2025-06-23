@@ -13,18 +13,6 @@ const getPlaceholder = () => {
   return `p_${count}`;
 }
 
-const reservedWords = [
-  'where',
-  'select',
-  'omit',
-  'include',
-  'orderBy',
-  'desc',
-  'limit',
-  'offset',
-  'distinct'
-];
-
 const aggregateMethods = [
   'count',
   'avg',
@@ -1907,7 +1895,8 @@ const all = async (config) => {
     tx, 
     dbClient, 
     partitionBy, 
-    singleRow 
+    singleRow,
+    type 
   } = config;
   if (!db.initialized) {
     await db.initialize();
@@ -1918,7 +1907,7 @@ const all = async (config) => {
   let included;
   let keywords;
   let debugResult;
-  if (reservedWords.some(k => query.hasOwnProperty(k))) {
+  if (type === 'complex') {
     const { where, select, omit, include, debug, ...rest } = query;
     query = where || {};
     if (omit) {

@@ -12,6 +12,7 @@ interface TypedDb {
   deferForeignKeys(): Promise<void>;
   getTransaction(): Promise<TypedDb>;
   batch:<T extends any[]> (batcher: (bx: TypedDb) => T) => Promise<Unwrap<T>>;
+  view(expression: (tables: Tables) => any): Promise<void>;
 }
 
 export const database: SQLiteDatabase;
