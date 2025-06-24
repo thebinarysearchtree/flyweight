@@ -1,17 +1,7 @@
 import { parseQuery, isWrite } from './parsers/queries.js';
 import { preprocess, insertUnsafe } from './parsers/preprocessor.js';
-import { expressionHandler } from './utils.js';
-
-let paramCount = 1;
-
-const getPlaceholder = () => {
-  const count = paramCount;
-  paramCount++;
-  if (paramCount > (2 ** 20)) {
-    paramCount = 0;
-  }
-  return `p_${count}`;
-}
+import { getPlaceholder, expressionHandler } from './utils.js';
+import methods from './methods.js';
 
 const aggregateMethods = [
   'count',
@@ -34,18 +24,6 @@ const queryMethods = [
   'upsert',
   'remove'
 ];
-
-const methods = new Map([
-  ['not', '!='],
-  ['gt', '>'],
-  ['gte', '>='],
-  ['lt', '<'],
-  ['lte', '<='],
-  ['like', 'like'],
-  ['match', 'match'],
-  ['glob', 'glob'],
-  ['eq', '=']
-]);
 
 const getConditions = (column, query, params, adjuster) => {
   const operatorHandler = {
@@ -353,7 +331,6 @@ const createSetClause = (db, table, query, params, adjuster) => {
       const { createClause } = expressionHandler(param);
       const clause = createClause({
         params,
-        getPlaceholder,
         adjuster
       });
       statements.push(`${column} = ${clause}`);
@@ -442,7 +419,6 @@ const toSelect = (db, table, columns, types, params) => {
         const item = computed.get(columns);
         clause = item.createClause({
           params,
-          getPlaceholder,
           alias: columns
         });
       }
@@ -469,7 +445,6 @@ const toSelect = (db, table, columns, types, params) => {
             const item = computed.get(column);
             statement = item.createClause({
               params,
-              getPlaceholder,
               alias: column
             });
           }
@@ -497,7 +472,6 @@ const getOrderBy = (orderBy, params, adjuster) => {
     const { createClause } = expressionHandler(orderBy);
     return createClause({
       params,
-      getPlaceholder,
       adjuster
     });
   }
@@ -745,7 +719,6 @@ const adjustName = (options) => {
   if (withAlias) {
     return item.createClause({
       params,
-      getPlaceholder,
       alias: column
     });
   }

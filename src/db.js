@@ -9,6 +9,7 @@ import { createTypes } from './parsers/types.js';
 import { migrate } from './migrations.js';
 import { makeClient } from './proxy.js';
 import { tsReturnTypes } from './parsers/returnTypes.js';
+import { processView } from './symbols.js';
 
 const dbTypes = {
   integer: true,
@@ -103,149 +104,11 @@ class Database {
     if (!this.initialized) {
       await this.initialize();
     }
-    const makeHandler = (table) => {
-      const keys = Object.keys(this.columns[table]);
-      const handler = {
-        get: function(target, property) {
-          const symbol = Symbol(`${table}.${property}`);
-          columnRequests.push(symbol);
-          return symbol;
-        },
-        ownKeys: function(target) {
-          return keys;
-        },
-        getOwnPropertyDescriptor: function(target, property) {
-          if (keys.includes(property)) {
-            return {
-              enumerable: true,
-              configurable: true
-            };
-          }
-          return undefined;
-        }
-      };
-      const target = {};
-      const proxy = new Proxy(target, handler);
-      return proxy;
-    }
-    const columnRequests = [];
-    const handler = {
-      get: function(target, property) {
-        return makeHandler(property);
-      }
-    };
-    const target = {};
-    const proxy = new Proxy(target, handler);
-    const result = expression(proxy);
     const { 
-      select, 
-      join, 
-      leftJoin, 
-      where, 
-      orderBy,
-      desc,
-      offset, 
-      limit, 
-      as 
-    } = result;
-    const from = join || leftJoin;
-    const joinClause = leftJoin ? 'left join' : 'join';
-    const used = new Set();
-    const verify = (symbol) => {
-      const [table, column] = symbol.description.split('.');
-      const selector = `${table}.${column}`;
-      if (!this.tables[table] || !this.columns[table][column]) {
-        throw Error(`Table or column from ${selector} does not exist`);
-      }
-      return {
-        table,
-        column,
-        selector
-      }
-    };
-    const adjustedFrom = from.map(arr => [verify(arr[0]), verify(arr[1])]);
-    const [first] = adjustedFrom.at(0);
-    used.add(first.table);
-    let sql = 'select ';
-    const columns = [];
-    const statements = [];
-    this.columns[as] = {};
-    for (const [key, value] of Object.entries(select)) {
-      const symbol = columnRequests.find(r => r === value);
-      const { table, column, selector } = verify(symbol);
-      statements.push(`${selector} as ${key}`);
-      const original = this.tables[table].find(c => c.name === column);
-      this.columns[as][key] = original.type;
-      if (original.type === 'json') {
-        this.hasJson[as] = true;
-      }
-      columns.push({
-        name: key,
-        type: original.type,
-        notNull: (original.primaryKey || original.notNull) && (!leftJoin || first.table === table) 
-      });
-    }
-    sql += statements.join(', ');
-    sql += ` from ${first.table}`;
-    for (const [l, r] of adjustedFrom) {
-      const [join, other] = used.has(l.table) ? [r, l] : [l, r];
-      used.add(join.table);
-      sql += ` ${joinClause} ${join.table} on ${join.selector} = ${other.selector}`;
-    }
-    if (where) {
-      const statements = [];
-      const whereKeys = Object.getOwnPropertySymbols(where);
-      for (const symbol of whereKeys) {
-        const value = where[symbol];
-        const { selector } = verify(symbol);
-        if (value === null) {
-          statements.push(`${selector} is null`);
-        }
-        else if (typeof value === 'boolean') {
-          const literal = value === true ? 1 : 0;
-          statements.push(`${selector} = ${literal}`);
-        }
-        else if (typeof value === 'number') {
-          statements.push(`${selector} = ${value}`);
-        }
-        else {
-          throw Error(`Invalid value for ${key}`);
-        }
-      }
-      if (statements.length > 0) {
-        sql += ` where ${statements.join(' and ')}`;
-      }
-    }
-    if (orderBy) {
-      if (typeof orderBy === 'symbol') {
-        const { selector } = verify(orderBy);
-        sql += ` order by ${selector}`;
-      }
-      else if (Array.isArray(orderBy)) {
-        const selectors = orderBy
-          .map(c => verify(c).selector)
-          .join(', ');
-        sql += ` order by ${selectors}`;
-      }
-      else {
-        throw Error(`Invalid orderBy`);
-      }
-      if (desc) {
-        sql += ' desc';
-      }
-    }
-    if (offset) {
-      if (typeof offset !== 'number' || !Number.isInteger(offset)) {
-        throw Error('Invalid offset');
-      }
-      sql += ` offset ${offset}`;
-    }
-    if (limit) {
-      if (typeof limit !== 'number' || !Number.isInteger(limit)) {
-        throw Error('Invalid offset');
-      }
-      sql += ` limit ${limit}`;
-    }
+      as, 
+      sql, 
+      columns 
+    } = processView(this, expression);
     this.subQueries.set(as, sql);
     this.tables[as] = columns;
   }

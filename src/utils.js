@@ -1,3 +1,14 @@
+let paramCount = 1;
+
+const getPlaceholder = () => {
+  const count = paramCount;
+  paramCount++;
+  if (paramCount > (2 ** 20)) {
+    paramCount = 0;
+  }
+  return `p_${count}`;
+}
+
 const toValues = (rows) => {
   if (!rows || rows.length === 0) {
     return rows;
@@ -62,7 +73,6 @@ const expressionHandler = (expression) => {
   const createClause = (options) => {
     const {
       params,
-      getPlaceholder,
       alias,
       adjuster 
     } = options;
@@ -125,5 +135,6 @@ const expressionHandler = (expression) => {
 
 export {
   toValues,
+  getPlaceholder,
   expressionHandler
 }
