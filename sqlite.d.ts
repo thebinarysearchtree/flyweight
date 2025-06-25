@@ -12,7 +12,7 @@ interface TypedDb {
   deferForeignKeys(): Promise<void>;
   getTransaction(): Promise<TypedDb>;
   batch:<T extends any[]> (batcher: (bx: TypedDb) => T) => Promise<Unwrap<T>>;
-  view(expression: (tables: Tables, compare: CompareMethods<Date | number | boolean | null>, create: ComputeMethods) => any): Promise<void>;
+  subquery(expression: (tables: Tables, compare: CompareMethods<Date | number | boolean | null>, compute: ComputeMethods) => any): Promise<void>;
 }
 
 export const database: SQLiteDatabase;

@@ -548,6 +548,36 @@ const user = await db.activeUsers.get({ id: 100 }, ['name', 'email']);
 console.log(user.email);
 ```
 
+## Subqueries
+
+You can create subqueries programmatically that can be used like views in that they act as read-only tables. In the ```db.js``` file you can add a query like this:
+
+```js
+await db.subquery((tables, is, compute) => {
+  const {
+    locations: l,
+    events: e
+  } = tables;
+  const nameLength = compute.length(e.name);
+  return {
+    select: {
+      ...e,
+      location: l.name,
+      nameLength
+    },
+    join: {
+      [e.locationId]: l.id
+    },
+    where: {
+      [nameLength]: is.gt(20)
+    },
+    as: 'detailedEvents'
+  }
+});
+```
+
+The above code will create what appears to be a new table in the API called ```detailedEvents``` that can be used like other read-only tables. Parameters in the ```where``` clause can only be of type ```boolean```, ```Date```, ````number```, or ```null``` to prevent SQL injection attacks, even though no user-supplied input should be used in these queries either way.
+
 ## JSON support
 
 Flyweight can sample columns that are declared with the ```json``` type to create richer type information.

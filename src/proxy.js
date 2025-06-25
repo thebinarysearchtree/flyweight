@@ -259,8 +259,8 @@ const makeQueryHandler = (table, db, tx, dbClient) => {
 const makeClient = (db, tx) => {
   const tableHandler = {
     get: function(target, table, dbClient) {
-      if (table === 'view') {
-        return (expression) => db.view(expression);
+      if (table === 'subquery') {
+        return (expression) => db.subquery(expression);
       }
       if (db[table] && ['exec', 'begin', 'commit', 'rollback', 'pragma', 'deferForeignKeys'].includes(table)) {
         db[table] = db[table].bind(db);

@@ -9,7 +9,7 @@ import { createTypes } from './parsers/types.js';
 import { migrate } from './migrations.js';
 import { makeClient } from './proxy.js';
 import { tsReturnTypes } from './parsers/returnTypes.js';
-import { processView } from './symbols.js';
+import { processQuery} from './symbols.js';
 
 const dbTypes = {
   integer: true,
@@ -100,7 +100,7 @@ class Database {
     return makeClient(this);
   }
 
-  async view(expression) {
+  async subquery(expression) {
     if (!this.initialized) {
       await this.initialize();
     }
@@ -108,7 +108,7 @@ class Database {
       as, 
       sql, 
       columns 
-    } = processView(this, expression);
+    } = processQuery(this, expression);
     this.subQueries.set(as, sql);
     this.tables[as] = columns;
   }

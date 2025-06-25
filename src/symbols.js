@@ -1,4 +1,44 @@
+import { returnTypes, notNullFunctions } from './parsers/returnTypes.js';
 import methods from './methods.js';
+
+const operators = new Map([
+  ['plus', '+'],
+  ['minus', '-'],
+  ['divide', '/'],
+  ['multiply', '*']
+]);
+
+const processMethod = (options) => {
+  const {
+    db,
+    method,
+    columnRequests,
+    computeRequests
+  } = options;
+  const statements = [];
+  for (const arg of method.args) {
+    const subMethod = computeRequests.find(r => r.symbol === arg);
+    if (subMethod) {
+      const statement = processMethod(subMethod);
+      statements.push(statement);
+      continue;
+    }
+    const column = columnRequests.find(r => r === arg);
+    if (column) {
+      const { selector } = verify(db, column);
+      statements.push(selector);
+    }
+    else {
+      const literal = toLiteral(db, arg);
+      statements.push(literal);
+    }
+  }
+  const operator = operators.get(method.name);
+  if (operator) {
+    return statements.join(` ${operator} `);
+  }
+  return `${method.name}(${statements.join(', ')})`;
+}
 
 const verify = (db, symbol) => {
   const [table, column] = symbol.description.split('.');
@@ -37,27 +77,53 @@ const toWhere = (options) => {
     db,
     where,
     type,
-    compareRequests
+    columnRequests,
+    compareRequests,
+    computeRequests
   } = options;
   const statements = [];
   const whereKeys = Object.getOwnPropertySymbols(where);
   for (const symbol of whereKeys) {
+    let selector;
+    const computedKey = computeRequests.find(r => r.symbol === symbol);
+    if (computedKey) {
+      selector = processMethod({
+        db,
+        method: computedKey,
+        columnRequests,
+        computeRequests
+      });
+    }
+    else {
+      selector = verify(db, symbol).selector;
+    }
     const value = where[symbol];
-    const { selector } = verify(db, symbol);
-    const request = compareRequests.find(r => r === value);
-    if (request) {
-      if (request.method === 'not') {
+    const compareValue = compareRequests.find(r => r === value);
+    const computeValue = computeRequests.find(r => r.symbol === value);
+    if (compareValue) {
+      const { method, param } = compareValue;
+      if (method === 'not') {
         if (value === null) {
           statements.push(`${selector} is not null`);
         }
         else {
-          statements.push(`${selector} != ${toLiteral(db, request.param)}`);
+          statements.push(`${selector} != ${toLiteral(db, param)}`);
         }
       }
       else {
-        const operator = methods.get(request.method);
-        statements.push(`${selector} ${operator} ${toLiteral(db, request.param)}`);
+        const operator = methods.get(method);
+        statements.push(`${selector} ${operator} ${toLiteral(db, param)}`);
       }
+    }
+    else if (computeValue) {
+      const clause = processMethod({
+        db,
+        method: computeValue,
+        columnRequests,
+        compareRequests,
+        computeRequests
+      });
+      statements.push(`${selector} = ${clause}`);
     }
     else if (value === null) {
       statements.push(`${selector} is null`);
@@ -73,7 +139,14 @@ const toWhere = (options) => {
         throw Error(`Invalid arguments to "${type}" in the where clause`);
       }
       const statement = value
-        .map(where => toWhere({ db, where, type }))
+        .map(where => toWhere({ 
+          db, 
+          where, 
+          type,
+          columnRequests,
+          compareRequests,
+          computeRequests 
+        }))
         .join(` ${type} `);
       statements.push(statement);
     }
@@ -81,7 +154,7 @@ const toWhere = (options) => {
   return statements.join(` ${type} `);
 }
 
-const processView = (db, expression) => {
+const processQuery = (db, expression) => {
   const makeHandler = (table) => {
     const keys = Object.keys(db.columns[table]);
     const handler = {
@@ -103,8 +176,7 @@ const processView = (db, expression) => {
         return undefined;
       }
     };
-    const target = {};
-    const proxy = new Proxy(target, handler);
+    const proxy = new Proxy({}, handler);
     return proxy;
   }
   const columnRequests = [];
@@ -113,8 +185,7 @@ const processView = (db, expression) => {
       return makeHandler(property);
     }
   };
-  const target = {};
-  const proxy = new Proxy(target, handler);
+  const proxy = new Proxy({}, handler);
   const compareRequests = [];
   const compareHandler = {
     get: function(target, property) {
@@ -130,7 +201,24 @@ const processView = (db, expression) => {
     }
   }
   const compareProxy = new Proxy({}, compareHandler);
-  const result = expression(proxy, compareProxy);
+  const computeHandler = {
+    get: function(target, property) {
+      const symbol = Symbol(property);
+      const request = {
+        name: property,
+        args: null,
+        symbol
+      };
+      computeRequests.push(request);
+      return (...args) => {
+        request.args = args;
+        return symbol;
+      };
+    }
+  }
+  const computeProxy = new Proxy({}, computeHandler);
+  const computeRequests = [];
+  const result = expression(proxy, compareProxy, computeProxy);
   const { 
     select, 
     join, 
@@ -157,6 +245,28 @@ const processView = (db, expression) => {
   const statements = [];
   db.columns[as] = {};
   for (const [key, value] of Object.entries(select)) {
+    const computed = computeRequests.find(r => r.symbol === value);
+    if (computed) {
+      const selector = processMethod({
+        db,
+        method: computed,
+        columnRequests,
+        computeRequests
+      });
+      statements.push(`${selector} as ${key}`);
+      const type = returnTypes[computed.name];
+      db.columns[as][key] = type;
+      if (type === 'json') {
+        db.hasJson[as] = true;
+      }
+      const notNull = notNullFunctions.has(computed.name);
+      columns.push({
+        name: key,
+        type,
+        notNull
+      });
+      continue;
+    }
     const symbol = columnRequests.find(r => r === value);
     const { table, column, selector } = verify(db, symbol);
     statements.push(`${selector} as ${key}`);
@@ -182,7 +292,10 @@ const processView = (db, expression) => {
     const clause = toWhere({
       db,
       where,
-      compareRequests
+      type: 'and',
+      columnRequests,
+      compareRequests,
+      computeRequests
     });
     if (clause) {
       sql += ` where ${clause}`;
@@ -226,5 +339,5 @@ const processView = (db, expression) => {
 }
 
 export {
-  processView
+  processQuery
 }
