@@ -65,7 +65,7 @@ const toLiteral = (db, value) => {
     return value;
   }
   else if (value instanceof Date) {
-    return value.toISOString();
+    return `'${value.toISOString()}'`;
   }
   else {
     throw Error('Invalid type in where clause');
