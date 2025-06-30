@@ -43,7 +43,7 @@ class Database {
     this.hasJson = {};
     this.computed = new Map();
     this.computedTypes = new Map();
-    this.subQueries = new Map();
+    this.subqueries = new Map();
     this.statements = new Map();
     this.viewSet = new Set();
     this.virtualSet = new Set();
@@ -101,7 +101,7 @@ class Database {
   }
 
   getTableClause(table) {
-    const sql = this.subQueries.get(table);
+    const sql = this.subqueries.get(table);
     return sql ? `(${sql}) as ${table}` : table;
   }
 
@@ -114,7 +114,7 @@ class Database {
       sql, 
       columns 
     } = processQuery(this, expression);
-    this.subQueries.set(as, sql);
+    this.subqueries.set(as, sql);
     this.tables[as] = columns;
   }
 

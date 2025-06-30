@@ -341,7 +341,7 @@ const createTypes = async (options) => {
   const computedTypes = [];
   let tableInterfaces = 'interface Tables {\n';
   for (const table of tables) {
-    const isDerived = db.viewSet.has(table.name) || db.subQueries.has(table.name);
+    const isDerived = db.viewSet.has(table.name) || db.subqueries.has(table.name);
     const singular = pluralize.singular(table.name);
     const capitalized = capitalize(singular);
     const interfaceName = makeUnique(capitalized, typeSet, i);

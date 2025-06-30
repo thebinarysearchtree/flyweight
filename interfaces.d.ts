@@ -523,15 +523,10 @@ interface Queries<T, I, W, C, R, Y> {
   first<U extends Includes<Y, T>>(query: ComplexQueryInclude<W, T, U, C>): Promise<MergeIncludes<(T & C), U> | undefined>;
   first<U extends Includes<Y, T>>(query: ComplexQueryIncludeDebug<W, T, U, C>): Promise<DebugResult<MergeIncludes<(T & C), U> | undefined>>;
   count<K extends keyof (T & C)>(query?: AggregateQuery<W, K>): Promise<number>;
-  count<K extends keyof (T & C)>(query?: AggregateQueryDebug<W, K>): Promise<DebugResult<number>>;
   avg<K extends keyof (T & C)>(query: AggregateQuery<W, K>): Promise<number>;
-  avg<K extends keyof (T & C)>(query: AggregateQueryDebug<W, K>): Promise<DebugResult<number>>;
-  max<K extends keyof (T & C)>(query: AggregateQuery<W, K>): Promise<number>;
-  max<K extends keyof (T & C)>(query: AggregateQueryDebug<W, K>): Promise<DebugResult<number>>;
-  min<K extends keyof (T & C)>(query: AggregateQuery<W, K>): Promise<number>;
-  min<K extends keyof (T & C)>(query: AggregateQueryDebug<W, K>): Promise<DebugResult<number>>;
+  max<K extends keyof (T & C)>(query: AggregateQuery<W, K>): Promise<(T & C)[K]>;
+  min<K extends keyof (T & C)>(query: AggregateQuery<W, K>): Promise<(T & C)[K]>;
   sum<K extends keyof (T & C)>(query: AggregateQuery<W, K>): Promise<number>;
-  sum<K extends keyof (T & C)>(query: AggregateQueryDebug<W, K>): Promise<DebugResult<number>>;
   exists(params: W | null): Promise<boolean>;
   groupBy<K extends keyof (T & C)>(columns: K | Array<K>): AggregateMethods<T, W, C, K, Y>;
   compute(properties: Compute<T>): void;

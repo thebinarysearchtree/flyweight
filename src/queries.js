@@ -1133,7 +1133,12 @@ const aggregate = async (config) => {
       return results;
     }
     if (results.length > 0) {
-      return results[0][`${method}_result`];
+      const value = results[0][`${method}_result`];
+      if (method == 'min' || method === 'max') {
+        const field = distinct || column;
+        return db.convertToJs(table, field, value);
+      }
+      return value;
     }
     return undefined;
   };
