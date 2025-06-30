@@ -77,7 +77,8 @@ class SQLiteDatabase extends Database {
   }
 
   async getSample(table, column) {
-    const sql = `select json(${column}) as ${column} from ${table} order by rowid desc limit 100`;
+    const clause = this.getTableClause(table);
+    const sql = `select json(${column}) as ${column} from ${clause} limit 100`;
     return this.read.prepare(sql).all().map(r => JSON.parse(r[column]));
   }
 

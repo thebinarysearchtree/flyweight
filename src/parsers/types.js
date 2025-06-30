@@ -17,18 +17,6 @@ const typeMap = {
   any: 'number | string | Buffer'
 }
 
-const functionTypes = {
-  instr: 'number | null',
-  sign: 'number | null',
-  json_array: 'Array<any>',
-  json_array_length: 'number',
-  json_object: '{ [key: string]: any }',
-  json_type: 'string | null',
-  json_valid: 'number',
-  json_group_array: 'Array<any>',
-  json_group_object: '{ [key: string]: any }'
-}
-
 const makeOverloads = (queryName, paramsName, unsafeName, returnName) => {
   let append = '';
   const items = [];
@@ -89,99 +77,9 @@ const getTsType = (column, customTypes) => {
   return toTsType(column, customTypes);
 }
 
-const getOptional = (structuredType, optional) => {
-  if (typeof structuredType.type === 'string') {
-    optional.push(structuredType.isOptional);
-    return;
-  }
-  else {
-    for (const value of Object.values(structuredType.type)) {
-      getOptional(value, optional);
-    }
-  }
-}
-
 const toTsType = (column, customTypes) => {
   let tsType;
-  const { type, functionName, notNull, isOptional, structuredType } = column;
-  if (structuredType) {
-    if (functionName === 'json_group_array') {
-      const structured = structuredType;
-      if (typeof structured.type !== 'string') {
-        if (Array.isArray(structured.type)) {
-          const optional = [];
-          getOptional(structured, optional);
-          const isOptional = !optional.some(o => o === false);
-          const types = [];
-          for (const value of structured.type) {
-            let type = getTsType(value, customTypes);
-            if (isOptional) {
-              type = removeOptional(type);
-            }
-            else {
-              type = convertOptional(type);
-            }
-            types.push(type);
-          }
-          return `Array<[${types.join(', ')}]>`;
-        }
-        const optional = [];
-        getOptional(structured, optional);
-        const isOptional = !optional.some(o => o === false);
-        const types = [];
-        for (const [key, value] of Object.entries(structured.type)) {
-          let type = getTsType(value, customTypes);
-          if (isOptional) {
-            type = removeOptional(type);
-          }
-          else {
-            type = convertOptional(type);
-          }
-          types.push(`${key}: ${type}`);
-        }
-        return `Array<{ ${types.join(', ')} }>`;
-      }
-      if (structured.type !== 'json') {
-        let tsType;
-        if (typeMap[structured.type]) {
-          tsType = typeMap[structured.type];
-        }
-        else {
-          tsType = customTypes[structured.type].tsType;
-        }
-        return `Array<${removeNull(convertOptional(tsType))}>`;
-      }
-    }
-    else if (functionName === 'json_object') {
-      const structured = structuredType.type;
-      const types = [];
-      const optional = [];
-      getOptional(structuredType, optional);
-      const isOptional = !optional.some(o => o === false);
-      for (const [key, value] of Object.entries(structured)) {
-        let type = getTsType(value, customTypes);
-        if (isOptional) {
-          type = removeOptional(type);
-        }
-        else {
-          type = convertOptional(type);
-        }
-        types.push(`${key}: ${type}`);
-      }
-      let type = `{ ${types.join(', ')} }`;
-      if (isOptional) {
-        type += ' | null';
-      }
-      return type;
-    }
-    else if (functionName === 'json_array') {
-      const types = [];
-      for (const type of structuredType) {
-        types.push(convertOptional(getTsType(type, customTypes)));
-      }
-      return `[${types.join(', ')}]`;
-    }
-  }
+  const { type, notNull, isOptional } = column;
   if (!tsType) {
     if (typeMap[type]) {
       tsType = typeMap[type];
@@ -192,15 +90,6 @@ const toTsType = (column, customTypes) => {
         throw Error(`The type "${type}" has not been registered.`);
       }
       tsType = customTypes[type].tsType;
-    }
-  }
-  if (functionName) {
-    const functionType = functionTypes[functionName];
-    if (functionType) {
-      tsType = functionType;
-    }
-    if (functionName === 'min' || functionName === 'max') {
-      tsType += ' | null';
     }
   }
   if (!notNull && !hasNull(tsType) && tsType !== 'any') {
@@ -506,7 +395,7 @@ const createTypes = async (options) => {
       }, db.customTypes);
       if (type === 'json') {
         const key = `${table.name} ${name}`;
-        if (sampleData && !isDerived) {
+        if (sampleData) {
           const sample = await db.getSample(table.name, name);
           const types = getTypes(name, sample, typeSet);
           tsType = tsType.replace('Json', types.columnType);
@@ -631,7 +520,9 @@ const createTypes = async (options) => {
   types = types.replace(/^interface Tables \{[^\}]+}/m, tableInterfaces);
   types = types.replace('getClient(): any;', 'getClient(): TypedDb;');
   const exportSection = files[db.name];
-  const replaced = exportSection.replace(/(\[key: string\]: any;\s)/, `$1${returnTypes.join('')}`);
+  const replaced = exportSection
+    .replace(/(\[key: string\]: any;\s)/, `$1${returnTypes.join('')}`)
+    .replace(/^interface [a-z]+Database \{[^\}]+}\n\n/mi, '');
   types += replaced;
 
   await fileSystem.writeFile(destinationPath, types, 'utf8');

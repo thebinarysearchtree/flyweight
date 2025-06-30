@@ -474,28 +474,7 @@ const users = await db.users.from({ location: 'Brisbane' }, options);
 
 If the unsafe parameter is ```undefined``` in the options argument, it will be removed from the SQL statement.
 
-Single quotes in strings should be escaped with ```\```. JSON functions are automatically typed and parsed. For example, the following:
-
-```sql
-select id, object(name, startTime) as nest from events;
-```
-
-will have the type:
-
-```ts
-interface EventQuery {
-  id: number;
-  nest: { name: string, startTime: Date }
-}
-```
-
-Nulls are automatically removed from all ```groupArray``` results. When all of the properties of ```object``` are from a left or right join, and there are no matches from that table, instead of returning, for example:
-
-```js
-{ name: null, startTime: null }
-```
-
-the entire object will be null.
+Single quotes in strings should be escaped with ```\```.
 
 ## Shorthand JSON functions
 
@@ -577,6 +556,12 @@ await db.subquery((tables, is, compute) => {
 ```
 
 The above code will create what appears to be a new table in the API called ```detailedEvents``` that can be used like other read-only tables. Parameters in the ```where``` clause and elsewhere can only be of type ```boolean```, ```Date```, ````number```, or ```null``` to prevent SQL injection attacks, even though no user-supplied input should be used in these queries either way.
+
+The object returned from the ```subquery``` method can include the following:
+
+```select```, ```where```, ```groupBy```, ```having```, ```orderBy```, ```desc```, ```limit```, and ```offset```. The name of the subquery is provided by the ```as``` property.
+
+```join```: an object representing the keys to join on. ```leftJoin``` can be used instead if the tables should be left joined. If no join option is provided, the ORM will assume that there is a single table and use the first table that was taken from the ```tables``` parameter.
 
 ## JSON support
 

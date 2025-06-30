@@ -1,5 +1,5 @@
 import { blank } from './utils.js';
-import { returnTypes, notNullFunctions, expressionFunctions } from './returnTypes.js';
+import { returnTypes, notNullFunctions } from './returnTypes.js';
 
 const isNumber = (s) => /^((-|\+)?(0x)?\d+)(\.\d+)?(e\d)?$/.test(s);
 const fromPattern = /\sfrom\s+(?<from>(.|\s)+?);?((\swhere\s)|(\sgroup\s)|(\swindow\s)|(\sorder\s)|(\slimit\s)|(\s*$))/mid;
@@ -56,9 +56,7 @@ const getTempTables = (query, tables) => {
       type: c.type, 
       notNull: c.notNull, 
       isOptional: c.isOptional, 
-      structuredType: c.structuredType, 
       functionName: c.functionName, 
-      functionContent: c.functionContent,
       types: c.types,
       jsonExtractor: c.jsonExtractor
     }));
@@ -183,51 +181,16 @@ const parsers = [
   },
   {
     name: 'Function pattern',
-    pattern: /^(?<functionName>[a-z0-9_]+)\s*\((?<functionContent>\s*)\).*?(\s+as\s+(?<columnAlias>[a-z0-9_]+))?$/mid,
+    pattern: /^(?<functionName>[a-z0-9_]+)\s*\(.+?(\s+as\s+(?<columnAlias>[a-z0-9_]+))?$/mid,
     pre: (statement) => blank(statement),
-    extractor: (groups, tables, indices, statement) => {
-      let tableAlias;
-      let columnName;
+    extractor: (groups) => {
       const { functionName, columnAlias } = groups;
-      const [start, end] = indices.groups.functionContent;
-      let content = statement.substring(start, end).trim();
-      const blanked = blank(content, { stringsOnly: true });
-      const extraMatch = blanked.match(/(?<extra>\s+((over)|(filter)|(order))\s+.+$)/mid);
-      if (extraMatch) {
-        const [start] = extraMatch.indices.groups.extra;
-        content = content.substring(0, start);
-      }
-      const match = content.match(/^((?<tableAlias>[a-z0-9_]+)\.)?(?<columnName>[a-z0-9_]+)$/mid);
-      if (match) {
-        tableAlias = match.groups.tableAlias;
-        columnName = match.groups.columnName;
-      }
-      let type = returnTypes[functionName] || null;
-      if (columnName !== undefined && isNumber(columnName)) {
-        return {
-          tableAlias,
-          type,
-          functionName
-        }
-      }
-      let notNull;
-      if (expressionFunctions.has(functionName)) {
-        const blanked = blank(content).split(',').at(0);
-        const expression = content.substring(0, blanked.length);
-        const parsed = parseColumn(`${expression} as ${columnAlias}`, tables);
-        type = parsed.type;
-        if (['lag', 'lead', 'nth_value'].includes(functionName)) {
-          notNull = false;
-        }
-      }
+      const type = returnTypes[functionName] || 'any';
       return {
-        tableAlias,
-        columnName,
+        name: columnAlias,
         columnAlias,
         type,
-        functionName,
-        functionContent: content,
-        notNull
+        functionName
       };
     }
   },
@@ -422,48 +385,6 @@ const parseWrite = (query, tables) => {
   });
 }
 
-const getStructuredType = (content, tables, fromTables, whereColumns, joinColumns) => {
-  const matches = blank(content).matchAll(/(?<item>[^,]+)(,|$)/gmid);
-  let i = 0;
-  const structured = {};
-  let key;
-  for (const match of matches) {
-    const [start, end] = match.indices.groups.item;
-    const item = content.substring(start, end).trim();
-    if (i % 2 === 0) {
-      key = item.replaceAll('\'', '');
-    }
-    else {
-      const column = parseColumn(item + ` as ${key}`);
-      const processed = processColumn(column, tables, fromTables, whereColumns, joinColumns);
-      if (processed.structuredType) {
-        processed.type = processed.structuredType.type;
-      }
-      structured[key] = processed;
-    }
-    i++;
-  }
-  return { type: structured };
-}
-
-const getScalarColumns = (content, tables, fromTables, whereColumns, joinColumns) => {
-  const matches = blank(content).matchAll(/(?<item>[^,]+)(,|$)/gmid);
-  const columns = [];
-  let i = 0;
-  for (const match of matches) {
-    const [start, end] = match.indices.groups.item;
-    const item = content.substring(start, end).trim();
-    const column = parseColumn(item + ` as c${i}`);
-    const processed = processColumn(column, tables, fromTables, whereColumns, joinColumns);
-    if (processed.structuredType) {
-      processed.type = processed.structuredType.type;
-    }
-    columns.push(processed);
-    i++;
-  }
-  return columns;
-}
-
 const processColumn = (column, tables, fromTables, whereColumns, joinColumns) => {
   if (column.column) {
     return column.column;
@@ -474,7 +395,6 @@ const processColumn = (column, tables, fromTables, whereColumns, joinColumns) =>
   let foreign;
   let notNull = column.notNull || false;
   let isOptional = false;
-  let structuredType = null;
   let starColumns = null;
   let types;
   let functionName = column.functionName;
@@ -515,9 +435,6 @@ const processColumn = (column, tables, fromTables, whereColumns, joinColumns) =>
       if (last && /then|else/i.test(last)) {
         const column = parseColumn(`${statement} as c${i}`);
         const processed = processColumn(column, tables, fromTables, whereColumns, joinColumns);
-        if (processed.structuredType) {
-          processed.type = processed.structuredType.type;
-        }
         types.push(processed);
       }
       last = statement;
@@ -525,112 +442,8 @@ const processColumn = (column, tables, fromTables, whereColumns, joinColumns) =>
       start += blanked.length;
     }
   }
-  if (functionName === 'coalesce') {
-    const content = column.functionContent;
-    const matches = blank(content).matchAll(/(?<item>[^,]+)(,|$)/gmid);
-    types = [];
-    let i = 0;
-    for (const match of matches) {
-      const [start, end] = match.indices.groups.item;
-      const item = content.substring(start, end).trim();
-      const column = parseColumn(item + ` as c${i}`);
-      const processed = processColumn(column, tables, fromTables, whereColumns, joinColumns);
-      if (processed.structuredType) {
-        processed.type = processed.structuredType.type;
-      }
-      types.push(processed);
-      i++;
-    }
-    let wontReturnNull = false;
-    for (const type of types) {
-      if ((type.notNull || type.primaryKey) && !type.isOptional) {
-        wontReturnNull = true;
-        break;
-      }
-    }
-    if (wontReturnNull) {
-      for (const type of types) {
-        type.notNull = true;
-        type.isOptional = false;
-      }
-    }
-  }
   if (column.type) {
-    if ((functionName === 'min' || functionName === 'max') && column.columnName) {
-      const fromTable = fromTables.find(t => t.tableAlias === column.tableAlias);
-      tableName = fromTable.tableName;
-      const tableColumn = tables[fromTable.tableName].find(c => c.name === column.columnName);
-      notNull = tableColumn.notNull;
-      if (tableColumn.type === 'date') {
-        type = 'date';
-      }
-      else if (tableColumn.type === 'boolean') {
-        type = 'boolean';
-      }
-      else if (tableColumn.type === 'text') {
-        type = 'text';
-      }
-      else {
-        type = column.type;
-      }
-    }
-    else {
-      type = column.type;
-      if (functionName === 'json_group_array') {
-        if (column.columnName) {
-          const fromTable = fromTables.find(t => t.tableAlias === column.tableAlias);
-          tableName = fromTable.tableName;
-          const tableColumn = tables[fromTable.tableName].find(c => c.name === column.columnName);
-          const joinColumn = joinColumns.find(c => c.tableAlias === column.tableAlias && c.columnName === column.columnName);
-          const whereColumn = whereColumns.find(c => c.tableAlias === column.tableAlias && c.columnName === column.columnName);
-          const notNull = tableColumn.notNull === true || tableColumn.primaryKey || joinColumn !== undefined || whereColumn !== undefined;
-          const isOptional = fromTable.isOptional;
-          structuredType = { 
-            type: tableColumn.type,
-            notNull,
-            isOptional
-          };
-        }
-        else {
-          const objectMatch = /^\s*json_object\s*\((?<functionContent>[^)]+)\s*\)\s*(order\s+by\s+.+)?$/gmid.exec(blank(column.functionContent));
-          if (objectMatch) {
-            const [start, end] = objectMatch.indices.groups.functionContent;
-            const content = column.functionContent.substring(start, end);
-            const structured = getStructuredType(content, tables, fromTables, whereColumns, joinColumns);
-            structuredType = structured;
-            const match = /^((?<tableAlias>[a-z0-9_]+)\.)?\*$/i.exec(content);
-            if (match) {
-              const tableAlias = match.groups.tableAlias;
-              const fromTable = fromTables.find(t => t.tableAlias === tableAlias);
-              const columns = tables[fromTable.tableName];
-              starColumns = columns.map(c => tableAlias ? `${tableAlias}.${c.name}` : c.name);
-            }
-          }
-          const arrayMatch = /^\s*json_array\s*\((?<functionContent>[^)]+)\s*\)\s*(order\s+by\s+.+)?$/gmid.exec(blank(column.functionContent));
-          if (arrayMatch) {
-            const [start, end] = arrayMatch.indices.groups.functionContent;
-            const content = column.functionContent.substring(start, end);
-            structuredType = { 
-              type: getScalarColumns(content, tables, fromTables, whereColumns, joinColumns) 
-            };
-          }
-        }
-      }
-      else if (functionName === 'json_object') {
-        structuredType = getStructuredType(column.functionContent, tables, fromTables, whereColumns, joinColumns);
-        const match = /^((?<tableAlias>[a-z0-9_]+)\.)?\*$/i.exec(column.functionContent);
-        if (match) {
-          const tableAlias = match.groups.tableAlias;
-          const fromTable = fromTables.find(t => t.tableAlias === tableAlias);
-          const columns = tables[fromTable.tableName];
-          starColumns = columns.map(c => tableAlias ? `${tableAlias}.${c.name}` : c.name);
-        }
-      }
-      else if (functionName === 'json_array') {
-        const content = column.functionContent;
-        structuredType = getScalarColumns(content, tables, fromTables, whereColumns, joinColumns);
-      }
-    }
+    type = column.type;
   }
   else if (column.columnName) {
     const fromTable = fromTables.find(t => t.tableAlias === column.tableAlias);
@@ -652,9 +465,7 @@ const processColumn = (column, tables, fromTables, whereColumns, joinColumns) =>
           foreign: column.foreign,
           notNull,
           isOptional: fromTable.isOptional,
-          structuredType: column.structuredType,
           functionName: column.functionName,
-          functionContent: column.functionContent,
           types: column.types,
           partOf: tableAlias ? `${tableAlias}.*` : '*'
         });
@@ -670,7 +481,6 @@ const processColumn = (column, tables, fromTables, whereColumns, joinColumns) =>
       type = tableColumn.type;
       notNull = tableColumn.notNull === true || tableColumn.primaryKey || joinColumn !== undefined || whereColumn !== undefined;
       isOptional = fromTable.isOptional;
-      structuredType = tableColumn.structuredType;
       functionName = tableColumn.functionName;
       types = tableColumn.types;
     }
@@ -685,7 +495,6 @@ const processColumn = (column, tables, fromTables, whereColumns, joinColumns) =>
     notNull,
     isOptional,
     rename: column.rename,
-    structuredType,
     functionName,
     types,
     jsonExtractor: column.jsonExtractor,
@@ -713,9 +522,7 @@ const parseSelect = (query, tables) => {
         type: c.type, 
         notNull: c.notNull, 
         isOptional: c.isOptional, 
-        structuredType: c.structuredType, 
         functionName: c.functionName, 
-        functionContent: c.functionContent,
         types: c.types
       }));
     }

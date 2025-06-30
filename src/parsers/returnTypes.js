@@ -37,8 +37,8 @@ const returnTypes = {
   avg: 'real',
   count: 'integer',
   group_concat: 'text',
-  max: 'integer',
-  min: 'integer',
+  max: 'any',
+  min: 'any',
   sum: 'integer',
   total: 'integer',
   row_number: 'integer',
@@ -159,8 +159,8 @@ const tsReturnTypes = {
   avg: 'number | null',
   count: 'number',
   group_concat: 'string | null',
-  max: 'number | null',
-  min: 'number | null',
+  max: 'number | string | null',
+  min: 'number | string | null',
   sum: 'number | null',
   total: 'number | null',
   row_number: 'number',
@@ -282,11 +282,8 @@ const notNullFunctions = new Set([
   'ntile'
 ]);
 
-const expressionFunctions = new Set(['lag', 'lead', 'first_value', 'last_value', 'nth_value']);
-
 export {
   returnTypes,
   tsReturnTypes,
-  notNullFunctions,
-  expressionFunctions
+  notNullFunctions
 }

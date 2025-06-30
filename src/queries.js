@@ -615,11 +615,6 @@ const getVirtual = async (db, table, query, tx, keywords, select, returnValue, o
   return post(results);
 }
 
-const getTableClause = (db, table) => {
-  const sql = db.subQueries.get(table);
-  return sql ? `(${sql}) as ${table}` : table;
-}
-
 const exists = async (config) => {
   const {
     db,
@@ -644,7 +639,7 @@ const exists = async (config) => {
     });
   }
   const params = {};
-  const clause = getTableClause(db, table);
+  const clause = db.getTableClause(table);
   let sql = `select exists(select 1 from ${clause}`;
   sql += addClauses(table, query, params);
   sql += ') as exists_result';
@@ -843,7 +838,7 @@ const group = async (config) => {
       });
     }
     const actualMethod = method === 'sum' ? 'total' : method;
-    const clause = getTableClause(db, table);
+    const clause = db.getTableClause(table);
     sql += `${actualMethod}(${body}) as ${method} from ${clause}`;
   }
   else {
@@ -889,7 +884,7 @@ const group = async (config) => {
       }
       needsParsing.set(alias, { jsonParse: true, field });
     }
-    const clause = getTableClause(db, table);
+    const clause = db.getTableClause(table);
     sql += ` as ${method} from ${clause}`;
   }
   if (adjustedWhere) {
@@ -1084,7 +1079,6 @@ const aggregate = async (config) => {
     params,
     computed
   });
-  const primaryKey = db.getPrimaryKey(table);
   const alias = `${method}_result`;
   const actualMethod = method === 'sum' ? 'total' : method;
   let expression;
@@ -1092,7 +1086,7 @@ const aggregate = async (config) => {
     if (method !== 'count') {
       throw Error('Aggregate needs to specify a column');
     }
-    expression = `count(${primaryKey}) as ${alias}`;
+    expression = `count(*) as ${alias}`;
   }
   else {
     const field = column || distinct;
@@ -1115,7 +1109,7 @@ const aggregate = async (config) => {
     adjuster
   });
   const groupClause = groupFields ? `, ${groupFields}` : '';
-  const tableClause = getTableClause(db, table);
+  const tableClause = db.getTableClause(table);
   sql = `select ${expression}${groupClause} from ${tableClause}`;
   if (clause) {
     sql += ` where ${clause}`;
@@ -1503,95 +1497,8 @@ const getParsers = (columns, db) => {
       columnMap[column.name] = replaced;
     }
     const converter = db.getDbToJsConverter(column.type);
-    let actualConverter = converter;
     if (converter) {
-      const structured = column.structuredType;
-      if (structured) {
-        if (column.functionName === 'json_group_array') {
-          const structuredType = structured.type;
-          if (typeof structuredType === 'string') {
-            const structuredConverter = db.getDbToJsConverter(structuredType);
-            actualConverter = (v) => {
-              let converted = converter(v);
-              converted = converted.filter(v => v !== null);
-              if (structuredConverter && !(structured.functionName && /^json_/i.test(structured.functionName))) {
-                converted = converted.map(i => structuredConverter(i));
-              }
-              return converted;
-            }
-          }
-          else {
-            const converters = [];
-            const optional = [];
-            for (const [key, value] of Object.entries(structuredType)) {
-              getConverters(key, value, db, converters, [], optional);
-            }
-            const isOptional = !optional.some(o => o === false);
-            if (converters.length > 0) {
-              actualConverter = (v) => {
-                const converted = converter(v);
-                for (const item of converted) {
-                  convertItem(item, converters);
-                }
-                if (isOptional) {
-                  return converted.filter(c => !allNulls(c));
-                }
-                return converted;
-              }
-            }
-            else if (isOptional) {
-              actualConverter = (v) => {
-                const converted = converter(v);
-                return converted.filter(c => !allNulls(c));
-              }
-            }
-          }
-        }
-        else if (column.functionName === 'json_object') {
-          const structuredType = structured.type;
-          const converters = [];
-          const optional = [];
-          for (const [key, value] of Object.entries(structuredType)) {
-            getConverters(key, value, db, converters, [], optional);
-          }
-          const isOptional = !optional.some(o => o === false);
-          if (converters.length > 0) {
-            actualConverter = (v) => {
-              const converted = converter(v);
-              convertItem(converted, converters);
-              if (allNulls(converted)) {
-                return null;
-              }
-              return converted;
-            }
-          }
-          else if (isOptional) {
-            actualConverter = (v) => {
-              const converted = converter(v);
-              if (allNulls(converted)) {
-                return null;
-              }
-              return converted;
-            }
-          }
-        }
-        else if (column.functionName === 'json_array') {
-          const converters = [];
-          let i = 0;
-          for (const type of structured) {
-            getConverters(i, type, db, converters);
-            i++;
-          }
-          if (converters.length > 0) {
-            actualConverter = (v) => {
-              const converted = converter(v);
-              convertItem(converted, converters);
-              return converted;
-            }
-          }
-        }
-      }
-      typeMap[column.name] = actualConverter;
+      typeMap[column.name] = converter;
     }
   }
   return {
@@ -1984,7 +1891,7 @@ const all = async (config) => {
     if (keywords.distinct) {
       sql += 'distinct ';
     }
-    const tableClause = getTableClause(db, table);
+    const tableClause = db.getTableClause(table);
     sql += `${select.clause} from ${tableClause}`;
     const clause = toWhere({
       query,
@@ -2000,7 +1907,7 @@ const all = async (config) => {
     if (keywords && keywords.distinct) {
       sql += 'distinct ';
     }
-    const tableClause = getTableClause(db, table);
+    const tableClause = db.getTableClause(table);
     sql += `${select.clause} from ${tableClause}`;
     const clause = toWhere({
       query,

@@ -8,6 +8,51 @@ const operators = new Map([
   ['multiply', '*']
 ]);
 
+const processArg = (options) => {
+  const {
+    db,
+    arg,
+    columnRequests,
+    computeRequests
+  } = options;
+  const subMethod = computeRequests.find(r => r.symbol === arg);
+  if (subMethod) {
+    return processMethod(subMethod);
+  }
+  const column = columnRequests.find(r => r === arg);
+  if (column) {
+    return verify(db, column).selector;
+  }
+  return toLiteral(db, arg);
+}
+
+const getObjectBody = (options) => {
+  const {
+    db,
+    arg,
+    columnRequests,
+    computeRequests
+  } = options;
+  const items = [];
+  for (const [key, value] of Object.entries(arg)) {
+    items.push(`'${key}'`);
+    if (typeof value === 'symbol') {
+      const statement = processArg({
+        db,
+        arg: value,
+        columnRequests,
+        computeRequests
+      });
+      items.push(statement);
+    }
+    else {
+      const statement = toLiteral(db, value);
+      items.push(statement);
+    }
+  }
+  return items.join(', ');
+}
+
 const processMethod = (options) => {
   const {
     db,
@@ -16,10 +61,47 @@ const processMethod = (options) => {
     computeRequests
   } = options;
   const statements = [];
+  if (['jsonGroupArray', 'jsonObject'].includes(method.name)) {
+    const arg = method.args.at(0);
+    if (method.name === 'jsonGroupArray') {
+      if (typeof arg === 'symbol') {
+        const body = processArg({
+          db,
+          arg,
+          columnRequests,
+          computeRequests
+        });
+        return `json_group_array(${body})`;
+      }
+      else {
+        const body = getObjectBody({
+          db,
+          arg,
+          columnRequests,
+          computeRequests
+        });
+        return `json_group_array(json_object(${body}))`;
+      }
+    }
+    else {
+      const body = getObjectBody({
+        db,
+        arg,
+        columnRequests,
+        computeRequests
+      });
+      return `json_object(${body})`;
+    }
+  }
   for (const arg of method.args) {
     const subMethod = computeRequests.find(r => r.symbol === arg);
     if (subMethod) {
-      const statement = processMethod(subMethod);
+      const statement = processMethod({
+        db,
+        method: subMethod,
+        columnRequests,
+        computeRequests
+      });
       statements.push(statement);
       continue;
     }
@@ -37,7 +119,11 @@ const processMethod = (options) => {
   if (operator) {
     return statements.join(` ${operator} `);
   }
-  return `${method.name}(${statements.join(', ')})`;
+  const name = method
+    .name
+    .replaceAll(/([A-Z])/gm, '_$1')
+    .toLowerCase();
+  return `${name}(${statements.join(', ')})`;
 }
 
 const verify = (db, symbol) => {
@@ -68,7 +154,7 @@ const toLiteral = (db, value) => {
     return `'${value.toISOString()}'`;
   }
   else {
-    throw Error('Invalid type in where clause');
+    throw Error('Invalid type in subquery');
   }
 }
 
@@ -155,7 +241,9 @@ const toWhere = (options) => {
 }
 
 const processQuery = (db, expression) => {
+  let selectTable;
   const makeHandler = (table) => {
+    selectTable = table;
     const keys = Object.keys(db.columns[table]);
     const handler = {
       get: function(target, property) {
@@ -180,12 +268,12 @@ const processQuery = (db, expression) => {
     return proxy;
   }
   const columnRequests = [];
-  const handler = {
+  const tableHandler = {
     get: function(target, property) {
       return makeHandler(property);
     }
   };
-  const proxy = new Proxy({}, handler);
+  const tableProxy = new Proxy({}, tableHandler);
   const compareRequests = [];
   const compareHandler = {
     get: function(target, property) {
@@ -218,12 +306,14 @@ const processQuery = (db, expression) => {
   }
   const computeProxy = new Proxy({}, computeHandler);
   const computeRequests = [];
-  const result = expression(proxy, compareProxy, computeProxy);
+  const result = expression(tableProxy, compareProxy, computeProxy);
   const { 
     select, 
     join, 
     leftJoin, 
-    where, 
+    where,
+    groupBy,
+    having,
     orderBy,
     desc,
     offset, 
@@ -254,12 +344,16 @@ const processQuery = (db, expression) => {
         computeRequests
       });
       statements.push(`${selector} as ${key}`);
-      const type = returnTypes[computed.name];
+      const name = computed
+        .name
+        .replaceAll(/([A-Z])/gm, '_$1')
+        .toLowerCase();
+      const type = returnTypes[name];
       db.columns[as][key] = type;
       if (type === 'json') {
         db.hasJson[as] = true;
       }
-      const notNull = notNullFunctions.has(computed.name);
+      const notNull = notNullFunctions.has(name);
       columns.push({
         name: key,
         type,
@@ -282,11 +376,16 @@ const processQuery = (db, expression) => {
     });
   }
   sql += statements.join(', ');
-  sql += ` from ${first.table}`;
-  for (const [l, r] of adjustedFrom) {
-    const [join, other] = used.has(l.table) ? [r, l] : [l, r];
-    used.add(join.table);
-    sql += ` ${joinClause} ${join.table} on ${join.selector} = ${other.selector}`;
+  if (from) {
+    sql += ` from ${first.table}`;
+    for (const [l, r] of adjustedFrom) {
+      const [join, other] = used.has(l.table) ? [r, l] : [l, r];
+      used.add(join.table);
+      sql += ` ${joinClause} ${join.table} on ${join.selector} = ${other.selector}`;
+    }
+  }
+  else {
+    sql += ` from ${selectTable}`;
   }
   if (where) {
     const clause = toWhere({
@@ -299,6 +398,29 @@ const processQuery = (db, expression) => {
     });
     if (clause) {
       sql += ` where ${clause}`;
+    }
+  }
+  if (groupBy) {
+    const adjusted = Array.isArray(groupBy) ? groupBy : [groupBy];
+    const statements = adjusted.map(c => processArg({
+      db,
+      arg: c,
+      columnRequests,
+      computeRequests
+    }));
+    sql += ` group by ${statements.join(', ')}`;
+  }
+  if (having) {
+    const clause = toWhere({
+      db,
+      where: having,
+      type: 'and',
+      columnRequests,
+      compareRequests,
+      computeRequests
+    });
+    if (clause) {
+      sql += ` having ${clause}`;
     }
   }
   if (orderBy) {

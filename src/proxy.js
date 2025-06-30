@@ -108,98 +108,11 @@ const makeOptions = (columns, db) => {
   for (const column of columns) {
     columnMap[column.name] = column.name.replace(/^flyweight\d+_/, '');
     const converter = db.getDbToJsConverter(column.type);
-    let actualConverter = converter;
     if (converter) {
       if (!typeMap) {
         typeMap = {};
       }
-      const structured = column.structuredType;
-      if (structured) {
-        if (column.functionName === 'json_group_array') {
-          const structuredType = structured.type;
-          if (typeof structuredType === 'string') {
-            const structuredConverter = db.getDbToJsConverter(structuredType);
-            actualConverter = (v) => {
-              let converted = converter(v);
-              converted = converted.filter(v => v !== null);
-              if (structuredConverter && !(structured.functionName && /^json_/i.test(structured.functionName))) {
-                converted = converted.map(i => structuredConverter(i));
-              }
-              return converted;
-            }
-          }
-          else {
-            const converters = [];
-            const optional = [];
-            for (const [key, value] of Object.entries(structuredType)) {
-              getConverters(key, value, db, converters, [], optional);
-            }
-            const isOptional = !optional.some(o => o === false);
-            if (converters.length > 0) {
-              actualConverter = (v) => {
-                const converted = converter(v);
-                for (const item of converted) {
-                  convertItem(item, converters);
-                }
-                if (isOptional) {
-                  return converted.filter(c => !allNulls(c));
-                }
-                return converted;
-              }
-            }
-            else if (isOptional) {
-              actualConverter = (v) => {
-                const converted = converter(v);
-                return converted.filter(c => !allNulls(c));
-              }
-            }
-          }
-        }
-        else if (column.functionName === 'json_object') {
-          const structuredType = structured.type;
-          const converters = [];
-          const optional = [];
-          for (const [key, value] of Object.entries(structuredType)) {
-            getConverters(key, value, db, converters, [], optional);
-          }
-          const isOptional = !optional.some(o => o === false);
-          if (converters.length > 0) {
-            actualConverter = (v) => {
-              const converted = converter(v);
-              convertItem(converted, converters);
-              if (allNulls(converted)) {
-                return null;
-              }
-              return converted;
-            }
-          }
-          else if (isOptional) {
-            actualConverter = (v) => {
-              const converted = converter(v);
-              if (allNulls(converted)) {
-                return null;
-              }
-              return converted;
-            }
-          }
-        }
-        else if (column.functionName === 'json_array') {
-          const converters = [];
-          let i = 0;
-          for (const type of structured) {
-            getConverters(i, type, db, converters);
-            i++;
-          }
-          if (converters.length > 0) {
-            actualConverter = (v) => {
-              const converted = converter(v);
-              convertItem(converted, converters);
-              return converted;
-            }
-          }
-        }
-      }
-      typeMap[column.name] = actualConverter;
+      typeMap[column.name] = converter;
     }
   }
   const options = {

@@ -446,6 +446,24 @@ interface ComputeMethods {
   multiply: (...args: (number | symbol)[]) => symbol;
 }
 
+interface SymbolComputeMethods {
+  count(options: { column: symbol }): symbol;
+  count(options: { distinct: symbol }): symbol;
+  min(options: { column: symbol }): symbol;
+  min(options: { distinct: symbol }): symbol;
+  max(options: { column: symbol }): symbol;
+  max(options: { distinct: symbol }): symbol;
+  avg(options: { column: symbol }): symbol;
+  avg(options: { distinct: symbol }): symbol;
+  sum(options: { column: symbol }): symbol;
+  sum(options: { distinct: symbol }): symbol;
+  jsonObject(select: { [key: string]: symbol }): symbol;
+  jsonGroupArray(select: symbol): symbol;
+  jsonGroupArray(select: { [key: string]: symbol }): symbol;
+  jsonGroupObject(key: symbol, value: symbol): symbol;
+  jsonArrayLength(param: symbol): symbol;
+}
+
 interface Compute<T> {
   [key: string]: (column: T, method: ComputeMethods) => void;
 }
@@ -486,6 +504,7 @@ interface Queries<T, I, W, C, R, Y> {
   many(params?: W): Promise<Array<T>>;
   many<K extends keyof (T & C)>(params: W | null, columns: (keyof (T & C))[] | K[]): Promise<Array<Pick<(T & C), K>>>;
   many<K extends keyof (T & C)>(params: W | null, column: K): Promise<Array<(T & C)[K]>>;
+  query(): Promise<Array<T>>;
   query<K extends keyof (T & C)>(query: ComplexQueryValue<W, K, T, C>): Promise<Array<(T & C)[K]>>;
   query<K extends keyof (T & C)>(query: ComplexQueryValueDebug<W, K, T, C>): Promise<DebugResult<Array<(T & C)[K]>>>;
   query<K extends keyof (T & C), U extends Includes<Y, T>>(query: ComplexQueryObjectInclude<W, K, T, U, C>): Promise<Array<MergeIncludes<Pick<(T & C), K>, U>>>;
@@ -494,6 +513,7 @@ interface Queries<T, I, W, C, R, Y> {
   query<K extends keyof (T & C), U extends Includes<Y, T>>(query: ComplexQueryObjectIncludeOmitDebug<W, K, T, U, C>): Promise<DebugResult<Array<MergeIncludes<Omit<T, K>, U>>>>;
   query<U extends Includes<Y, T>>(query: ComplexQueryInclude<W, T, U, C>): Promise<Array<MergeIncludes<T, U>>>;
   query<U extends Includes<Y, T>>(query: ComplexQueryIncludeDebug<W, T, U, C>): Promise<DebugResult<Array<MergeIncludes<T, U>>>>;
+  first(): Promise<T | undefined>;
   first<K extends keyof (T & C)>(query: ComplexQueryValue<W, K, T, C>): Promise<(T & C)[K] | undefined>;
   first<K extends keyof (T & C)>(query: ComplexQueryValueDebug<W, K, T, C>): Promise<DebugResult<(T & C)[K] | undefined>>;
   first<K extends keyof (T & C), U extends Includes<Y, T>>(query: ComplexQueryObjectInclude<W, K, T, U, C>): Promise<MergeIncludes<Pick<(T & C), K>, U> | undefined>;

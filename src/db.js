@@ -100,6 +100,11 @@ class Database {
     return makeClient(this);
   }
 
+  getTableClause(table) {
+    const sql = this.subQueries.get(table);
+    return sql ? `(${sql}) as ${table}` : table;
+  }
+
   async subquery(expression) {
     if (!this.initialized) {
       await this.initialize();
