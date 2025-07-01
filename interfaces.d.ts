@@ -17,7 +17,7 @@ type ObjectFunction = {
 }
 
 type MergeIncludes<T, U extends ObjectFunction> = 
-  T & { [K in keyof U]: ReturnType<U[K]> extends Promise<infer R> ? (R extends string | number | boolean | Date ? R | null : R) : never;
+  T & { [K in keyof U]: ReturnType<U[K]> extends Promise<infer R> ? (R extends any[] ? R : R | null) : never;
 };
 
 type ReturnTypes<T extends ObjectFunction> = {
