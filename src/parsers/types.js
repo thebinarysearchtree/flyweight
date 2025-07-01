@@ -313,8 +313,7 @@ const createTypes = async (options) => {
     destinationPath,
     fileSystem,
     sampleData,
-    jsonPath,
-    computedPath
+    jsonPath
   } = options;
   let index = files.index;
   index = index.replace(/export \{[^\}]+\}/, '');
@@ -338,7 +337,6 @@ const createTypes = async (options) => {
     jsonTypes = new Map();
   }
   const jsonColumnTypes = new Map();
-  const computedTypes = [];
   let tableInterfaces = 'interface Tables {\n';
   for (const table of tables) {
     const isDerived = db.viewSet.has(table.name) || db.subqueries.has(table.name);
@@ -453,55 +451,7 @@ const createTypes = async (options) => {
     if (computed) {
       types += `interface ${computedInterfaceName} {\n`;
       for (const [name, item] of computed.entries()) {
-        let tsType = item.tsType;
-        if (item.jsonPath && jsonTypes) {
-          const { key, path } = item.jsonPath;
-          const jsonType = jsonTypes.get(key);
-          const columnType = jsonColumnTypes.get(key);
-          if (jsonType && columnType) {
-            const interfaces = jsonType.interfaces;
-            const name = columnType.replaceAll(/\(|\)/g, '').split(' ').at(0);
-            if (!name.startsWith('Array')) {
-              let interfaceString = interfaces.find(s => s.startsWith(`interface ${name} `));
-              if (interfaceString) {
-                let current;
-                let i = 0;
-                const pathLength = path.length;
-                for (const property of path) {
-                  const pattern = new RegExp('  ' + property + '?\\?' + ': \\(?(?<type>[^,\\s]+)[^\\s]*,?\\n', 'gm');
-                  const match = pattern.exec(interfaceString);
-                  if (match) {
-                    current = match.groups.type;
-                    interfaceString = interfaces.find(s => s.startsWith(`interface ${current} `));
-                    if (i !== pathLength - 1) {
-                      if (!interfaceString) {
-                        current = null;
-                        break;
-                      }
-                    }
-                  }
-                  else {
-                    current = null;
-                    break;
-                  }
-                  i++;
-                }
-                if (current) {
-                  tsType = `${current} | null`;
-                }
-              }
-            }
-          }
-        }
-        const isArray = tsType.includes('[]');
-        const isBoolean = tsType === 'boolean' || tsType === 'boolean | null';
-        const key = `${table.name} ${name}`;
-        if (isArray) {
-          computedTypes.push([key, 'json']);
-        }
-        else if (isBoolean) {
-          computedTypes.push([key, 'boolean']);
-        }
+        const tsType = item.tsType;
         types += `  ${name}: ${tsType};\n`;
       }
       types += '}\n\n';
@@ -528,9 +478,6 @@ const createTypes = async (options) => {
   await fileSystem.writeFile(destinationPath, types, 'utf8');
   if (sampleData) {
     await fileSystem.writeFile(jsonPath, JSON.stringify(Array.from(jsonTypes)), 'utf8');
-    if (computedTypes.length > 0) {
-      await fileSystem.writeFile(computedPath, JSON.stringify(computedTypes), 'utf8');
-    }
   }
 }
 

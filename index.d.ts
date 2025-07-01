@@ -32,7 +32,6 @@ interface Paths {
   sql: string | URL;
   types: string | URL;
   migrations: string | URL;
-  computed: string | URL;
 }
 
 interface SQLitePaths extends Paths {

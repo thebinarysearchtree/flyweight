@@ -88,7 +88,6 @@ class Database {
       db: this,
       sqlDir: paths.sql,
       destinationPath: paths.types,
-      computedPath: paths.computed,
       customPath: paths.custom,
       jsonPath: paths.json,
       fileSystem,

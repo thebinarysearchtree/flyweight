@@ -1,5 +1,4 @@
 import pluralize from 'pluralize';
-import words from './words.js';
 
 const sampleSize = 10 ** 2;
 let usedNames = new Set();
@@ -362,9 +361,8 @@ const getTypeName = (key, body) => {
       return key;
     }
   }
-  for (let i = 0; i < 100; i++) {
-    const word = words[Math.floor(Math.random() * words.length)];
-    const name = `${word}${key}`;
+  for (let i = 1; i < 100; i++) {
+    const name = `${key}${i}`;
     if (!usedNames.has(name)) {
       usedNames.add(name);
       interfaceBodies.set(body, name);
@@ -600,21 +598,31 @@ const parse = (value, branch) => {
 }
 
 const getTypes = (column, sample, typeSet) => {
+  if (sample.length === 0) {
+    return {
+      columnType: 'null',
+      interfaces: []
+    };
+  }
   usedNames = typeSet;
   const adjusted = camel(column);
   const className = capitalize(adjusted);
-  const tree = {
-    root: {},
-    className
-  };
-  parse(sample, tree);
-  const type = tree.root.toString();
-  const match = type.match(/^Array<(?<type>.+)>$/);
-  let columnType = type;
-  if (match) {
-    columnType = match.groups.type;
+  let current;
+  for (const row of sample) {
+    const tree = {
+      root: {},
+      className
+    };
+    parse(row, tree);
+    if (!current) {
+      current = [tree.root];
+    }
+    else {
+      current = mergeTypes(current, [tree.root]);
+    }
   }
-  const interfaces = tree.root.getInterfaces();
+  const columnType = current.map(c => c.toString()).join(' | ');
+  const interfaces = current.map(c => c.getInterfaces()).flat();
   const unique = new Set(interfaces);
   return {
     columnType,
