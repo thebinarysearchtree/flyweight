@@ -323,13 +323,18 @@ const processQuery = (db, expression) => {
   const from = join || leftJoin;
   const joinClause = leftJoin ? 'left join' : 'join';
   const used = new Set();
-  const symbols = Object.getOwnPropertySymbols(from);
   const adjustedFrom = [];
-  for (const symbol of symbols) {
-    adjustedFrom.push([verify(db, symbol), verify(db, from[symbol])]);
+  let first;
+  let symbols;
+  if (from) {
+    symbols = Object.getOwnPropertySymbols(from);
+    for (const symbol of symbols) {
+      adjustedFrom.push([verify(db, symbol), verify(db, from[symbol])]);
+    }
+    const [table] = adjustedFrom.at(0);
+    first = table;
+    used.add(first.table);
   }
-  const [first] = adjustedFrom.at(0);
-  used.add(first.table);
   let sql = 'select ';
   const columns = [];
   const statements = [];
@@ -348,6 +353,24 @@ const processQuery = (db, expression) => {
         .name
         .replaceAll(/([A-Z])/gm, '_$1')
         .toLowerCase();
+      if (computed.name === 'min' || computed.name === 'max') {
+        const arg = computed.args.at(0);
+        const request = columnRequests.find(r => r === arg);
+        if (request) {
+          const { table, column } = verify(db, request);
+          const original = db.tables[table].find(c => c.name === column);
+          db.columns[as][key] = original.type;
+          if (original.type === 'json') {
+            db.hasJson[as] = true;
+          }
+          columns.push({
+            name: key,
+            type: original.type,
+            notNull: (original.primaryKey || original.notNull) && (!from || (!leftJoin || first.table === table))
+          });
+          continue;
+        }
+      }
       const type = returnTypes[name];
       db.columns[as][key] = type;
       if (type === 'json') {
@@ -372,7 +395,7 @@ const processQuery = (db, expression) => {
     columns.push({
       name: key,
       type: original.type,
-      notNull: (original.primaryKey || original.notNull) && (!leftJoin || first.table === table) 
+      notNull: (original.primaryKey || original.notNull) && (!from || (!leftJoin || first.table === table)) 
     });
   }
   sql += statements.join(', ');

@@ -1130,6 +1130,14 @@ const aggregate = async (config) => {
   }
   const post = (results) => {
     if (groupFields) {
+      if (method == 'min' || method === 'max') {
+        const field = distinct || column;
+        const key = `${method}_result`;
+        for (const result of results) {
+          const value = result[key];
+          result[key] = db.convertToJs(table, field, value);
+        }
+      }
       return results;
     }
     if (results.length > 0) {
@@ -1404,15 +1412,7 @@ const processInclude = (key, handler, debugResult) => {
           if (singleInclude) {
             const value = item[key].at(0);
             if (value === undefined) {
-              if (method === 'exists') {
-                item[key] = false;
-              }
-              else if (method === 'count') {
-                item[key] = 0;
-              }
-              else {
-                item[key] = value;
-              }
+              item[key] = null;
             }
             else {
               item[key] = value;
