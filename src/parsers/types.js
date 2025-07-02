@@ -2,7 +2,6 @@ import { parseQuery } from './queries.js';
 import { renameColumns } from '../map.js';
 import { makeOptions } from '../proxy.js';
 import { blank } from './utils.js';
-import { preprocess } from './preprocessor.js';
 import files from './files.js';
 import pluralize from 'pluralize';
 import getTypes from './json.js';
@@ -47,7 +46,6 @@ const hasNull = (tsType) => {
 }
 
 const removeOptional = (tsType) => tsType.replace(/ \| optional$/, '');
-const removeNull = (tsType) => tsType.replace(/ \| null($| )/, '');
 
 const convertOptional = (tsType) => {
   if (hasNull(tsType)) {
@@ -151,7 +149,6 @@ const getQueries = async (fileSystem, db, sqlDir, tableName, typeSet, i) => {
       sql = sql.substring(0, sql.length - 1);
     }
     try {
-      sql = preprocess(sql, db.tables);
       const params = parseParams(sql);
       const unsafe = parseUnsafe(sql);
       const columns = parseQuery(sql, db.tables);

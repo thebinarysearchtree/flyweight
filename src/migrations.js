@@ -1,5 +1,4 @@
 import { blank } from './parsers/utils.js';
-import { preprocess } from './parsers/preprocessor.js';
 import { getTableNames } from './parsers/queries.js';
 
 const getIndexes = (statements, blanked) => {
@@ -141,11 +140,19 @@ const getVirtualMigrations = (currentTables, lastTables) => {
 const getViewMigrations = async (fileSystem, tables, currentViewsText, lastViewsPath, changedTables) => {
   const drop = [];
   const create = [];
-  currentViewsText = currentViewsText.split(';').map(s => preprocess(s.trim(), tables, true)).join(';\n\n').slice(0, -1);
+  currentViewsText = currentViewsText
+    .split(';')
+    .map(s => s.trim())
+    .join(';\n\n')
+    .slice(0, -1);
   let lastViewsText;
   try {
     lastViewsText = await fileSystem.readSql(lastViewsPath);
-    lastViewsText = lastViewsText.split(';').map(s => preprocess(s.trim(), tables, true)).join(';\n\n').slice(0, -1);
+    lastViewsText = lastViewsText
+      .split(';')
+      .map(s => s.trim())
+      .join(';\n\n')
+      .slice(0, -1);
     const currentViews = getViews(currentViewsText);
     const lastViews = getViews(lastViewsText);
     const currentViewNames = new Set(currentViews.map(v => v.name));

@@ -4,7 +4,6 @@ import { mapOne, mapMany } from './map.js';
 import { getTables, getViews, getVirtual } from './parsers/tables.js';
 import { getFragments } from './parsers/tables.js';
 import { blank } from './parsers/utils.js';
-import { preprocess } from './parsers/preprocessor.js';
 import { createTypes } from './parsers/types.js';
 import { migrate } from './migrations.js';
 import { makeClient } from './proxy.js';
@@ -264,7 +263,11 @@ class Database {
     if (!sql.trim()) {
       return;
     }
-    sql = sql.split(';').map(s => preprocess(s.trim(), this.tables, true)).join(';\n\n').slice(0, -1);
+    sql = sql
+      .split(';')
+      .map(s => s.trim())
+      .join(';\n\n')
+      .slice(0, -1);
     const views = getViews(sql, this);
     for (const view of views) {
       this.viewSet.add(view.name);

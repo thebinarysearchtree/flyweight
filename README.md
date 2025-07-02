@@ -434,7 +434,7 @@ For example, if you create a query in ```./database/sql/users/roles.sql``` that 
 select
     u.id,
     u.name,
-    groupArray(r.name) as roles
+    json_group_array(r.name) as roles
 from
     users u join
     userRoles ur on ur.userId = u.id join
@@ -475,39 +475,6 @@ const users = await db.users.from({ location: 'Brisbane' }, options);
 If the unsafe parameter is ```undefined``` in the options argument, it will be removed from the SQL statement.
 
 Single quotes in strings should be escaped with ```\```.
-
-## Shorthand JSON functions
-
-```sql
-object(
-    u.id, 
-    u.name, 
-    u.social) as user
-``` 
-
-is just shorthand for 
-
-```sql
-json_object(
-    'id', u.id, 
-    'name', u.name, 
-    'social', u.social) as user
-```
-
-Other commands available are ```groupArray``` which is shorthand for ```json_group_array```, and ```array```, which is shorthand for ```json_array```.
-
-## Alias stars
-
-Normally, SQLite doesn't support aliased stars, but this syntax is now available when writing SQL statements with Flyweight.
-
-```sql
-select
-    e.*,
-    l.name as locationName
-from 
-    events e join
-    locations l on e.locationId = l.id
-```
 
 ## Views
 

@@ -1,5 +1,5 @@
 import { parseQuery, isWrite } from './parsers/queries.js';
-import { preprocess, insertUnsafe } from './parsers/preprocessor.js';
+import { blank } from './parsers/utils.js';
 import { getPlaceholder, expressionHandler } from './utils.js';
 import methods from './methods.js';
 
@@ -1512,6 +1512,24 @@ const getParsers = (columns, db) => {
   }
 }
 
+const insertUnsafe = (sql, unsafe) => {
+  const fragments = [];
+  const blanked = blank(sql, { stringsOnly: true });
+  const matches = blanked.matchAll(/(?<placeholder>\$\{(?<key>[a-z0-9_]+)\})/gmid);
+  let lastEnd = 0;
+  for (const match of matches) {
+    const [start, end] = match.indices.groups.placeholder;
+    const value = unsafe[match.groups.key] || '';
+    if (lastEnd !== start) {
+      fragments.push(sql.substring(lastEnd, start));
+    }
+    fragments.push(value);
+    lastEnd = end;
+  }
+  fragments.push(sql.substring(lastEnd));
+  return fragments.join('');
+}
+
 const custom = async (config) => {
   const { 
     db, 
@@ -1526,7 +1544,6 @@ const custom = async (config) => {
     await db.initialize();
   }
   let sql = await db.readQuery(table, method);
-  sql = preprocess(sql, db.tables);
   const write = isWrite(sql);
   const columns = parseQuery(sql, db.tables);
   const parsers = getParsers(columns, db);
