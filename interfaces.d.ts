@@ -444,24 +444,59 @@ interface ComputeMethods {
   minus: (...args: (number | symbol)[]) => symbol;
   divide: (...args: (number | symbol)[]) => symbol;
   multiply: (...args: (number | symbol)[]) => symbol;
+  jsonObject(select: { [key: string]: symbol }): symbol;
+  jsonArrayLength(param: symbol): symbol;
 }
 
-interface SymbolComputeMethods {
+interface SymbolAggregateMethods {
+  count(): symbol;
   count(options: { column: symbol }): symbol;
   count(options: { distinct: symbol }): symbol;
-  min(options: { column: symbol }): symbol;
-  min(options: { distinct: symbol }): symbol;
-  max(options: { column: symbol }): symbol;
-  max(options: { distinct: symbol }): symbol;
+  min(column: symbol): symbol;
+  max(column: symbol): symbol;
   avg(options: { column: symbol }): symbol;
   avg(options: { distinct: symbol }): symbol;
   sum(options: { column: symbol }): symbol;
   sum(options: { distinct: symbol }): symbol;
-  jsonObject(select: { [key: string]: symbol }): symbol;
   jsonGroupArray(select: symbol): symbol;
   jsonGroupArray(select: { [key: string]: symbol }): symbol;
   jsonGroupObject(key: symbol, value: symbol): symbol;
-  jsonArrayLength(param: symbol): symbol;
+}
+
+interface FrameOptions {
+  type: 'rows' | 'groups' | 'range';
+  currentRow?: true;
+  preceding?: 'unbounded' | number;
+  following?: 'unbounded' | number;
+}
+
+interface WindowOptions {
+  partitionBy?: symbol | symbol[];
+  where?: { [key: symbol]: symbol };
+  orderBy?: symbol | symbol[];
+  desc?: true;
+  frame?: FrameOptions;
+}
+
+interface AggregateWindowOptions extends WindowOptions {
+  column?: symbol;
+  distinct?: symbol;
+}
+
+interface SymbolWindowMethods {
+  count(options: AggregateWindowOptions): symbol;
+  min(options: AggregateWindowOptions): symbol;
+  max(options: AggregateWindowOptions): symbol;
+  avg(options: AggregateWindowOptions): symbol;
+  sum(options: AggregateWindowOptions): symbol;
+  rowNumber(options: WindowOptions): symbol;
+  rank(options: WindowOptions): symbol;
+  denseRank(options: WindowOptions): symbol;
+  percentRank(options: WindowOptions): symbol;
+  cumeDist(options: WindowOptions): symbol;
+  ntile(options: WindowOptions & { groups: number }): symbol;
+  jsonGroupArray(options: WindowOptions & { select: { [key: string]: symbol } }): symbol;
+  jsonGroupObject(options: WindowOptions & { key: symbol, value: symbol }): symbol;
 }
 
 interface Compute<T> {
