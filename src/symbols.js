@@ -240,13 +240,11 @@ const processMethod = (options) => {
     return sql;
   }
   for (const arg of args) {
-    const subMethod = requests.compute.find(r => r.symbol === arg);
-    if (subMethod) {
+    const method = findRequest(requests, arg);
+    if (method) {
       const statement = processMethod({
         db,
-        method: {
-          request: subMethod
-        },
+        method,
         requests
       });
       statements.push(statement);
@@ -326,13 +324,11 @@ const toWhere = (options) => {
   const whereKeys = Object.getOwnPropertySymbols(where);
   for (const symbol of whereKeys) {
     let selector;
-    const computedKey = requests.compute.find(r => r.symbol === symbol);
-    if (computedKey) {
+    const method = findRequest(requests, symbol);
+    if (method) {
       selector = processMethod({
         db,
-        method: {
-          request: computedKey
-        },
+        method,
         requests
       });
     }
@@ -341,7 +337,7 @@ const toWhere = (options) => {
     }
     const value = where[symbol];
     const compareValue = requests.compare.find(r => r === value);
-    const computeValue = requests.compute.find(r => r.symbol === value);
+    const methodValue = findRequest(requests, value);
     if (compareValue) {
       const { method, param } = compareValue;
       if (method === 'not') {
@@ -357,13 +353,10 @@ const toWhere = (options) => {
         statements.push(`${selector} ${operator} ${toLiteral(db, param)}`);
       }
     }
-    else if (computeValue) {
+    else if (methodValue) {
       const clause = processMethod({
         db,
-        method: {
-          request: computeValue,
-          type: 'compute'
-        },
+        method: methodValue,
         requests
       });
       statements.push(`${selector} = ${clause}`);

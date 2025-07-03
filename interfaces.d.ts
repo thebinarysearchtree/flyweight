@@ -84,35 +84,15 @@ interface ComplexQueryInclude<W, T, U extends ObjectFunction, C> extends Keyword
   include?: U;
 }
 
-interface ComplexSqlQueryIncludeParamsUnsafe<P, U, W, T, R extends ObjectFunction> extends ComplexQueryInclude<W, T, R, unknown> {
-  params: P;
-  unsafe: U;
-}
-
 interface ComplexSqlQueryIncludeParams<P, W, T, R extends ObjectFunction> extends ComplexQueryInclude<W, T, R, unknown> {
   params: P;
-  unsafe?: undefined;
-}
-
-interface ComplexSqlQueryIncludeUnsafe<U, W, T, R extends ObjectFunction> extends ComplexQueryInclude<W, T, R, unknown> {
-  params?: undefined;
-  unsafe: U;
 }
 
 interface ComplexSqlQueryInclude<W, T, R extends ObjectFunction> extends ComplexQueryInclude<W, T, R, unknown> {
   params?: undefined;
-  unsafe?: undefined;
-}
-
-interface ComplexSqlQueryIncludeParamsUnsafeDebug<P, U, W, T, R extends ObjectFunction> extends ComplexSqlQueryIncludeParamsUnsafe<P, U, W, T, R> {
-  debug: true;
 }
 
 interface ComplexSqlQueryIncludeParamsDebug<P, W, T, R extends ObjectFunction> extends ComplexSqlQueryIncludeParams<P, W, T, R> {
-  debug: true;
-}
-
-interface ComplexSqlQueryIncludeUnsafeDebug<U, W, T, R extends ObjectFunction> extends ComplexSqlQueryIncludeUnsafe<U, W, T, R> {
   debug: true;
 }
 
@@ -130,24 +110,12 @@ interface ComplexQueryObjectInclude<W, K, T, U extends ObjectFunction, C> extend
   include?: U;
 }
 
-interface ComplexSqlQueryObjectIncludeParamsUnsafe<P, U, W, K, T, R extends ObjectFunction> extends ComplexQueryObjectInclude<W, K, T, R, unknown> {
-  params: P;
-  unsafe: U;
-}
-
 interface ComplexSqlQueryObjectIncludeParams<P, W, K, T, R extends ObjectFunction> extends ComplexQueryObjectInclude<W, K, T, R, unknown> {
   params: P;
-  unsafe?: undefined;
-}
-
-interface ComplexSqlQueryObjectIncludeUnsafe<U, W, K, T, R extends ObjectFunction> extends ComplexQueryObjectInclude<W, K, T, R, unknown> {
-  params?: undefined;
-  unsafe: U;
 }
 
 interface ComplexSqlQueryObjectInclude<W, K, T, R extends ObjectFunction> extends ComplexQueryObjectInclude<W, K, T, R, unknown> {
   params?: undefined;
-  unsafe?: undefined;
 }
 
 interface ComplexSqlQueryObjectIncludeParamsUnsafeDebug<P, U, W, K, T, R extends ObjectFunction> extends ComplexSqlQueryObjectIncludeParamsUnsafe<P, U, W, K, T, R> {
@@ -177,35 +145,15 @@ interface ComplexQueryObjectIncludeOmit<W, K, T, U extends ObjectFunction, C> ex
   include?: U;
 }
 
-interface ComplexSqlQueryObjectIncludeOmitParamsUnsafe<P, U, W, K, T, R extends ObjectFunction> extends ComplexQueryObjectIncludeOmit<W, K, T, R, unknown> {
-  params: P;
-  unsafe: U;
-}
-
 interface ComplexSqlQueryObjectIncludeOmitParams<P, W, K, T, R extends ObjectFunction> extends ComplexQueryObjectIncludeOmit<W, K, T, R, unknown> {
   params: P;
-  unsafe?: undefined;
-}
-
-interface ComplexSqlQueryObjectIncludeOmitUnsafe<U, W, K, T, R extends ObjectFunction> extends ComplexQueryObjectIncludeOmit<W, K, T, R, unknown> {
-  params?: undefined;
-  unsafe: U;
 }
 
 interface ComplexSqlQueryObjectIncludeOmit<W, K, T, R extends ObjectFunction> extends ComplexQueryObjectIncludeOmit<W, K, T, R, unknown> {
   params?: undefined;
-  unsafe?: undefined;
-}
-
-interface ComplexSqlQueryObjectIncludeOmitParamsUnsafeDebug<P, U, W, K, T, R extends ObjectFunction> extends ComplexSqlQueryObjectIncludeOmitParamsUnsafe<P, U, W, K, T, R> {
-  debug: true;
 }
 
 interface ComplexSqlQueryObjectIncludeOmitParamsDebug<P, W, K, T, R extends ObjectFunction> extends ComplexSqlQueryObjectIncludeOmitParams<P, W, K, T, R> {
-  debug: true;
-}
-
-interface ComplexSqlQueryObjectIncludeOmitUnsafeDebug<U, W, K, T, R extends ObjectFunction> extends ComplexSqlQueryObjectIncludeOmitUnsafe<U, W, K, T, R> {
   debug: true;
 }
 
@@ -224,35 +172,15 @@ interface ComplexQueryValue<W, K, T, C> extends Keywords<T & C, Array<keyof (T &
   include?: undefined;
 }
 
-interface ComplexSqlQueryValueParamsUnsafe<P, U, W, K, T> extends ComplexQueryValue<W, K, T, unknown> {
-  params: P;
-  unsafe: U;
-}
-
 interface ComplexSqlQueryValueParams<P, W, K, T> extends ComplexQueryValue<W, K, T, unknown> {
   params: P;
-  unsafe?: undefined;
-}
-
-interface ComplexSqlQueryValueUnsafe<U, W, K, T> extends ComplexQueryValue<W, K, T, unknown> {
-  params?: undefined;
-  unsafe: U;
 }
 
 interface ComplexSqlQueryValue<W, K, T> extends ComplexQueryValue<W, K, T, unknown> {
   params?: undefined;
-  unsafe?: undefined;
-}
-
-interface ComplexSqlQueryValueParamsUnsafeDebug<P, U, W, K, T> extends ComplexSqlQueryValueParamsUnsafe<P, U, W, K, T> {
-  debug: true;
 }
 
 interface ComplexSqlQueryValueParamsDebug<P, W, K, T> extends ComplexSqlQueryValueParams<P, W, K, T> {
-  debug: true;
-}
-
-interface ComplexSqlQueryValueUnsafeDebug<U, W, K, T> extends ComplexSqlQueryValueUnsafe<U, W, K, T> {
   debug: true;
 }
 
@@ -609,19 +537,8 @@ type TableObject<T> = {
   [key in keyof T]: TableProperty;
 }
 
-interface SqlQueryParamsUnsafe<P, U> {
-  params: P;
-  unsafe: U;
-}
-
 interface SqlQueryParams<P> {
   params: P;
-  unsafe?: undefined;
-}
-
-interface SqlQueryUnsafe<U> {
-  params?: undefined;
-  unsafe: U;
 }
 
 type WhereField<T> = T | Array<NonNullable<T>> | WhereFunction<T>;

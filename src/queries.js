@@ -1512,24 +1512,6 @@ const getParsers = (columns, db) => {
   }
 }
 
-const insertUnsafe = (sql, unsafe) => {
-  const fragments = [];
-  const blanked = blank(sql, { stringsOnly: true });
-  const matches = blanked.matchAll(/(?<placeholder>\$\{(?<key>[a-z0-9_]+)\})/gmid);
-  let lastEnd = 0;
-  for (const match of matches) {
-    const [start, end] = match.indices.groups.placeholder;
-    const value = unsafe[match.groups.key] || '';
-    if (lastEnd !== start) {
-      fragments.push(sql.substring(lastEnd, start));
-    }
-    fragments.push(value);
-    lastEnd = end;
-  }
-  fragments.push(sql.substring(lastEnd));
-  return fragments.join('');
-}
-
 const custom = async (config) => {
   const { 
     db, 
@@ -1547,14 +1529,11 @@ const custom = async (config) => {
   const write = isWrite(sql);
   const columns = parseQuery(sql, db.tables);
   const parsers = getParsers(columns, db);
-  let { params, unsafe, where, select, omit, include, alias, debug, ...keywords } = query || {};
+  let { params, where, select, omit, include, alias, debug, ...keywords } = query || {};
   if (!params) {
     params = {};
   }
   const customFields = {};
-  if (unsafe) {
-    sql = insertUnsafe(sql, unsafe);
-  }
   const hasKeywords = Object.keys(keywords).length > 0;
   const wrap = where || select || omit || hasKeywords;
   const withTable = 'flyweight_wrapped';

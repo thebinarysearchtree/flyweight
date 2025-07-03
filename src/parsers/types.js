@@ -16,16 +16,12 @@ const typeMap = {
   any: 'number | string | Buffer'
 }
 
-const makeOverloads = (queryName, paramsName, unsafeName, returnName) => {
+const makeOverloads = (queryName, paramsName, returnName) => {
   let append = '';
   const items = [];
   if (paramsName) {
     items.push(paramsName);
     append += 'Params';
-  }
-  if (unsafeName) {
-    items.push(unsafeName);
-    append += 'Unsafe';
   }
   const generics = items
     .map(s => `${s}, `)
@@ -150,7 +146,6 @@ const getQueries = async (fileSystem, db, sqlDir, tableName, typeSet, i) => {
     }
     try {
       const params = parseParams(sql);
-      const unsafe = parseUnsafe(sql);
       const columns = parseQuery(sql, db.tables);
       const singular = pluralize.singular(tableName);
       const interfaceName = makeUnique(capitalize(singular) + capitalize(queryName), typeSet, i);
@@ -164,25 +159,12 @@ const getQueries = async (fileSystem, db, sqlDir, tableName, typeSet, i) => {
         }
         paramsString += '}\n';
       }
-      let unsafeName;
-      let unsafeString;
-      if (unsafe.length > 0) {
-        unsafeName = `${interfaceName}Unsafe`;
-        unsafeString = `interface ${unsafeName} {\n`;
-        for (const param of unsafe) {
-          unsafeString += `  ${param}: any;\n`;
-        }
-        unsafeString += '}\n';
-      }
       if (columns.length === 0) {
         parsedQueries.push({
           queryName,
           paramsName,
           paramsString,
-          params,
-          unsafeName,
-          unsafeString,
-          unsafe
+          params
         });
         continue;
       }
@@ -230,10 +212,7 @@ const getQueries = async (fileSystem, db, sqlDir, tableName, typeSet, i) => {
         interfaceString,
         paramsName,
         paramsString,
-        params,
-        unsafeName,
-        unsafeString,
-        unsafe
+        params
       });
     }
     catch (e) {
@@ -259,26 +238,21 @@ const getQueries = async (fileSystem, db, sqlDir, tableName, typeSet, i) => {
       queryName,
       interfaceName,
       paramsName,
-      params,
-      unsafeName,
-      unsafe
+      params
     } = query;
     if (!interfaceName) {
       let argument = '';
-      if (params.length > 0 || unsafe.length > 0) {
+      if (params.length > 0) {
         argument += 'options: SqlQuery';
       }
       if (params.length > 0) {
         argument += 'Params';
       }
-      if (unsafe.length > 0) {
-        argument += 'Unsafe';
-      }
       interfaceString += `  ${queryName}(${argument}): Promise<void>;\n`;
       continue;
     }
     else {
-      const overloads = makeOverloads(queryName, paramsName, unsafeName, interfaceName);
+      const overloads = makeOverloads(queryName, paramsName, interfaceName);
       for (const overload of overloads) {
         interfaceString += `  ${overload};\n`;
       }
@@ -291,15 +265,11 @@ const getQueries = async (fileSystem, db, sqlDir, tableName, typeSet, i) => {
   const paramsInterfaces = parsedQueries
     .filter(p => p.paramsString !== undefined)
     .map(p => p.paramsString);
-  const unsafeInterfaces = parsedQueries
-    .filter(p => p.unsafeString !== undefined)
-    .map(p => p.unsafeString);
   return {
     interfaceName,
     interfaceString,
     queryInterfaces,
-    paramsInterfaces,
-    unsafeInterfaces
+    paramsInterfaces
   }
 }
 
@@ -454,7 +424,7 @@ const createTypes = async (options) => {
       types += '}\n\n';
     }
     if (queries) {
-      const interfaces = [...queries.queryInterfaces, ...queries.paramsInterfaces, ...queries.unsafeInterfaces];
+      const interfaces = [...queries.queryInterfaces, ...queries.paramsInterfaces];
       for (const queryInterface of interfaces) {
         types += queryInterface;
         types += '\n';

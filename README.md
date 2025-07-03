@@ -457,24 +457,7 @@ select max(startTime) from events;
 
 as there is no name given to ```max(startTime)```.
 
-Parameters in SQL files should use the ```$name``` notation. If you want to include dynamic content that cannot be parameterized, you should use the ```${column}``` format and then pass in a second argument when calling the SQL statement in JavaScript. For example:
-
-```sql
-select * from users where location = $location order by ${column};
-```
-
-```js
-const options = {
-  unsafe: {
-    column: 'lastName'
-  }
-};
-const users = await db.users.from({ location: 'Brisbane' }, options);
-```
-
-If the unsafe parameter is ```undefined``` in the options argument, it will be removed from the SQL statement.
-
-Single quotes in strings should be escaped with ```\```.
+Parameters in SQL files should use the ```$name``` notation. Single quotes in strings should be escaped with ```\```.
 
 ## Views
 
@@ -499,12 +482,12 @@ console.log(user.email);
 You can create subqueries programmatically that can be used like views in that they act as read-only tables. In the ```db.js``` file you can add a query like this:
 
 ```js
-await db.subquery((tables, is, compute) => {
+await db.subquery(c => {
   const {
     locations: l,
     events: e
-  } = tables;
-  const nameLength = compute.length(e.name);
+  } = c.tables;
+  const nameLength = c.compute.length(e.name);
   return {
     select: {
       ...e,
@@ -515,7 +498,7 @@ await db.subquery((tables, is, compute) => {
       [e.locationId]: l.id
     },
     where: {
-      [nameLength]: is.gt(20)
+      [nameLength]: c.compare.gt(20)
     },
     as: 'detailedEvents'
   }
