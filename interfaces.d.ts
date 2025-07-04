@@ -118,15 +118,7 @@ interface ComplexSqlQueryObjectInclude<W, K, T, R extends ObjectFunction> extend
   params?: undefined;
 }
 
-interface ComplexSqlQueryObjectIncludeParamsUnsafeDebug<P, U, W, K, T, R extends ObjectFunction> extends ComplexSqlQueryObjectIncludeParamsUnsafe<P, U, W, K, T, R> {
-  debug: true;
-}
-
 interface ComplexSqlQueryObjectIncludeParamsDebug<P, W, K, T, R extends ObjectFunction> extends ComplexSqlQueryObjectIncludeParams<P, W, K, T, R> {
-  debug: true;
-}
-
-interface ComplexSqlQueryObjectIncludeUnsafeDebug<U, W, K, T, R extends ObjectFunction> extends ComplexSqlQueryObjectIncludeUnsafe<U, W, K, T, R> {
   debug: true;
 }
 
@@ -376,21 +368,6 @@ interface ComputeMethods {
   jsonArrayLength(param: symbol): symbol;
 }
 
-interface SymbolAggregateMethods {
-  count(): symbol;
-  count(options: { column: symbol }): symbol;
-  count(options: { distinct: symbol }): symbol;
-  min(column: symbol): symbol;
-  max(column: symbol): symbol;
-  avg(options: { column: symbol }): symbol;
-  avg(options: { distinct: symbol }): symbol;
-  sum(options: { column: symbol }): symbol;
-  sum(options: { distinct: symbol }): symbol;
-  jsonGroupArray(select: symbol): symbol;
-  jsonGroupArray(select: { [key: string]: symbol }): symbol;
-  jsonGroupObject(key: symbol, value: symbol): symbol;
-}
-
 interface FrameOptions {
   type: 'rows' | 'groups' | 'range';
   currentRow?: true;
@@ -411,19 +388,23 @@ interface AggregateWindowOptions extends WindowOptions {
   distinct?: symbol;
 }
 
-interface SymbolWindowMethods {
-  count(options: AggregateWindowOptions): symbol;
+interface SymbolMethods {
+  count(options?: AggregateWindowOptions): symbol;
+  min(column: symbol): symbol;
   min(options: AggregateWindowOptions): symbol;
+  max(column: symbol): symbol;
   max(options: AggregateWindowOptions): symbol;
   avg(options: AggregateWindowOptions): symbol;
   sum(options: AggregateWindowOptions): symbol;
-  rowNumber(options: WindowOptions): symbol;
-  rank(options: WindowOptions): symbol;
-  denseRank(options: WindowOptions): symbol;
-  percentRank(options: WindowOptions): symbol;
-  cumeDist(options: WindowOptions): symbol;
+  rowNumber(options?: WindowOptions): symbol;
+  rank(options?: WindowOptions): symbol;
+  denseRank(options?: WindowOptions): symbol;
+  percentRank(options?: WindowOptions): symbol;
+  cumeDist(options?: WindowOptions): symbol;
   ntile(options: WindowOptions & { groups: number }): symbol;
+  jsonGroupArray(select: symbol): symbol;
   jsonGroupArray(options: WindowOptions & { select: { [key: string]: symbol } }): symbol;
+  jsonGroupObject(key: symbol, value: symbol): symbol;
   jsonGroupObject(options: WindowOptions & { key: symbol, value: symbol }): symbol;
 }
 

@@ -485,9 +485,11 @@ You can create subqueries programmatically that can be used like views in that t
 await db.subquery(c => {
   const {
     locations: l,
-    events: e
-  } = c.tables;
-  const nameLength = c.compute.length(e.name);
+    events: e,
+    length,
+    gt
+  } = c;
+  const nameLength = length(e.name);
   return {
     select: {
       ...e,
@@ -498,7 +500,7 @@ await db.subquery(c => {
       [e.locationId]: l.id
     },
     where: {
-      [nameLength]: c.compare.gt(20)
+      [nameLength]: gt(20)
     },
     as: 'detailedEvents'
   }

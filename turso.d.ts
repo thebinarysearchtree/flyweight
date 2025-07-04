@@ -21,13 +21,7 @@ interface SubqueryReturn {
   as: string;
 }
 
-interface SubqueryContext {
-  tables: Tables;
-  compare: CompareMethods<Date | number | boolean | null>;
-  compute: ComputeMethods;
-  aggregate: SymbolAggregateMethods;
-  window: SymbolWindowMethods;
-}
+type SubqueryContext = Tables & CompareMethods<Date | number | boolean | null | symbol> & ComputeMethods & SymbolMethods;
 
 interface TypedDb {
   [key: string]: any;
