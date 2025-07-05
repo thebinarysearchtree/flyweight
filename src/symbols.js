@@ -143,6 +143,9 @@ const processMethod = (options) => {
     method,
     requests
   } = options;
+  if (method.alias) {
+    return method.alias;
+  }
   const statements = [];
   const arg = method.args.at(0);
   const isSymbol = typeof arg === 'symbol';
@@ -337,11 +340,16 @@ const toWhere = (options) => {
     let selector;
     const method = requests.find(r => r.symbol === symbol);
     if (method) {
-      selector = processMethod({
-        db,
-        method,
-        requests
-      });
+      if (method.alias) {
+        selector = method.alias;
+      }
+      else {
+        selector = processMethod({
+          db,
+          method,
+          requests
+        });
+      }
     }
     else {
       selector = verify(db, symbol).selector;
@@ -451,6 +459,7 @@ const processQuery = (db, expression) => {
           isCompute,
           isWindow,
           args: null,
+          alias: null,
           symbol
         };
         requests.push(request);
@@ -504,6 +513,7 @@ const processQuery = (db, expression) => {
         method,
         requests
       });
+      method.alias = key;
       statements.push(`${selector} as ${key}`);
       const name = method
         .name
