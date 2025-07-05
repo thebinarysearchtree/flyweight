@@ -403,7 +403,7 @@ interface SymbolMethods {
   cumeDist(options?: WindowOptions): symbol;
   ntile(options: WindowOptions & { groups: number }): symbol;
   jsonGroupArray(select: symbol): symbol;
-  jsonGroupArray(options: WindowOptions & { select: { [key: string]: symbol } }): symbol;
+  jsonGroupArray(options: WindowOptions & { select: { [key: string]: symbol } | symbol }): symbol;
   jsonGroupObject(key: symbol, value: symbol): symbol;
   jsonGroupObject(options: WindowOptions & { key: symbol, value: symbol }): symbol;
 }

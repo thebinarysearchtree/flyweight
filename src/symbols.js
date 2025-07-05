@@ -149,10 +149,11 @@ const processMethod = (options) => {
   if (['jsonGroupArray', 'jsonGroupObject', 'jsonObject'].includes(method.name)) {
     if (method.name === 'jsonGroupArray') {
       let sql;
-      if (isSymbol) {
+      const valueArg = isSymbol ? arg : (typeof arg.select === 'symbol' ? arg.select : null);
+      if (valueArg) {
         const body = processArg({
           db,
-          arg,
+          arg: valueArg,
           requests
         });
         sql = `json_group_array(${body})`;
@@ -164,13 +165,13 @@ const processMethod = (options) => {
           requests
         });
         sql = `json_group_array(json_object(${body}))`;
-        const clause = processWindow({
-          db,
-          query: arg,
-          requests
-        });
-        sql += ` ${clause}`;
       }
+      const clause = processWindow({
+        db,
+        query: arg,
+        requests
+      });
+      sql += ` ${clause}`;
       return sql.trim();
     }
     else if (method.name === 'jsonGroupObject') {
@@ -315,6 +316,9 @@ const toLiteral = (db, value) => {
   else if (value instanceof Date) {
     return `'${value.toISOString()}'`;
   }
+  else if (value === null) {
+    return 'null';
+  }
   else {
     throw Error('Invalid type in subquery');
   }
@@ -348,7 +352,7 @@ const toWhere = (options) => {
     if (compareValue) {
       const { method, param } = compareValue;
       if (method === 'not') {
-        if (value === null) {
+        if (param === null) {
           statements.push(`${selector} is not null`);
         }
         else {
