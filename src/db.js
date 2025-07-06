@@ -42,7 +42,6 @@ class Database {
     this.hasJson = {};
     this.computed = new Map();
     this.computedTypes = new Map();
-    this.subqueries = new Map();
     this.statements = new Map();
     this.viewSet = new Set();
     this.virtualSet = new Set();
@@ -98,22 +97,11 @@ class Database {
     return makeClient(this);
   }
 
-  getTableClause(table) {
-    const sql = this.subqueries.get(table);
-    return sql ? `(${sql}) as ${table}` : table;
-  }
-
-  async subquery(expression) {
+  async query(expression) {
     if (!this.initialized) {
       await this.initialize();
     }
-    const { 
-      as, 
-      sql, 
-      columns 
-    } = processQuery(this, expression);
-    this.subqueries.set(as, sql);
-    this.tables[as] = columns;
+    return await processQuery(this, expression);
   }
 
   compute(table, properties) {
@@ -464,24 +452,27 @@ class Database {
     return null;
   }
 
+  jsToDb(value) {
+    if (value === undefined) {
+      return null;
+    }
+    if (value === null || typeof value === 'string' || typeof value === 'number' || (typeof Buffer !== 'undefined' && Buffer.isBuffer(value))) {
+      return value;
+    }
+    else {
+      for (const customType of Object.values(this.customTypes)) {
+        if (customType.valueTest && customType.valueTest(value)) {
+          return customType.jsToDb(value);
+        }
+      }
+    }
+    return value;
+  }
+
   adjust(params) {
     const adjusted = {};
     for (let [key, value] of Object.entries(params)) {
-      if (value === undefined) {
-        value = null;
-      }
-      if (value === null || typeof value === 'string' || typeof value === 'number' || (typeof Buffer !== 'undefined' && Buffer.isBuffer(value))) {
-        adjusted[key] = value;
-      }
-      else {
-        for (const customType of Object.values(this.customTypes)) {
-          if (customType.valueTest && customType.valueTest(value)) {
-            value = customType.jsToDb(value);
-            break;
-          }
-        }
-        adjusted[key] = value;
-      }
+      adjusted[key] = this.jsToDb(value);
     }
     return adjusted;
   }

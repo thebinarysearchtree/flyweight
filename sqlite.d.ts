@@ -21,7 +21,7 @@ interface SubqueryReturn {
   as: string;
 }
 
-type SubqueryContext = Tables & CompareMethods<Date | number | boolean | null | symbol> & ComputeMethods & SymbolMethods;
+type SubqueryContext = Tables & CompareMethods<Date | number | boolean | null | string | Buffer | symbol> & ComputeMethods & SymbolMethods;
 
 interface TypedDb {
   [key: string]: any;
@@ -33,7 +33,7 @@ interface TypedDb {
   deferForeignKeys(): Promise<void>;
   getTransaction(): Promise<TypedDb>;
   batch:<T extends any[]> (batcher: (bx: TypedDb) => T) => Promise<Unwrap<T>>;
-  subquery(expression: (context: SubqueryContext) => SubqueryReturn): Promise<void>;
+  query<T extends (context: SubqueryContext) => any>(expression: T): Promise<ReturnType<T>['select'][]>;
 }
 
 export const database: SQLiteDatabase;

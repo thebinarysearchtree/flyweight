@@ -1,4 +1,5 @@
 import { returnTypes, notNullFunctions } from './parsers/returnTypes.js';
+import { getPlaceholder } from './utils.js';
 import methods from './methods.js';
 
 const operators = new Map([
@@ -12,21 +13,41 @@ const compareMethods = ['not', 'gt', 'lt', 'lte', 'like', 'natch', 'glob', 'eq']
 const computeMethods = ['abs', 'coalesce', 'concat', 'concatWs', 'format', 'glob', 'hex', 'if', 'instr', 'length', 'lower', 'ltrim', 'max', 'min', 'nullif', 'octetLength', 'replace', 'round', 'rtrim', 'sign', 'substring', 'trim', 'unhex', 'unicode', 'upper', 'date', 'time', 'dateTime', 'julianDay', 'unixEpoch', 'strfTime', 'timeDiff', 'acos', 'acosh', 'asin', 'asinh', 'atan', 'atan2', 'atanh', 'ceil', 'cos', 'cosh', 'degrees', 'exp', 'floor', 'ln', 'log', 'mod', 'pi', 'power', 'radians', 'sin', 'sinh', 'sqrt', 'tan', 'tanh', 'trunc', 'json', 'jsonExtract', 'plus', 'minus', 'divide', 'multiply', 'jsonObject', 'jsonArrayLength'];
 const windowMethods = ['count', 'min', 'max', 'avg', 'sum', 'rowNumber', 'rank', 'denseRank', 'percentRank', 'cumeDist', 'ntile', 'jsonGroupArray', 'jsonGroupObject'];
 
+const addParam = (options) => {
+  const { db, params, value } = options;
+  if (typeof value === 'symbol') {
+    return verify(db, value).selector;
+  }
+  const placeholder = getPlaceholder();
+  params[placeholder] = db.jsToDb(value);
+  return `$${placeholder}`;
+}
+
 const processArg = (options) => {
   const {
     db,
     arg,
+    params,
     requests
   } = options;
-  const subMethod = requests.find(r => r.symbol === arg);
-  if (subMethod) {
-    return processMethod(subMethod);
+  const method = requests.find(r => r.symbol === arg);
+  if (method) {
+    return processMethod({
+      db,
+      method,
+      params,
+      requests
+    });
   }
   const column = requests.find(r => r === arg);
   if (column) {
     return verify(db, column).selector;
   }
-  return toLiteral(db, arg);
+  return addParam({
+    db,
+    params,
+    value: arg,
+  });
 }
 
 const getObjectBody = (options) => {
@@ -47,7 +68,11 @@ const getObjectBody = (options) => {
       items.push(statement);
     }
     else {
-      const statement = toLiteral(db, value);
+      const statement = addParam({
+        db,
+        params,
+        value
+      });
       items.push(statement);
     }
   }
@@ -58,6 +83,7 @@ const processWindow = (options) => {
   const {
     db,
     query,
+    params,
     requests
   } = options;
   let sql = '';
@@ -72,6 +98,7 @@ const processWindow = (options) => {
     const clause = toWhere({
       db,
       where,
+      params,
       requests
     });
     sql += `filter (where ${clause})`;
@@ -83,6 +110,7 @@ const processWindow = (options) => {
       const statements = items.map(arg => processArg({
         db,
         arg,
+        params,
         requests
       }));
       clause += ` partition by ${statements.join(', ')}`;
@@ -92,6 +120,7 @@ const processWindow = (options) => {
       const statements = items.map(arg => processArg({
         db,
         arg,
+        params,
         requests
       }));
       clause += ` order by ${statements.join(', ')}${desc ? ' desc' : ''}`;
@@ -141,6 +170,7 @@ const processMethod = (options) => {
   const {
     db,
     method,
+    params,
     requests
   } = options;
   if (method.alias) {
@@ -157,6 +187,7 @@ const processMethod = (options) => {
         const body = processArg({
           db,
           arg: valueArg,
+          params,
           requests
         });
         sql = `json_group_array(${body})`;
@@ -165,6 +196,7 @@ const processMethod = (options) => {
         const body = getObjectBody({
           db,
           select: arg.select,
+          params,
           requests
         });
         sql = `json_group_array(json_object(${body}))`;
@@ -172,6 +204,7 @@ const processMethod = (options) => {
       const clause = processWindow({
         db,
         query: arg,
+        params,
         requests
       });
       sql += ` ${clause}`;
@@ -191,11 +224,13 @@ const processMethod = (options) => {
       const keySelector = processArg({
         db,
         arg: key,
+        params,
         requests
       });
       const valueSelector = processArg({
         db,
         arg: value,
+        params,
         requests
       });
       let windowClause = '';
@@ -203,6 +238,7 @@ const processMethod = (options) => {
         windowClause = processWindow({
           db,
           query: arg,
+          params,
           requests
         });
       }
@@ -211,7 +247,8 @@ const processMethod = (options) => {
     else {
       const body = getObjectBody({
         db,
-        arg: param,
+        arg,
+        params,
         requests
       });
       return `json_object(${body})`;
@@ -234,6 +271,7 @@ const processMethod = (options) => {
       const selector = processArg({
         db,
         arg,
+        params,
         requests
       });
       return `${method.name}(${selector})`;
@@ -247,6 +285,7 @@ const processMethod = (options) => {
       const selector = processArg({
         db,
         arg: field,
+        params,
         requests
       });
       sql = `${method.name}(${distinct ? 'distinct ' : ''}${selector})`;
@@ -257,6 +296,7 @@ const processMethod = (options) => {
     const clause = processWindow({
       db,
       query: arg,
+      params,
       requests
     });
     if (clause) {
@@ -270,6 +310,7 @@ const processMethod = (options) => {
       const statement = processMethod({
         db,
         method,
+        params,
         requests
       });
       statements.push(statement);
@@ -281,7 +322,11 @@ const processMethod = (options) => {
       statements.push(selector);
     }
     else {
-      const literal = toLiteral(db, arg);
+      const literal = addParam({
+        db,
+        params,
+        value: arg
+      });
       statements.push(literal);
     }
   }
@@ -305,32 +350,11 @@ const verify = (db, symbol) => {
   }
 }
 
-const toLiteral = (db, value) => {
-  const valueType = typeof value;
-  if (valueType === 'symbol') {
-    return verify(db, value).selector;
-  }
-  else if (valueType === 'boolean') {
-    return value === true ? 1 : 0;
-  }
-  else if (valueType === 'number') {
-    return value;
-  }
-  else if (value instanceof Date) {
-    return `'${value.toISOString()}'`;
-  }
-  else if (value === null) {
-    return 'null';
-  }
-  else {
-    throw Error('Invalid type in subquery');
-  }
-}
-
 const toWhere = (options) => {
   const {
     db,
     where,
+    params,
     requests
   } = options;
   const type = options.type || 'and';
@@ -347,6 +371,7 @@ const toWhere = (options) => {
         selector = processMethod({
           db,
           method,
+          params,
           requests
         });
       }
@@ -364,18 +389,29 @@ const toWhere = (options) => {
           statements.push(`${selector} is not null`);
         }
         else {
-          statements.push(`${selector} != ${toLiteral(db, param)}`);
+          const statement = addParam({
+            db,
+            params,
+            value: param
+          });
+          statements.push(`${selector} != ${statement}`);
         }
       }
       else {
         const operator = methods.get(method);
-        statements.push(`${selector} ${operator} ${toLiteral(db, param)}`);
+        const statement = addParam({
+          db,
+          params,
+          value: param
+        });
+        statements.push(`${selector} ${operator} ${statement}`);
       }
     }
     else if (methodValue) {
       const clause = processMethod({
         db,
         method: methodValue,
+        params,
         requests
       });
       statements.push(`${selector} = ${clause}`);
@@ -384,7 +420,12 @@ const toWhere = (options) => {
       statements.push(`${selector} is null`);
     }
     else {
-      statements.push(`${selector} = ${toLiteral(db, value)}`);
+      const statement = addParam({
+        db,
+        params,
+        value
+      });
+      statements.push(`${selector} = ${statement}`);
     }
   }
   for (const type of ['and', 'or']) {
@@ -398,6 +439,7 @@ const toWhere = (options) => {
           db, 
           where, 
           type,
+          params,
           requests
         }))
         .join(` ${type} `);
@@ -407,7 +449,8 @@ const toWhere = (options) => {
   return statements.join(` ${type} `);
 }
 
-const processQuery = (db, expression) => {
+const processQuery = async (db, expression) => {
+  const params = {};
   let selectTable;
   const makeTableHandler = (table) => {
     selectTable = table;
@@ -483,8 +526,7 @@ const processQuery = (db, expression) => {
     orderBy,
     desc,
     offset,
-    limit,
-    as
+    limit
   } = result;
   const from = join || leftJoin;
   const joinClause = leftJoin ? 'left join' : 'join';
@@ -502,15 +544,15 @@ const processQuery = (db, expression) => {
     used.add(first.table);
   }
   let sql = 'select ';
-  const columns = [];
   const statements = [];
-  db.columns[as] = {};
+  const parsers = {};
   for (const [key, value] of Object.entries(select)) {
     const method = requests.find(r => r.symbol === value);
     if (method) {
       const selector = processMethod({
         db,
         method,
+        params,
         requests
       });
       method.alias = key;
@@ -532,44 +574,28 @@ const processQuery = (db, expression) => {
         if (request) {
           const { table, column } = verify(db, request);
           const original = db.tables[table].find(c => c.name === column);
-          db.columns[as][key] = original.type;
-          if (original.type === 'json') {
-            db.hasJson[as] = true;
+          const parser = db.getDbToJsConverter(original.type);
+          if (parser) {
+            parsers[key] = parser;
           }
-          columns.push({
-            name: key,
-            type: original.type,
-            notNull: (original.primaryKey || original.notNull) && (!from || (!leftJoin || first.table === table))
-          });
           continue;
         }
       }
       const type = returnTypes[name];
-      db.columns[as][key] = type;
-      if (type === 'json') {
-        db.hasJson[as] = true;
+      const parser = db.getDbToJsConverter(type);
+      if (parser) {
+        parsers[key] = parser;
       }
-      const notNull = notNullFunctions.has(name);
-      columns.push({
-        name: key,
-        type,
-        notNull
-      });
       continue;
     }
     const symbol = requests.find(r => r === value);
     const { table, column, selector } = verify(db, symbol);
     statements.push(`${selector} as ${key}`);
     const original = db.tables[table].find(c => c.name === column);
-    db.columns[as][key] = original.type;
-    if (original.type === 'json') {
-      db.hasJson[as] = true;
+    const parser = db.getDbToJsConverter(original.type);
+    if (parser) {
+      parsers[key] = parser;
     }
-    columns.push({
-      name: key,
-      type: original.type,
-      notNull: (original.primaryKey || original.notNull) && (!from || (!leftJoin || first.table === table)) 
-    });
   }
   sql += statements.join(', ');
   if (from) {
@@ -587,6 +613,7 @@ const processQuery = (db, expression) => {
     const clause = toWhere({
       db,
       where,
+      params,
       requests
     });
     if (clause) {
@@ -598,6 +625,7 @@ const processQuery = (db, expression) => {
     const statements = adjusted.map(c => processArg({
       db,
       arg: c,
+      params,
       requests
     }));
     sql += ` group by ${statements.join(', ')}`;
@@ -606,6 +634,7 @@ const processQuery = (db, expression) => {
     const clause = toWhere({
       db,
       where: having,
+      params,
       requests
     });
     if (clause) {
@@ -631,22 +660,34 @@ const processQuery = (db, expression) => {
     }
   }
   if (offset) {
-    if (typeof offset !== 'number' || !Number.isInteger(offset)) {
-      throw Error('Invalid offset');
-    }
-    sql += ` offset ${offset}`;
+    const placeholder = addParam({
+      db,
+      params,
+      value: offset
+    });
+    sql += ` offset ${placeholder}`;
   }
   if (limit) {
-    if (typeof limit !== 'number' || !Number.isInteger(limit)) {
-      throw Error('Invalid offset');
+    const placeholder = addParam({
+      db,
+      params,
+      value: limit
+    });
+    sql += ` limit ${placeholder}`;
+  }
+  const rows = await db.all({
+    query: sql,
+    params
+  });
+  if (Object.keys(parsers).length > 0) {
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      for (const [key, parser] of Object.entries(parsers)) {
+        row[key] = parser(row[key]);
+      }
     }
-    sql += ` limit ${limit}`;
   }
-  return {
-    columns,
-    sql,
-    as
-  }
+  return rows;
 }
 
 export {

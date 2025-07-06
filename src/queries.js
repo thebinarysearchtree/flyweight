@@ -638,8 +638,7 @@ const exists = async (config) => {
     });
   }
   const params = {};
-  const clause = db.getTableClause(table);
-  let sql = `select exists(select 1 from ${clause}`;
+  let sql = `select exists(select 1 from ${table}`;
   sql += addClauses(table, query, params);
   sql += ') as exists_result';
   const options = {
@@ -837,8 +836,7 @@ const group = async (config) => {
       });
     }
     const actualMethod = method === 'sum' ? 'total' : method;
-    const clause = db.getTableClause(table);
-    sql += `${actualMethod}(${body}) as ${method} from ${clause}`;
+    sql += `${actualMethod}(${body}) as ${method} from ${table}`;
   }
   else {
     const types = db.columns[table];
@@ -883,8 +881,7 @@ const group = async (config) => {
       }
       needsParsing.set(alias, { jsonParse: true, field });
     }
-    const clause = db.getTableClause(table);
-    sql += ` as ${method} from ${clause}`;
+    sql += ` as ${method} from ${table}`;
   }
   if (adjustedWhere) {
     const adjuster = (name) => adjustName({
@@ -1108,8 +1105,7 @@ const aggregate = async (config) => {
     adjuster
   });
   const groupClause = groupFields ? `, ${groupFields}` : '';
-  const tableClause = db.getTableClause(table);
-  sql = `select ${expression}${groupClause} from ${tableClause}`;
+  sql = `select ${expression}${groupClause} from ${table}`;
   if (clause) {
     sql += ` where ${clause}`;
   }
@@ -1891,8 +1887,7 @@ const all = async (config) => {
     if (keywords.distinct) {
       sql += 'distinct ';
     }
-    const tableClause = db.getTableClause(table);
-    sql += `${select.clause} from ${tableClause}`;
+    sql += `${select.clause} from ${table}`;
     const clause = toWhere({
       query,
       params,
@@ -1907,8 +1902,7 @@ const all = async (config) => {
     if (keywords && keywords.distinct) {
       sql += 'distinct ';
     }
-    const tableClause = db.getTableClause(table);
-    sql += `${select.clause} from ${tableClause}`;
+    sql += `${select.clause} from ${table}`;
     const clause = toWhere({
       query,
       params,

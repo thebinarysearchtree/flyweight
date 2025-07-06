@@ -306,7 +306,7 @@ const createTypes = async (options) => {
   const jsonColumnTypes = new Map();
   let tableInterfaces = 'interface Tables {\n';
   for (const table of tables) {
-    const isDerived = db.viewSet.has(table.name) || db.subqueries.has(table.name);
+    const isView = db.viewSet.has(table.name);
     const singular = pluralize.singular(table.name);
     const capitalized = capitalize(singular);
     const interfaceName = makeUnique(capitalized, typeSet, i);
@@ -332,7 +332,7 @@ const createTypes = async (options) => {
     else {
       tsType = 'undefined';
     }
-    if (isDerived) {
+    if (isView) {
       returnType = `  ${table.name}: Pick<Queries<${interfaceName}, undefined, ToWhere<${interfaceName} & ${computedInterfaceName}>, ${computedInterfaceName}, undefined, TypedDb>, 'get' | 'many' | 'query' | 'first' | 'groupBy' | 'count' | 'avg' | 'min' | 'max' | 'sum'>`;
     }
     else if (db.virtualSet.has(table.name)) {
@@ -394,7 +394,7 @@ const createTypes = async (options) => {
       types += jsonInterfaces.join('\n\n');
       types += '\n\n';
     }
-    if (!isDerived) {
+    if (!isView) {
       types += `interface ${insertInterfaceName} {\n`;
       for (const column of table.columns) {
         const { name, type, primaryKey, notNull, hasDefault } = column;
