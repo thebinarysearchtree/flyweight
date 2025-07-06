@@ -230,7 +230,7 @@ const processMethod = (options) => {
       }
       sql = `ntil(${groups})`;
     }
-    else if (['min', 'max'].includes(method.name) && isSymbol) {
+    else if (['min', 'max', 'avg', 'sum', 'count'].includes(method.name) && isSymbol) {
       const selector = processArg({
         db,
         arg,

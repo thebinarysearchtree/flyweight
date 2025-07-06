@@ -300,72 +300,132 @@ interface AggregateMethods<T, W, C, K extends keyof (T & C), Y> {
   array<A extends string, S extends keyof (T & C), U extends Includes<Y, Pick<(T & C), K>>>(params: GroupArraySelect<A, W & ToWhere<{ sum: number }>, K, U, S>): Promise<Array<MergeIncludes<Pick<(T & C), K> & { [key in A]: Array<Pick<(T & C), S>> }, U>>>;
 }
 
+declare const dbNumber1: unique symbol;
+declare const dbNumber2: unique symbol;
+
+type DbNumber = typeof dbNumber1 | typeof dbNumber2;
+
+declare const dbString1: unique symbol;
+declare const dbString2: unique symbol;
+
+type DbString = typeof dbString1 | typeof dbString2;
+
+declare const dbBoolean1: unique symbol;
+declare const dbBoolean2: unique symbol;
+
+type DbBoolean = typeof dbBoolean1 | typeof dbBoolean2;
+
+declare const dbDate1: unique symbol;
+declare const dbDate2: unique symbol;
+
+type DbDate = typeof dbDate1 | typeof dbDate2;
+
+declare const dbJson1: unique symbol;
+declare const dbJson2: unique symbol;
+
+type DbJson = typeof dbJson1 | typeof dbJson2;
+
+declare const dbBuffer1: unique symbol;
+declare const dbBuffer2: unique symbol;
+
+type DbBuffer = typeof dbBuffer1 | typeof dbBuffer2;
+
+declare const dbNull1: unique symbol;
+declare const dbNull2: unique symbol;
+
+type DbNull = typeof dbNull1 | typeof dbNull2;
+
+type DbAny = DbNumber | DbString | DbBuffer | DbJson | DbDate | DbBoolean;
+type AnyParam = DbAny | DbNull;
+
+type AllowedJson = DbNumber | DbString | DbJson | DbDate | DbBoolean | DbNull;
+
+type NumberParam = number | null | DbNumber | DbNull;
+type NumberResult = DbNumber | DbNull;
+
+type StringParam = string | null | DbString | DbNull;
+type StringResult = DbString | DbNull;
+
+type NumberBufferParam = number | Buffer | null | DbNumber | DbBuffer | DbNull;
+type StringBufferParam = string | Buffer | null | DbString | DbBuffer | DbNull;
+
+type AnyResult = DbAny | DbNull;
+
+type BufferResult = DbBuffer | DbNull;
+
+type DateParam = number | string | null | DbNumber | DbString | DbDate | DbNull;
+type DateResult = DbDate | DbNull;
+
+type JsonParam = string | Buffer | null | DbString | DbBuffer | DbJson | DbNull;
+type ExtractResult = DbString | DbNumber | DbNull;
+type JsonResult = DbJson | DbNull;
+
 interface ComputeMethods {
-  abs: (n: number | symbol) => symbol;
-  coalesce: (a: any, b: any, ...rest: any[]) => symbol;
-  concat: (...args: any[]) => symbol;
-  concatWs: (...args: any[]) => symbol;
-  format: (format: string | null | symbol, ...args: any[]) => symbol;
-  glob: (pattern: string | symbol, value: string | symbol) => symbol;
-  hex: (value: number | Buffer | symbol) => symbol;
-  if: (...args: any[]) => symbol;
-  instr: (a: string | Buffer | null | symbol, b: string | Buffer | null) => symbol;
-  length: (value: any) => symbol;
-  lower: (value: string | symbol) => symbol;
-  ltrim: (value: string | symbol, remove?: string | symbol) => symbol;
-  max: (a: any, b: any, ...rest: any[]) => symbol;
-  min: (a: any, b: any, ...rest: any[]) => symbol;
-  nullif: (a: any, b: any) => symbol;
-  octetLength: (value: any) => symbol;
-  replace: (value: any, occurances: any, substitute: any) => symbol;
-  round: (value: number | symbol, places?: number | symbol) => symbol;
-  rtrim: (value: string | symbol, remove?: string | symbol) => symbol;
-  sign: (value: any) => symbol;
-  substring: (value: string | symbol, start: number | symbol, length?: number | symbol) => symbol;
-  trim: (value: string | symbol, remove?: string | symbol) => symbol;
-  unhex: (hex: string | symbol, ignore?: string | symbol) => symbol;
-  unicode: (value: string | symbol) => symbol;
-  upper: (value: string | symbol) => symbol;
-  date: (time?: string | number, ...modifers: (string | symbol)[]) => symbol;
-  time: (time?: string | number, ...modifers: (string | symbol)[]) => symbol;
-  dateTime: (time?: string | number | symbol, ...modifers: (string | symbol)[]) => symbol;
-  julianDay: (time?: string | number | symbol, ...modifers: (string | symbol)[]) => symbol;
-  unixEpoch: (time?: string | number | symbol, ...modifers: (string | symbol)[]) => symbol;
-  strfTime: (format: string | symbol, time: string | number | symbol, ...modifers: (string | symbol)[]) => symbol;
-  timeDiff: (start: string | number | symbol, end: string | number | symbol) => symbol;
-  acos: (value: number | symbol) => symbol;
-  acosh: (value: number | symbol) => symbol;
-  asin: (value: number | symbol) => symbol;
-  asinh: (value: number | symbol) => symbol;
-  atan: (value: number | symbol) => symbol;
-  atan2: (b: number | symbol, a: number | symbol) => symbol;
-  atanh: (value: number | symbol) => symbol;
-  ceil: (value: number | symbol) => symbol;
-  cos: (value: number | symbol) => symbol;
-  cosh: (value: number | symbol) => symbol;
-  degrees: (value: number | symbol) => symbol;
-  exp: (value: number | symbol) => symbol;
-  floor: (value: number | symbol) => symbol;
-  ln: (value: number | symbol) => symbol;
-  log: (base: number | symbol, value: number | symbol) => symbol;
-  mod: (value: number | symbol, divider: number | symbol) => symbol;
-  pi: () => symbol;
-  power: (value: number | symbol, exponent: number | symbol) => symbol;
-  radians: (value: number | symbol) => symbol;
-  sin: (value: number | symbol) => symbol;
-  sinh: (value: number | symbol) => symbol;
-  sqrt: (value: number | symbol) => symbol;
-  tan: (value: number | symbol) => symbol;
-  tanh: (value: number | symbol) => symbol;
-  trunc: (value: number | symbol) => symbol;
-  json: (text: string | symbol | Buffer) => symbol;
-  jsonExtract: (json: string | symbol | Buffer, path: string | symbol) => symbol;
-  plus: (...args: (number | symbol)[]) => symbol;
-  minus: (...args: (number | symbol)[]) => symbol;
-  divide: (...args: (number | symbol)[]) => symbol;
-  multiply: (...args: (number | symbol)[]) => symbol;
-  jsonObject(select: { [key: string]: symbol }): symbol;
-  jsonArrayLength(param: symbol): symbol;
+  abs(n: NumberParam): NumberResult;
+  coalesce(a: any, b: any, ...rest: any[]): AnyResult;
+  concat(...args: any[]): DbString;
+  concatWs(...args: any[]): DbString;
+  format(format: StringParam, ...args: any[]): StringResult;
+  glob(pattern: StringParam, value: StringParam): NumberResult;
+  hex(value: NumberBufferParam): StringResult;
+  if(...args: any[]): AnyResult;
+  instr(a: StringBufferParam, b: StringBufferParam): NumberResult;
+  length(value: any): NumberResult;
+  lower(value: StringParam): StringResult;
+  ltrim(value: StringParam, remove?: StringParam): StringResult;
+  max(a: any, b: any, ...rest: any[]): AnyResult;
+  min(a: any, b: any, ...rest: any[]): AnyResult;
+  nullif(a: any, b: any): AnyResult;
+  octetLength(value: any): NumberResult;
+  replace(value: any, occurances: any, substitute: any): StringResult;
+  round(value: NumberParam, places?: NumberParam): NumberResult;
+  rtrim(value: StringParam, remove?: StringParam): StringResult;
+  sign(value: any): NumberResult;
+  substring(value: StringParam, start: NumberParam, length?: NumberParam): StringResult;
+  trim(value: StringParam, remove?: StringParam): StringResult;
+  unhex(hex: StringParam, ignore?: StringParam): BufferResult;
+  unicode(value: StringParam): NumberResult;
+  upper(value: StringParam): StringResult;
+  date(time?: DateParam, ...modifers: StringParam[]): StringResult;
+  time(time?: DateParam, ...modifers: StringParam[]): StringResult;
+  dateTime(time?: DateParam, ...modifers: StringParam[]): StringResult;
+  julianDay(time?: DateParam, ...modifers: StringParam[]): StringResult;
+  unixEpoch(time?: DateParam, ...modifers: StringParam[]): StringResult;
+  strfTime(format: StringParam, time: DateParam, ...modifers: StringParam[]): StringResult;
+  timeDiff(start: DateParam, end: DateParam): StringResult;
+  acos(value: NumberParam): NumberResult;
+  acosh(value: NumberParam): NumberResult;
+  asin(value: NumberParam): NumberResult;
+  asinh(value: NumberParam): NumberResult;
+  atan(value: NumberParam): NumberResult;
+  atan2(b: NumberParam, a: NumberParam): NumberResult;
+  atanh(value: NumberParam): NumberResult;
+  ceil(value: NumberParam): NumberResult;
+  cos(value: NumberParam): NumberResult;
+  cosh(value: NumberParam): NumberResult;
+  degrees(value: NumberParam): NumberResult;
+  exp(value: NumberParam): NumberResult;
+  floor(value: NumberParam): NumberResult;
+  ln(value: NumberParaml): NumberResult;
+  log(base: NumberParam, value: NumberParam): NumberResult;
+  mod(value: NumberParam, divider: NumberParam): NumberResult;
+  pi(): NumberResult;
+  power(value: NumberParam, exponent: NumberParam): NumberResult;
+  radians(value: NumberParam): NumberResult;
+  sin(value: NumberParam): NumberResult;
+  sinh(value: NumberParam): NumberResult;
+  sqrt(value: NumberParam): NumberResult;
+  tan(value: NumberParam): NumberResult;
+  tanh(value: NumberParam): NumberResult;
+  trunc(value: NumberParam): NumberResult;
+  json(param: JsonParam | any[]): StringResult;
+  jsonExtract(json: JsonParam | any[], path: StringParam): ExtractResult;
+  plus(...args: NumberParam[]): NumberResult;
+  minus(...args: NumberParam[]): NumberResult;
+  divide(...args: NumberParam[]): NumberResult;
+  multiply(...args: NumberParam[]): NumberResult;
+  jsonObject(select: { [key: string]: AnyParam }): JsonResult;
+  jsonArrayLength(param: JsonParam | any[]): NumberResult;
 }
 
 interface FrameOptions {
@@ -383,29 +443,59 @@ interface WindowOptions {
   frame?: FrameOptions;
 }
 
-interface AggregateWindowOptions extends WindowOptions {
-  column?: symbol;
-  distinct?: symbol;
-}
+type ToJson<T> =
+  T extends DbDate ? DbString :
+  T extends DbBoolean ? DbNumber :
+  T;
+
+type InterfaceToJson<T> = {
+  [K in keyof T]: ToJson<T[K]>;
+};
+
+type ToDbType<T> =
+  T extends null ? DbNull :
+  T extends infer U ? (
+    U extends number ? DbNumber :
+    U extends string ? DbString :
+    U extends Date ? DbDate :
+    U extends boolean ? DbBoolean :
+    U extends null ? DbNull :
+    U extends Json ? DbJson :
+    DbJson
+  ) : never;
+
+type ToDbInterface<T> = {
+  [K in keyof T]: ToDbType<T[K]>;
+};
 
 interface SymbolMethods {
-  count(options?: AggregateWindowOptions): symbol;
-  min(column: symbol): symbol;
-  min(options: AggregateWindowOptions): symbol;
-  max(column: symbol): symbol;
-  max(options: AggregateWindowOptions): symbol;
-  avg(options: AggregateWindowOptions): symbol;
-  sum(options: AggregateWindowOptions): symbol;
-  rowNumber(options?: WindowOptions): symbol;
-  rank(options?: WindowOptions): symbol;
-  denseRank(options?: WindowOptions): symbol;
-  percentRank(options?: WindowOptions): symbol;
-  cumeDist(options?: WindowOptions): symbol;
-  ntile(options: WindowOptions & { groups: number }): symbol;
-  jsonGroupArray(select: symbol): symbol;
-  jsonGroupArray(options: WindowOptions & { select: { [key: string]: symbol } | symbol }): symbol;
-  jsonGroupObject(key: symbol, value: symbol): symbol;
-  jsonGroupObject(options: WindowOptions & { key: symbol, value: symbol }): symbol;
+  count(): DbNumber;
+  count(column: AnyResult): DbNumber;
+  count(options: WindowOptions & { distinct: AnyResult }): DbNumber;
+  count(options: WindowOptions & { column: AnyResult }): DbNumber;
+  min<T extends symbol>(column: T): T;
+  min<T extends symbol>(options: WindowOptions & { distinct: T }): T;
+  min<T extends symbol>(options: WindowOptions & { column: T }): T;
+  max<T extends symbol>(column: T): T;
+  max<T extends symbol>(options: WindowOptions & { distinct: T }): T;
+  max<T extends symbol>(options: WindowOptions & { column: T }): T;
+  avg(column: NumberResult): NumberResult;
+  avg(options: WindowOptions & { distinct: NumberResult }): NumberResult;
+  avg(options: WindowOptions & { column: NumberResult }): NumberResult;
+  sum(column: NumberResult): NumberResult;
+  sum(options: WindowOptions & { distinct: NumberResult }): NumberResult;
+  sum(options: WindowOptions & { column: NumberResult }): NumberResult;
+  rowNumber(options?: WindowOptions): DbNumber;
+  rank(options?: WindowOptions): DbNumber;
+  denseRank(options?: WindowOptions): DbNumber;
+  percentRank(options?: WindowOptions): DbNumber;
+  cumeDist(options?: WindowOptions): DbNumber;
+  ntile(options: WindowOptions & { groups: number }): DbNumber;
+  jsonGroupArray<T extends AllowedJson>(select: T): ToJson<T>[];
+  jsonGroupArray<T extends AllowedJson>(options: WindowOptions & { select: T }): ToJson<T>[];
+  jsonGroupArray<T extends { [key: string]: AllowedJson }>(options: WindowOptions & { select: T }): InterfaceToJson<T>[];
+  jsonGroupObject<T extends AllowedJson>(key: DbString, value: T): Record<string, ToJson<T>>;
+  jsonGroupObject<T extends AllowedJson>(options: WindowOptions & { key: DbString, value: T }): Record<string, ToJson<T>>;
 }
 
 interface Compute<T> {
@@ -478,14 +568,14 @@ interface Queries<T, I, W, C, R, Y> {
 }
 
 type CompareMethods<T> = {
-  not: (value: T) => void;
-	gt: (value: NonNullable<T>) => void;
-	lt: (value: NonNullable<T>) => void;
-	lte: (value: NonNullable<T>) => void;
-	like: (pattern: NonNullable<T>) => void;
-	match: (pattern: NonNullable<T>) => void;
-	glob: (pattern: NonNullable<T>) => void;
-	eq: (value: T) => void;
+  not: (value: T) => symbol;
+	gt: (value: NonNullable<T>) => symbol;
+	lt: (value: NonNullable<T>) => symbol;
+	lte: (value: NonNullable<T>) => symbol;
+	like: (pattern: NonNullable<T>) => symbol;
+	match: (pattern: NonNullable<T>) => symbol;
+	glob: (pattern: NonNullable<T>) => symbol;
+	eq: (value: T) => symbol;
 }
 
 type Transform<T> = NonNullable<T> extends string | number | Date

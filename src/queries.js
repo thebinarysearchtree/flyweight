@@ -1,5 +1,4 @@
 import { parseQuery, isWrite } from './parsers/queries.js';
-import { blank } from './parsers/utils.js';
 import { getPlaceholder, expressionHandler } from './utils.js';
 import methods from './methods.js';
 
