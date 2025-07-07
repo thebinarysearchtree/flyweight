@@ -357,12 +357,19 @@ type BufferResult = DbBuffer | DbNull;
 type DateParam = number | string | null | DbNumber | DbString | DbDate | DbNull;
 type DateResult = DbDate | DbNull;
 
+type BooleanResult = DbBoolean | DbNull;
+
 type JsonParam = string | Buffer | null | DbString | DbBuffer | DbJson | DbNull;
 type ExtractResult = DbString | DbNumber | DbNull;
 type JsonResult = DbJson | DbNull;
 
 interface ComputeMethods {
   abs(n: NumberParam): NumberResult;
+  coalesce(a: StringResult, b: string): DbString;
+  coalesce(a: NumberResult, b: number): DbNumber;
+  coalesce(a: BooleanResult, b: boolean): DbBoolean;
+  coalesce(a: DateResult, b: Date): DbDate;
+  coalesce<T extends DbAny>(a: T, b: T, ...rest: T[]): T;
   coalesce(a: any, b: any, ...rest: any[]): AnyResult;
   concat(...args: any[]): DbString;
   concatWs(...args: any[]): DbString;
@@ -372,13 +379,19 @@ interface ComputeMethods {
   if(...args: any[]): AnyResult;
   instr(a: StringBufferParam, b: StringBufferParam): NumberResult;
   length(value: any): NumberResult;
+  lower<T extends StringResult>(value: T): T;
   lower(value: StringParam): StringResult;
   ltrim(value: StringParam, remove?: StringParam): StringResult;
+  max(a: DbNumber, b: number): DbNumber;
+  max<T extends DbAny>(a: T, b: T, ...rest: T[]): T;
   max(a: any, b: any, ...rest: any[]): AnyResult;
+  min(a: DbNumber, b: number): DbNumber;
+  min<T extends DbAny>(a: T, b: T, ...rest: T[]): T;
   min(a: any, b: any, ...rest: any[]): AnyResult;
+  nullif<T extends DbAny>(a: T, b: any): T | DbNull;
   nullif(a: any, b: any): AnyResult;
   octetLength(value: any): NumberResult;
-  replace(value: any, occurances: any, substitute: any): StringResult;
+  replace(value: StringParam, occurances: StringParam, substitute: StringParam): StringResult;
   round(value: NumberParam, places?: NumberParam): NumberResult;
   rtrim(value: StringParam, remove?: StringParam): StringResult;
   sign(value: any): NumberResult;
@@ -386,6 +399,7 @@ interface ComputeMethods {
   trim(value: StringParam, remove?: StringParam): StringResult;
   unhex(hex: StringParam, ignore?: StringParam): BufferResult;
   unicode(value: StringParam): NumberResult;
+  upper<T extends StringResult>(value: T): T;
   upper(value: StringParam): StringResult;
   date(time?: DateParam, ...modifers: StringParam[]): StringResult;
   time(time?: DateParam, ...modifers: StringParam[]): StringResult;
@@ -421,11 +435,15 @@ interface ComputeMethods {
   trunc(value: NumberParam): NumberResult;
   json(param: JsonParam | any[]): StringResult;
   jsonExtract(json: JsonParam | any[], path: StringParam): ExtractResult;
+  plus(...args: DbNumber[]): DbNumber;
   plus(...args: NumberParam[]): NumberResult;
+  minus(...args: DbNumber[]): DbNumber;
   minus(...args: NumberParam[]): NumberResult;
+  divide(...args: DbNumber[]): DbNumber;
   divide(...args: NumberParam[]): NumberResult;
+  multiply(...args: DbNumber[]): DbNumber;
   multiply(...args: NumberParam[]): NumberResult;
-  jsonObject(select: { [key: string]: AnyParam }): JsonResult;
+  jsonObject<T extends { [key: string]: AllowedJson }>(select: T): InterfaceToJson<T>;
   jsonArrayLength(param: JsonParam | any[]): NumberResult;
 }
 
@@ -488,18 +506,18 @@ interface SymbolMethods {
   count(column: AnyResult): DbNumber;
   count(options: WindowOptions & { distinct: AnyResult }): DbNumber;
   count(options: WindowOptions & { column: AnyResult }): DbNumber;
-  min<T extends symbol>(column: T): T;
-  min<T extends symbol>(options: WindowOptions & { distinct: T }): T;
-  min<T extends symbol>(options: WindowOptions & { column: T }): T;
-  max<T extends symbol>(column: T): T;
-  max<T extends symbol>(options: WindowOptions & { distinct: T }): T;
-  max<T extends symbol>(options: WindowOptions & { column: T }): T;
-  avg(column: NumberResult): NumberResult;
-  avg(options: WindowOptions & { distinct: NumberResult }): NumberResult;
-  avg(options: WindowOptions & { column: NumberResult }): NumberResult;
-  sum(column: NumberResult): NumberResult;
-  sum(options: WindowOptions & { distinct: NumberResult }): NumberResult;
-  sum(options: WindowOptions & { column: NumberResult }): NumberResult;
+  min<T extends AnyParam>(column: T): T;
+  min<T extends AnyParam>(options: WindowOptions & { distinct: T }): T;
+  min<T extends AnyParam>(options: WindowOptions & { column: T }): T;
+  max<T extends AnyParam>(column: T): T;
+  max<T extends AnyParam>(options: WindowOptions & { distinct: T }): T;
+  max<T extends AnyParam>(options: WindowOptions & { column: T }): T;
+  avg<T extends NumberResult>(column: T): T;
+  avg<T extends NumberResult>(options: WindowOptions & { distinct: T }): T;
+  avg<T extends NumberResult>(options: WindowOptions & { column: T }): T;
+  sum<T extends NumberResult>(column: T): T;
+  sum<T extends NumberResult>(options: WindowOptions & { distinct: T }): T;
+  sum<T extends NumberResult>(options: WindowOptions & { column: T }): T;
   rowNumber(options?: WindowOptions): DbNumber;
   rank(options?: WindowOptions): DbNumber;
   denseRank(options?: WindowOptions): DbNumber;

@@ -1,4 +1,4 @@
-import { returnTypes, notNullFunctions } from './parsers/returnTypes.js';
+import { returnTypes } from './parsers/returnTypes.js';
 import { getPlaceholder } from './utils.js';
 import methods from './methods.js';
 
@@ -23,6 +23,29 @@ const addParam = (options) => {
   return `$${placeholder}`;
 }
 
+const getParamType = (param) => {
+  const type = typeof param;
+  if (param === null) {
+    return 'null';
+  }
+  if (type === 'string') {
+    return 'text';
+  }
+  if (type === 'number') {
+    return 'real';
+  }
+  if (type === 'boolean') {
+    return type;
+  }
+  if (param instanceof Date) {
+    return 'date';
+  }
+  if (Buffer && Buffer.isBuffer(param)) {
+    return 'blob';
+  }
+  return 'json';
+}
+
 const processArg = (options) => {
   const {
     db,
@@ -41,13 +64,22 @@ const processArg = (options) => {
   }
   const column = requests.find(r => r === arg);
   if (column) {
-    return verify(db, column).selector;
+    const { selector, type } = verify(db, column);
+    return {
+      sql: selector,
+      type
+    };
   }
-  return addParam({
+  const sql = addParam({
     db,
     params,
     value: arg,
   });
+  const type = getParamType(arg);
+  return {
+    sql,
+    type
+  };
 }
 
 const getObjectBody = (options) => {
@@ -60,12 +92,12 @@ const getObjectBody = (options) => {
   for (const [key, value] of Object.entries(select)) {
     items.push(`'${key}'`);
     if (typeof value === 'symbol') {
-      const statement = processArg({
+      const valueArg = processArg({
         db,
         arg: value,
         requests
       });
-      items.push(statement);
+      items.push(valueArg.sql);
     }
     else {
       const statement = addParam({
@@ -107,22 +139,26 @@ const processWindow = (options) => {
     let clause = '';
     if (partitionBy) {
       const items = Array.isArray(partitionBy) ? partitionBy : [partitionBy];
-      const statements = items.map(arg => processArg({
-        db,
-        arg,
-        params,
-        requests
-      }));
+      const statements = items
+        .map(arg => processArg({
+          db,
+          arg,
+          params,
+          requests
+        }))
+        .map(a => a.sql);
       clause += ` partition by ${statements.join(', ')}`;
     }
     if (orderBy) {
       const items = Array.isArray(orderBy) ? orderBy : [orderBy];
-      const statements = items.map(arg => processArg({
-        db,
-        arg,
-        params,
-        requests
-      }));
+      const statements = items
+        .map(arg => processArg({
+          db,
+          arg,
+          params,
+          requests
+        }))
+        .map(a => a.sql);
       clause += ` order by ${statements.join(', ')}${desc ? ' desc' : ''}`;
     }
     if (frame) {
@@ -174,13 +210,19 @@ const processMethod = (options) => {
     requests
   } = options;
   if (method.alias) {
-    return method.alias;
+    return {
+      sql: method.alias,
+      type: method.type
+    };
   }
   const statements = [];
   const arg = method.args.at(0);
   const isSymbol = typeof arg === 'symbol';
-  if (['jsonGroupArray', 'jsonGroupObject', 'jsonObject'].includes(method.name)) {
-    if (method.name === 'jsonGroupArray') {
+  const name = toDbName(method.name);
+  const operator = operators.get(name);
+  let type = operator ? 'real' : returnTypes[name];
+  if (['json_group_array', 'json_group_object', 'json_object'].includes(name)) {
+    if (name === 'json_group_array') {
       let sql;
       const valueArg = isSymbol ? arg : (typeof arg.select === 'symbol' ? arg.select : null);
       if (valueArg) {
@@ -190,7 +232,7 @@ const processMethod = (options) => {
           params,
           requests
         });
-        sql = `json_group_array(${body})`;
+        sql = `${name}(${body.sql})`;
       }
       else {
         const body = getObjectBody({
@@ -199,7 +241,7 @@ const processMethod = (options) => {
           params,
           requests
         });
-        sql = `json_group_array(json_object(${body}))`;
+        sql = `${name}(json_object(${body}))`;
       }
       const clause = processWindow({
         db,
@@ -208,9 +250,12 @@ const processMethod = (options) => {
         requests
       });
       sql += ` ${clause}`;
-      return sql.trim();
+      return {
+        sql: sql.trim(),
+        type
+      };
     }
-    else if (method.name === 'jsonGroupObject') {
+    else if (name === 'json_group_object') {
       let key;
       let value;
       if (isSymbol) {
@@ -221,13 +266,13 @@ const processMethod = (options) => {
         key = arg.key;
         value = arg.value;
       }
-      const keySelector = processArg({
+      const keyArg = processArg({
         db,
         arg: key,
         params,
         requests
       });
-      const valueSelector = processArg({
+      const valueArg = processArg({
         db,
         arg: value,
         params,
@@ -242,56 +287,75 @@ const processMethod = (options) => {
           requests
         });
       }
-      return `json_group_object(${keySelector}, ${valueSelector})${windowClause}`;
+      const sql = `${name}(${keyArg.sql}, ${valueArg.sql})${windowClause}`;
+      return {
+        sql,
+        type
+      };
     }
     else {
       const body = getObjectBody({
         db,
-        arg,
+        select: arg,
         params,
         requests
       });
-      return `json_object(${body})`;
+      const sql = `${name}(${body})`;
+      return {
+        sql,
+        type
+      };
     }
   }
-  const adjusted = method.name
-    .replaceAll(/([A-Z])/gm, '_$1')
-    .toLowerCase();
-  const isSpecial = ['min', 'max'].includes(method.name) && method.args.length === 1;
+  const isSpecial = ['min', 'max'].includes(name) && method.args.length === 1;
   if (method.isWindow && (!method.isComputed || isSpecial)) {
     let sql;
-    if (method.name === 'ntile') {
+    if (name === 'ntile') {
       const { groups } = arg;
       if (!Number.isInteger(groups)) {
         throw Error('Invalid "groups" argument');
       }
       sql = `ntil(${groups})`;
     }
-    else if (['min', 'max', 'avg', 'sum', 'count'].includes(method.name) && isSymbol) {
-      const selector = processArg({
+    else if (['min', 'max', 'avg', 'sum', 'count'].includes(name) && isSymbol) {
+      const bodyArg = processArg({
         db,
         arg,
         params,
         requests
       });
-      return `${method.name}(${selector})`;
+      const sql = `${name}(${bodyArg.sql})`;
+      if (['min', 'max'].includes(name)) {
+        type = bodyArg.type;
+      }
+      return {
+        sql,
+        type
+      };
     }
-    else if (method.name === 'count' && !arg) {
-      return 'count(*)';
+    else if (name === 'count' && !arg) {
+      const sql = 'count(*)';
+      return {
+        sql,
+        type
+      };
     }
-    else if (['min', 'max', 'avg', 'sum', 'count'].includes(method.name)) {
+    else if (['min', 'max', 'avg', 'sum', 'count'].includes(name)) {
       const { column, distinct } = arg;
       const field = column || distinct;
-      const selector = processArg({
+      const bodyArg = processArg({
         db,
         arg: field,
         params,
         requests
       });
-      sql = `${method.name}(${distinct ? 'distinct ' : ''}${selector})`;
+      if (['min', 'max'].includes(name)) {
+        type = bodyArg.type;
+      }
+      sql = `${name}(${distinct ? 'distinct ' : ''}${bodyArg.sql})`;
     }
     else {
-      sql = `${adjusted}()`;
+      sql = `${name}()`;
     }
     const clause = processWindow({
       db,
@@ -302,18 +366,21 @@ const processMethod = (options) => {
     if (clause) {
       sql += ` ${clause}`;
     }
-    return sql;
+    return {
+      sql,
+      type
+    };
   }
   for (const arg of method.args) {
     const method = requests.find(r => r.symbol === arg);
     if (method) {
-      const statement = processMethod({
+      const methodArg = processMethod({
         db,
         method,
         params,
         requests
       });
-      statements.push(statement);
+      statements.push(methodArg.sql);
       continue;
     }
     const column = requests.find(r => r === arg);
@@ -330,11 +397,17 @@ const processMethod = (options) => {
       statements.push(literal);
     }
   }
-  const operator = operators.get(method.name);
+  let sql;
   if (operator) {
-    return statements.join(` ${operator} `);
+    sql = statements.join(` ${operator} `);
   }
-  return `${adjusted}(${statements.join(', ')})`;
+  else {
+    sql = `${name}(${statements.join(', ')})`;
+  }
+  return {
+    sql,
+    type
+  };
 }
 
 const verify = (db, symbol) => {
@@ -343,9 +416,11 @@ const verify = (db, symbol) => {
   if (!db.tables[table] || !db.columns[table][column]) {
     throw Error(`Table or column from ${selector} does not exist`);
   }
+  const type = db.columns[table][column];
   return {
     table,
     column,
+    type,
     selector
   }
 }
@@ -368,12 +443,13 @@ const toWhere = (options) => {
         selector = method.alias;
       }
       else {
-        selector = processMethod({
+        const keyArg = processMethod({
           db,
           method,
           params,
           requests
         });
+        selector = keyArg.sql;
       }
     }
     else {
@@ -408,13 +484,13 @@ const toWhere = (options) => {
       }
     }
     else if (methodValue) {
-      const clause = processMethod({
+      const methodArg = processMethod({
         db,
         method: methodValue,
         params,
         requests
       });
-      statements.push(`${selector} = ${clause}`);
+      statements.push(`${selector} = ${methodArg.sql}`);
     }
     else if (value === null) {
       statements.push(`${selector} is null`);
@@ -447,6 +523,16 @@ const toWhere = (options) => {
     }
   }
   return statements.join(` ${type} `);
+}
+
+const toDbName = (name) => {
+  const excluded = ['dateTime', 'julianDay', 'unixEpoch', 'strfTime', 'timeDiff'];
+  if (excluded.includes(name)) {
+    return name.toLowerCase();
+  }
+  return name
+    .replaceAll(/([A-Z])/gm, '_$1')
+    .toLowerCase();
 }
 
 const processQuery = async (db, expression) => {
@@ -549,18 +635,16 @@ const processQuery = async (db, expression) => {
   for (const [key, value] of Object.entries(select)) {
     const method = requests.find(r => r.symbol === value);
     if (method) {
-      const selector = processMethod({
+      const keyArg = processMethod({
         db,
         method,
         params,
         requests
       });
       method.alias = key;
-      statements.push(`${selector} as ${key}`);
-      const name = method
-        .name
-        .replaceAll(/([A-Z])/gm, '_$1')
-        .toLowerCase();
+      method.type = keyArg.type;
+      statements.push(`${keyArg.sql} as ${key}`);
+      const name = toDbName(method.name);
       if (method.args.length === 1 && (['min', 'max'].includes(method.name))) {
         const arg = method.args.at(0);
         let column;
@@ -573,8 +657,8 @@ const processQuery = async (db, expression) => {
         const request = requests.find(r => r === column);
         if (request) {
           const { table, column } = verify(db, request);
-          const original = db.tables[table].find(c => c.name === column);
-          const parser = db.getDbToJsConverter(original.type);
+          const type = db.columns[table][column];
+          const parser = db.getDbToJsConverter(type);
           if (parser) {
             parsers[key] = parser;
           }
@@ -591,8 +675,8 @@ const processQuery = async (db, expression) => {
     const symbol = requests.find(r => r === value);
     const { table, column, selector } = verify(db, symbol);
     statements.push(`${selector} as ${key}`);
-    const original = db.tables[table].find(c => c.name === column);
-    const parser = db.getDbToJsConverter(original.type);
+    const type = db.columns[table][column];
+    const parser = db.getDbToJsConverter(type);
     if (parser) {
       parsers[key] = parser;
     }
@@ -622,12 +706,14 @@ const processQuery = async (db, expression) => {
   }
   if (groupBy) {
     const adjusted = Array.isArray(groupBy) ? groupBy : [groupBy];
-    const statements = adjusted.map(c => processArg({
-      db,
-      arg: c,
-      params,
-      requests
-    }));
+    const statements = adjusted
+      .map(c => processArg({
+        db,
+        arg: c,
+        params,
+        requests
+      }))
+      .map(a => a.sql);
     sql += ` group by ${statements.join(', ')}`;
   }
   if (having) {
