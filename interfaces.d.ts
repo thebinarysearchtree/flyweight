@@ -339,6 +339,7 @@ type DbAny = DbNumber | DbString | DbBuffer | DbJson | DbDate | DbBoolean;
 type AnyParam = DbAny | DbNull;
 
 type AllowedJson = DbNumber | DbString | DbJson | DbDate | DbBoolean | DbNull;
+type SelectType = AllowedJson | AllowedJson[] | SelectType[] | { [key: string | symbol]: AllowedJson };
 
 type NumberParam = number | null | DbNumber | DbNull;
 type NumberResult = DbNumber | DbNull;
@@ -406,7 +407,7 @@ interface ComputeMethods {
   degrees(value: NumberParam): NumberResult;
   exp(value: NumberParam): NumberResult;
   floor(value: NumberParam): NumberResult;
-  ln(value: NumberParaml): NumberResult;
+  ln(value: NumberParam): NumberResult;
   log(base: NumberParam, value: NumberParam): NumberResult;
   mod(value: NumberParam, divider: NumberParam): NumberResult;
   pi(): NumberResult;
@@ -467,6 +468,20 @@ type ToDbType<T> =
 type ToDbInterface<T> = {
   [K in keyof T]: ToDbType<T[K]>;
 };
+
+type ToJsType<T> =
+  T extends DbNull ? null :
+  T extends (infer U)[] ? ToJsType<U>[] :
+  T extends object
+    ? {
+        [K in keyof T]: ToJsType<T[K]>
+      }
+  : T extends DbNumber ? number :
+    T extends DbString ? string :
+    T extends DbDate ? Date :
+    T extends DbBoolean ? boolean :
+    T extends DbJson ? Json :
+    never;
 
 interface SymbolMethods {
   count(): DbNumber;

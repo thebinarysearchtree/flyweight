@@ -31,7 +31,7 @@ interface TypedDb {
   getTransaction(type: ('read' | 'write' | 'deferred')): Promise<TypedDb>;
   batch:<T extends any[]> (batcher: (bx: TypedDb) => T) => Promise<Unwrap<T>>;
   sync(): Promise<void>;
-  query<T extends (context: SubqueryContext) => any>(expression: T): Promise<ReturnType<T>['select'][]>;
+  query<S extends SelectType, K extends { select: { [key: string | symbol]: S }}, T extends (context: SubqueryContext) => K>(expression: T): Promise<ToJsType<ReturnType<T>['select']>[]>;
 }
 
 export const database: TursoDatabase;

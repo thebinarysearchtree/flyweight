@@ -9,7 +9,7 @@ type Unwrap<T extends any[]> = {
 type SymbolObject = { [key: symbol]: symbol };
 
 interface SubqueryReturn {
-  select: { [key: string | symbol]: symbol };
+  select: { [key: string | symbol]: SelectType };
   join?: SymbolObject;
   leftJoin?: SymbolObject;
   where?: { [key: symbol]: symbol | null | number | boolean | Date };
@@ -33,7 +33,7 @@ interface TypedDb {
   deferForeignKeys(): Promise<void>;
   getTransaction(): Promise<TypedDb>;
   batch:<T extends any[]> (batcher: (bx: TypedDb) => T) => Promise<Unwrap<T>>;
-  query<T extends (context: SubqueryContext) => any>(expression: T): Promise<ReturnType<T>['select'][]>;
+  query<S extends SelectType, K extends { select: { [key: string | symbol]: S }}, T extends (context: SubqueryContext) => K>(expression: T): Promise<ToJsType<ReturnType<T>['select']>[]>;
 }
 
 export const database: SQLiteDatabase;

@@ -477,12 +477,12 @@ const user = await db.activeUsers.get({ id: 100 }, ['name', 'email']);
 console.log(user.email);
 ```
 
-## Subqueries
+## SQL queries in JavaScript
 
-You can create subqueries programmatically that can be used like views in that they act as read-only tables. In the ```db.js``` file you can add a query like this:
+You can create queries programmatically inside JavaScript.
 
 ```js
-await db.subquery(c => {
+const events = await db.query(c => {
   const {
     locations: l,
     events: e,
@@ -501,17 +501,14 @@ await db.subquery(c => {
     },
     where: {
       [nameLength]: gt(20)
-    },
-    as: 'detailedEvents'
+    }
   }
 });
 ```
 
-The above code will create what appears to be a new table in the API called ```detailedEvents``` that can be used like other read-only tables. Parameters in the ```where``` clause and elsewhere can only be of type ```boolean```, ```Date```, ````number```, or ```null``` to prevent SQL injection attacks, even though no user-supplied input should be used in these queries either way.
+The object returned from the ```query``` method can include the following:
 
-The object returned from the ```subquery``` method can include the following:
-
-```select```, ```where```, ```groupBy```, ```having```, ```orderBy```, ```desc```, ```limit```, and ```offset```. The name of the subquery is provided by the ```as``` property.
+```select```, ```where```, ```groupBy```, ```having```, ```orderBy```, ```desc```, ```limit```, and ```offset```.
 
 ```join```: an object representing the keys to join on. ```leftJoin``` can be used instead if the tables should be left joined. If no join option is provided, the ORM will assume that there is a single table and use the first table that was taken from the ```tables``` parameter.
 
