@@ -518,13 +518,11 @@ const toDbName = (name) => {
 const processQuery = async (db, expression) => {
   const params = {};
   let selectTable;
-  let aliasCount = 1;
   const usedAliases = new Set();
   const makeAlias = (table) => {
     const letter = table[0].toLowerCase();
     for (let i = 0; i < 100; i++) {
-      const alias = `${letter}${aliasCount}`;
-      aliasCount++;
+      const alias = i ? `${letter}${i}` : letter;
       if (!usedAliases.has(alias)) {
         usedAliases.add(alias);
         return alias;
@@ -647,7 +645,12 @@ const processQuery = async (db, expression) => {
       parser = db.getDbToJsConverter(valueArg.type);
     }
     else {
-      statements.push(`${request.selector} as ${key}`);
+      if (!join && request.column === key) {
+        statements.push(key);
+      }
+      else {
+        statements.push(`${request.selector} as ${key}`);
+      }
       parser = db.getDbToJsConverter(request.type);
     }
     if (parser) {
