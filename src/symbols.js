@@ -15,9 +15,6 @@ const windowMethods = ['count', 'min', 'max', 'avg', 'sum', 'rowNumber', 'rank',
 
 const addParam = (options) => {
   const { db, params, value } = options;
-  if (typeof value === 'symbol') {
-    return verify(db, value).selector;
-  }
   const placeholder = getPlaceholder();
   params[placeholder] = db.jsToDb(value);
   return `$${placeholder}`;
@@ -53,21 +50,19 @@ const processArg = (options) => {
     params,
     requests
   } = options;
-  const method = requests.find(r => r.symbol === arg);
-  if (method) {
+  const request = requests.get(arg);
+  if (request && !request.isColumn) {
     return processMethod({
       db,
-      method,
+      method: request,
       params,
       requests
     });
   }
-  const column = requests.find(r => r === arg);
-  if (column) {
-    const { selector, type } = verify(db, column);
+  else if (request && request.isColumn) {
     return {
-      sql: selector,
-      type
+      sql: request.selector,
+      type: request.type
     };
   }
   const sql = addParam({
@@ -215,7 +210,6 @@ const processMethod = (options) => {
       type: method.type
     };
   }
-  const statements = [];
   const arg = method.args.at(0);
   const isSymbol = typeof arg === 'symbol';
   const name = toDbName(method.name);
@@ -308,7 +302,7 @@ const processMethod = (options) => {
     }
   }
   const isSpecial = ['min', 'max'].includes(name) && method.args.length === 1;
-  if (method.isWindow && (!method.isComputed || isSpecial)) {
+  if (method.isWindow && (!method.isCompute || isSpecial)) {
     let sql;
     if (name === 'ntile') {
       const { groups } = arg;
@@ -371,32 +365,13 @@ const processMethod = (options) => {
       type
     };
   }
-  for (const arg of method.args) {
-    const method = requests.find(r => r.symbol === arg);
-    if (method) {
-      const methodArg = processMethod({
-        db,
-        method,
-        params,
-        requests
-      });
-      statements.push(methodArg.sql);
-      continue;
-    }
-    const column = requests.find(r => r === arg);
-    if (column) {
-      const { selector } = verify(db, column);
-      statements.push(selector);
-    }
-    else {
-      const literal = addParam({
-        db,
-        params,
-        value: arg
-      });
-      statements.push(literal);
-    }
-  }
+  const processed = method.args.map(arg => processArg({
+    db,
+    arg,
+    params,
+    requests
+  }));
+  const statements = processed.map(p => p.sql);
   let sql;
   if (operator) {
     sql = statements.join(` ${operator} `);
@@ -404,25 +379,28 @@ const processMethod = (options) => {
   else {
     sql = `${name}(${statements.join(', ')})`;
   }
+  if (['coalesce', 'min', 'max'].includes(name)) {
+    if (processed.length > 1) {
+      const types = processed.map(p => p.type);
+      const unique = new Set(types);
+      if (unique.size === 1) {
+        const current = types.at(0);
+        if (['boolean', 'date'].includes(current)) {
+          type = current;
+        }
+      }
+    }
+  }
+  if (name === 'nullif') {
+    const current = processed.map(p => p.type).at(0);
+    if (['boolean', 'date'].includes(current)) {
+      type = current;
+    }
+  }
   return {
     sql,
     type
   };
-}
-
-const verify = (db, symbol) => {
-  const [table, column] = symbol.description.split('.');
-  const selector = `${table}.${column}`;
-  if (!db.tables[table] || !db.columns[table][column]) {
-    throw Error(`Table or column from ${selector} does not exist`);
-  }
-  const type = db.columns[table][column];
-  return {
-    table,
-    column,
-    type,
-    selector
-  }
 }
 
 const toWhere = (options) => {
@@ -437,15 +415,15 @@ const toWhere = (options) => {
   const whereKeys = Object.getOwnPropertySymbols(where);
   for (const symbol of whereKeys) {
     let selector;
-    const method = requests.find(r => r.symbol === symbol);
-    if (method) {
-      if (method.alias) {
-        selector = method.alias;
+    const request = requests.get(symbol);
+    if (!request.isColumn) {
+      if (request.alias) {
+        selector = request.alias;
       }
       else {
         const keyArg = processMethod({
           db,
-          method,
+          method: request,
           params,
           requests
         });
@@ -453,13 +431,12 @@ const toWhere = (options) => {
       }
     }
     else {
-      selector = verify(db, symbol).selector;
+      selector = request.selector;
     }
     const value = where[symbol];
-    const compareValue = requests.find(r => r === value && r.isCompare);
-    const methodValue = requests.find(r => r.symbol === value);
-    if (compareValue) {
-      const { method, param } = compareValue;
+    const valueRequest = requests.get(value);
+    if (valueRequest && valueRequest.isCompare) {
+      const { method, param } = valueRequest;
       if (method === 'not') {
         if (param === null) {
           statements.push(`${selector} is not null`);
@@ -483,14 +460,17 @@ const toWhere = (options) => {
         statements.push(`${selector} ${operator} ${statement}`);
       }
     }
-    else if (methodValue) {
+    else if (valueRequest && !valueRequest.isColumn) {
       const methodArg = processMethod({
         db,
-        method: methodValue,
+        method: valueRequest,
         params,
         requests
       });
       statements.push(`${selector} = ${methodArg.sql}`);
+    }
+    else if (valueRequest && valueRequest.isColumn) {
+      statements.push(`${selector} = ${valueRequest.selector}`);
     }
     else if (value === null) {
       statements.push(`${selector} is null`);
@@ -543,8 +523,18 @@ const processQuery = async (db, expression) => {
     const keys = Object.keys(db.columns[table]);
     const handler = {
       get: function(target, property) {
-        const symbol = Symbol(`${table}.${property}`);
-        requests.push(symbol);
+        if (!db.tables[table] || !db.columns[table][property]) {
+          throw Error(`Table or column "${table}.${property}" does not exist`);
+        }
+        const symbol = Symbol();
+        const type = db.columns[table][property];
+        requests.set(symbol, {
+          table,
+          column: property,
+          selector: `${table}.${property}`,
+          type,
+          isColumn: true
+        });
         return symbol;
       },
       ownKeys: function(target) {
@@ -563,35 +553,34 @@ const processQuery = async (db, expression) => {
     const proxy = new Proxy({}, handler);
     return proxy;
   }
-  const requests = [];
+  const requests = new Map();
   const handler = {
     get: function(target, property) {
       const isCompare = compareMethods.includes(property);
       const isCompute = computeMethods.includes(property);
       const isWindow = windowMethods.includes(property);
+      const symbol = Symbol();
       if (isCompare) {
         const request = {
           method: property,
           isCompare,
           param: null
         };
-        requests.push(request);
+        requests.set(symbol, request);
         return (param) => {
           request.param = param;
-          return request;
+          return symbol;
         }
       }
       if (isCompute || isWindow) {
-        const symbol = Symbol(property);
         const request = {
           name: property,
           isCompute,
           isWindow,
           args: null,
-          alias: null,
-          symbol
+          alias: null
         };
-        requests.push(request);
+        requests.set(symbol, request);
         return (...args) => {
           request.args = args;
           return symbol;
@@ -605,7 +594,6 @@ const processQuery = async (db, expression) => {
   const { 
     select,
     join,
-    leftJoin,
     where,
     groupBy,
     having,
@@ -614,80 +602,61 @@ const processQuery = async (db, expression) => {
     offset,
     limit
   } = result;
-  const from = join || leftJoin;
-  const joinClause = leftJoin ? 'left join' : 'join';
   const used = new Set();
-  const adjustedFrom = [];
   let first;
   let symbols;
-  if (from) {
-    symbols = Object.getOwnPropertySymbols(from);
-    for (const symbol of symbols) {
-      adjustedFrom.push([verify(db, symbol), verify(db, from[symbol])]);
-    }
-    const [table] = adjustedFrom.at(0);
-    first = table;
+  if (join) {
+    symbols = Object.getOwnPropertySymbols(join);
+    const symbol = symbols.at(0);
+    const request = requests.get(symbol);
+    first = request;
     used.add(first.table);
   }
   let sql = 'select ';
   const statements = [];
   const parsers = {};
   for (const [key, value] of Object.entries(select)) {
-    const method = requests.find(r => r.symbol === value);
-    if (method) {
-      const keyArg = processMethod({
+    let parser;
+    const request = requests.get(value);
+    if (!request.isColumn) {
+      const valueArg = processMethod({
         db,
-        method,
+        method: request,
         params,
         requests
       });
-      method.alias = key;
-      method.type = keyArg.type;
-      statements.push(`${keyArg.sql} as ${key}`);
-      const name = toDbName(method.name);
-      if (method.args.length === 1 && (['min', 'max'].includes(method.name))) {
-        const arg = method.args.at(0);
-        let column;
-        if (typeof arg === 'symbol') {
-          column = arg;
-        }
-        else {
-          column = arg.distinct || arg.column;
-        }
-        const request = requests.find(r => r === column);
-        if (request) {
-          const { table, column } = verify(db, request);
-          const type = db.columns[table][column];
-          const parser = db.getDbToJsConverter(type);
-          if (parser) {
-            parsers[key] = parser;
-          }
-          continue;
-        }
-      }
-      const type = returnTypes[name];
-      const parser = db.getDbToJsConverter(type);
-      if (parser) {
-        parsers[key] = parser;
-      }
-      continue;
+      request.alias = key;
+      request.type = valueArg.type;
+      statements.push(`${valueArg.sql} as ${key}`);
+      parser = db.getDbToJsConverter(valueArg.type);
     }
-    const symbol = requests.find(r => r === value);
-    const { table, column, selector } = verify(db, symbol);
-    statements.push(`${selector} as ${key}`);
-    const type = db.columns[table][column];
-    const parser = db.getDbToJsConverter(type);
+    else {
+      statements.push(`${request.selector} as ${key}`);
+      parser = db.getDbToJsConverter(request.type);
+    }
     if (parser) {
       parsers[key] = parser;
     }
   }
   sql += statements.join(', ');
-  if (from) {
+  if (join) {
     sql += ` from ${first.table}`;
-    for (const [l, r] of adjustedFrom) {
-      const [join, other] = used.has(l.table) ? [r, l] : [l, r];
-      used.add(join.table);
-      sql += ` ${joinClause} ${join.table} on ${join.selector} = ${other.selector}`;
+    for (const symbol of symbols) {
+      const value = join[symbol];
+      const left = requests.get(symbol);
+      let joinClause = 'join';
+      let right;
+      if (typeof value === 'symbol') {
+        right = requests.get(value);
+      }
+      else {
+        const key = Object.keys(value).at(0);
+        joinClause = `${key} join`;
+        right = requests.get(value[key]);
+      }
+      const [from, to] = used.has(left.table) ? [right, left] : [left, right];
+      used.add(from.table);
+      sql += ` ${joinClause} ${from.table} on ${from.selector} = ${to.selector}`;
     }
   }
   else {
@@ -728,19 +697,17 @@ const processQuery = async (db, expression) => {
     }
   }
   if (orderBy) {
-    if (typeof orderBy === 'symbol') {
-      const { selector } = verify(db, orderBy);
-      sql += ` order by ${selector}`;
-    }
-    else if (Array.isArray(orderBy)) {
-      const selectors = orderBy
-        .map(c => verify(db, c).selector)
-        .join(', ');
-      sql += ` order by ${selectors}`;
-    }
-    else {
-      throw Error(`Invalid orderBy`);
-    }
+    const items = Array.isArray(orderBy) ? orderBy : [orderBy];
+    const clause = items
+      .map(arg => processArg({
+        db,
+        arg,
+        params,
+        requests
+      }))
+      .map(a => a.sql)
+      .join(', ');
+    sql += ` order by ${clause}`;
     if (desc) {
       sql += ' desc';
     }

@@ -6,15 +6,12 @@ type Unwrap<T extends any[]> = {
   [K in keyof T]: T[K] extends Promise<infer U> ? U : T[K];
 };
 
-type SymbolObject = { [key: symbol]: symbol };
-
 interface SubqueryReturn {
   select: { [key: string | symbol]: SelectType };
-  join?: SymbolObject;
-  leftJoin?: SymbolObject;
+  join?: { [key: symbol]: symbol | { left?: symbol, right?: symbol, recursive?: symbol }};
   where?: { [key: symbol]: symbol | null | number | boolean | Date };
   groupBy?: symbol | symbol[];
-  having?: SymbolObject;
+  having?: { [key: symbol]: symbol };
   orderBy?: symbol | symbol[];
   offset?: number;
   limit?: number;

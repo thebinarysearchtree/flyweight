@@ -510,7 +510,15 @@ The object returned from the ```query``` method can include the following:
 
 ```select```, ```where```, ```groupBy```, ```having```, ```orderBy```, ```desc```, ```limit```, and ```offset```.
 
-```join```: an object representing the keys to join on. ```leftJoin``` can be used instead if the tables should be left joined. If no join option is provided, the ORM will assume that there is a single table and use the first table that was taken from the ```tables``` parameter.
+```join```: an object representing the keys to join on. To use something other than a standard join, you can do the following:
+
+```js
+const join = { 
+  [f.id]: { left: n.fighterId }
+};
+```
+
+If no join option is provided, the ORM will assume that there is a single table and use the first table that was taken from the ```tables``` parameter.
 
 ## JSON support
 
