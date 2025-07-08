@@ -518,8 +518,23 @@ const toDbName = (name) => {
 const processQuery = async (db, expression) => {
   const params = {};
   let selectTable;
+  let aliasCount = 1;
+  const usedAliases = new Set();
+  const makeAlias = (table) => {
+    const letter = table[0].toLowerCase();
+    for (let i = 0; i < 100; i++) {
+      const alias = `${letter}${aliasCount}`;
+      aliasCount++;
+      if (!usedAliases.has(alias)) {
+        usedAliases.add(alias);
+        return alias;
+      }
+    }
+    throw Error('Failed to create a unique table alias');
+  }
   const makeTableHandler = (table) => {
-    selectTable = table;
+    const tableAlias = makeAlias(table);
+    selectTable = `${table} ${tableAlias}`;
     const keys = Object.keys(db.columns[table]);
     const handler = {
       get: function(target, property) {
@@ -531,9 +546,10 @@ const processQuery = async (db, expression) => {
         requests.set(symbol, {
           table,
           column: property,
-          selector: `${table}.${property}`,
+          selector: `${tableAlias}.${property}`,
           type,
-          isColumn: true
+          isColumn: true,
+          tableAlias
         });
         return symbol;
       },
@@ -640,7 +656,7 @@ const processQuery = async (db, expression) => {
   }
   sql += statements.join(', ');
   if (join) {
-    sql += ` from ${first.table}`;
+    sql += ` from ${first.table} ${first.tableAlias}`;
     for (const symbol of symbols) {
       const value = join[symbol];
       const left = requests.get(symbol);
@@ -656,7 +672,7 @@ const processQuery = async (db, expression) => {
       }
       const [from, to] = used.has(left.table) ? [right, left] : [left, right];
       used.add(from.table);
-      sql += ` ${joinClause} ${from.table} on ${from.selector} = ${to.selector}`;
+      sql += ` ${joinClause} ${from.table} ${from.tableAlias} on ${from.selector} = ${to.selector}`;
     }
   }
   else {
