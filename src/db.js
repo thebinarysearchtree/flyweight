@@ -105,6 +105,14 @@ class Database {
     return await processQuery(this, expression);
   }
 
+  getRequest(symbol) {
+    return this.proxyRequests.get(symbol);
+  }
+
+  setRequest(symbol, request) {
+    this.proxyRequests.set(symbol, request);
+  }
+
   compute(table, properties) {
     const map = new Map();
     this.computed.set(table, map);

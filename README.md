@@ -520,8 +520,6 @@ const join = {
 };
 ```
 
-If no join option is provided, the ORM will assume that there is a single table and use the first table that was taken from the ```tables``` parameter.
-
 ## JSON support
 
 Flyweight can sample columns that are declared with the ```json``` type to create richer type information.
