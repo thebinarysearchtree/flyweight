@@ -229,21 +229,24 @@ const processMethod = (options) => {
         sql = `${name}(${body.sql})`;
       }
       else {
+        const select = arg.select ? arg.select : arg;
         const body = getObjectBody({
           db,
-          select: arg.select,
+          select,
           params,
           requests
         });
         sql = `${name}(json_object(${body}))`;
       }
-      const clause = processWindow({
-        db,
-        query: arg,
-        params,
-        requests
-      });
-      sql += ` ${clause}`;
+      if (arg.select) {
+        const clause = processWindow({
+          db,
+          query: arg,
+          params,
+          requests
+        });
+        sql += ` ${clause}`;
+      }
       return {
         sql: sql.trim(),
         type

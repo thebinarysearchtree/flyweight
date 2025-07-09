@@ -527,6 +527,7 @@ interface SymbolMethods {
   jsonGroupArray<T extends AllowedJson>(select: T): ToJson<T>[];
   jsonGroupArray<T extends AllowedJson>(options: WindowOptions & { select: T }): ToJson<T>[];
   jsonGroupArray<T extends { [key: string]: AllowedJson }>(options: WindowOptions & { select: T }): InterfaceToJson<T>[];
+  jsonGroupArray<T extends { [key: string]: AllowedJson }>(select: T): InterfaceToJson<T>[];
   jsonGroupObject<T extends AllowedJson>(key: DbString, value: T): Record<string, ToJson<T>>;
   jsonGroupObject<T extends AllowedJson>(options: WindowOptions & { key: DbString, value: T }): Record<string, ToJson<T>>;
 }
@@ -772,6 +773,7 @@ interface TypedDb {
   batch:<T extends any[]> (batcher: (bx: TypedDb) => T) => Promise<Unwrap<T>>;
   sync(): Promise<void>;
   query<S extends SelectType, K extends { select: { [key: string | symbol]: S }, optional?: { [key: string | symbol]: S }}, T extends (context: SubqueryContext) => K>(expression: T): Promise<ToJsType<ReturnType<T>['select'] & MakeOptional<NonNullable<ReturnType<T>['optional']>>>[]>;
+  context: SubqueryContext;
 }
 
 export const database: SQLiteDatabase;
