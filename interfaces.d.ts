@@ -666,3 +666,113 @@ type ToWhere<T> = {
   and?: Array<ToWhere<T>>;
   or?: Array<ToWhere<T>>;
 };
+
+interface QueryOptions {
+  parse: boolean;
+}
+
+interface DatabaseConfig {
+  debug?: boolean;
+}
+
+interface SQLiteConfig extends DatabaseConfig {
+  db: string | URL;
+  paths: SQLitePaths;
+  adaptor: any;
+}
+
+interface TursoConfig extends DatabaseConfig {
+  db: any;
+  paths: Paths;
+  adaptor: any;
+}
+
+interface FileSystem {
+  readFile: (path: string, encoding: string) => Promise<string>;
+  writeFile: (path: string, content: string) => Promise<void>;
+  readdir: (path: string) => Promise<string[]>;
+  join: (...paths: string[]) => string;
+  readSql: (path: string) => Promise<string>;
+}
+
+interface Paths {
+  tables: string | URL;
+  views: string | URL;
+  sql: string | URL;
+  types: string | URL;
+  migrations: string | URL;
+}
+
+interface SQLitePaths extends Paths {
+  db: string | URL;
+  extensions?: string | URL | Array<string | URL>;
+}
+
+declare class Database {
+  constructor(options: DatabaseConfig);
+  runMigration(sql: string): Promise<void>;
+  makeTypes(fileSystem: FileSystem, paths: Paths, sampleData?: boolean): Promise<void>;
+  getClient(): TypedDb;
+  getTables(): Promise<string>;
+  createMigration(fileSystem: FileSystem, paths: Paths, name: string, reset?: boolean): Promise<string>;
+  run(args: { query: any, params?: any }): Promise<number>;
+  all<T>(args: { query: any, params?: any, options?: QueryOptions }): Promise<Array<T>>;
+  exec(query: string): Promise<void>;
+  close(): Promise<void>;
+}
+
+declare class SQLiteDatabase extends Database {
+  constructor(options: SQLiteConfig);
+  begin(): Promise<void>;
+  commit(): Promise<void>;
+  rollback(): Promise<void>;
+}
+
+declare class TursoDatabase extends Database {
+  constructor(options: TursoConfig);
+  begin(): Promise<void>;
+  commit(): Promise<void>;
+  rollback(): Promise<void>;
+  batch(handler: (batcher: any) => any[]): Promise<any[]>;
+}
+
+type Unwrap<T extends any[]> = {
+  [K in keyof T]: T[K] extends Promise<infer U> ? U : T[K];
+}
+
+interface SubqueryReturn {
+  select: { [key: string | symbol]: SelectType };
+  join?: { [key: symbol]: symbol | { left?: symbol, right?: symbol, recursive?: symbol }};
+  where?: { [key: symbol]: symbol | null | number | boolean | Date };
+  groupBy?: symbol | symbol[];
+  having?: { [key: symbol]: symbol };
+  orderBy?: symbol | symbol[];
+  offset?: number;
+  limit?: number;
+  as: string;
+}
+
+type SubqueryContext = Tables & CompareMethods<Date | number | boolean | null | string | Buffer | symbol> & ComputeMethods & SymbolMethods;
+
+type MakeOptional<T> = {
+  [K in keyof T]: T[K] extends Array<infer U>
+    ? Array<U | DbNull>
+    : T[K] | DbNull;
+};
+
+interface TypedDb {
+  [key: string]: any;
+  exec(sql: string): Promise<void>;
+  begin(): Promise<void>;
+  commit(): Promise<void>;
+  rollback(): Promise<void>;
+  pragma(sql: string): Promise<any[]>;
+  deferForeignKeys(): Promise<void>;
+  getTransaction(type?: ('read' | 'write' | 'deferred')): Promise<TypedDb>;
+  batch:<T extends any[]> (batcher: (bx: TypedDb) => T) => Promise<Unwrap<T>>;
+  sync(): Promise<void>;
+  query<S extends SelectType, K extends { select: { [key: string | symbol]: S }, optional?: { [key: string | symbol]: S }}, T extends (context: SubqueryContext) => K>(expression: T): Promise<ToJsType<ReturnType<T>['select'] & MakeOptional<NonNullable<ReturnType<T>['optional']>>>[]>;
+}
+
+export const database: SQLiteDatabase;
+export const db: TypedDb;

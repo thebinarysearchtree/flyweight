@@ -2,7 +2,7 @@ import { parseQuery } from './queries.js';
 import { renameColumns } from '../map.js';
 import { makeOptions } from '../proxy.js';
 import { blank } from './utils.js';
-import files from './files.js';
+import definitions from './files.js';
 import pluralize from 'pluralize';
 import getTypes from './json.js';
 
@@ -282,18 +282,14 @@ const createTypes = async (options) => {
     sampleData,
     jsonPath
   } = options;
-  let index = files.index;
-  index = index.replace(/export \{[^\}]+\}/, '');
-  index = index.replace('getClient(): any; ', 'getClient(): TypedDb; ');
-  const definitions = files.interfaces;
   const typeSet = new Set();
   let i = 1;
-  const matches = (index + '\n' + definitions).matchAll(/^(export )?(default )?(declare )?(interface|class) (?<name>[a-z0-9_]+)/gmi);
+  const matches = definitions.matchAll(/^(export )?(default )?(declare )?(interface|class) (?<name>[a-z0-9_]+)/gmi);
   for (const match of matches) {
     typeSet.add(match.groups.name);
   }
   const tables = Object.entries(db.tables).map(([key, value]) => ({ name: key, columns: value }));
-  let types = `${index}\n${definitions}\n\n`;
+  let types = '';
   const returnTypes = [];
   let jsonTypes;
   try {
@@ -434,13 +430,13 @@ const createTypes = async (options) => {
     }
   }
   tableInterfaces += '}';
+  types += definitions;
   types = types.replace(/^interface Tables \{[^\}]+}/m, tableInterfaces);
-  types = types.replace('getClient(): any;', 'getClient(): TypedDb;');
-  const exportSection = files[db.name];
-  const replaced = exportSection
-    .replace(/(\[key: string\]: any;\s)/, `$1${returnTypes.join('')}`)
-    .replace(/^interface [a-z]+Database \{[^\}]+}\n\n/mi, '');
-  types += replaced;
+  types = types.replace(/(interface TypedDb {\n  \[key: string\]: any;\s)/, `$1${returnTypes.join('')}`)
+  types = types.replace(/^interface [a-z]+Database \{[^\}]+}\n\n/mi, '');
+  if (db.name === 'turso') {
+    types = types.replace('export const database: SQLiteDatabase;', 'export const database: TursoDatabase;');
+  }
 
   await fileSystem.writeFile(destinationPath, types, 'utf8');
   if (sampleData) {

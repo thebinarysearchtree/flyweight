@@ -606,7 +606,6 @@ const processQuery = async (db, expression) => {
   const proxy = new Proxy({}, handler);
   const result = expression(proxy);
   const { 
-    select,
     join,
     where,
     groupBy,
@@ -616,6 +615,7 @@ const processQuery = async (db, expression) => {
     offset,
     limit
   } = result;
+  const select = { ...result.select, ...result.optional };
   const used = new Set();
   let first;
   let symbols;
