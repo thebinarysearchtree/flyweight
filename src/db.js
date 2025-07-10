@@ -8,7 +8,7 @@ import { createTypes } from './parsers/types.js';
 import { migrate } from './migrations.js';
 import { makeClient } from './proxy.js';
 import { tsReturnTypes } from './parsers/returnTypes.js';
-import { processQuery} from './symbols.js';
+import { processQuery } from './symbols.js';
 
 const dbTypes = {
   integer: true,
@@ -98,11 +98,23 @@ class Database {
     return makeClient(this);
   }
 
+  async subquery(expression) {
+    if (!this.initialized) {
+      await this.initialize();
+    }
+    return processQuery(this, expression);
+  }
+
   async query(expression) {
     if (!this.initialized) {
       await this.initialize();
     }
-    return await processQuery(this, expression);
+    const { sql, params, post } = processQuery(this, expression);
+    const rows = await this.all({
+      query: sql,
+      params
+    });
+    return post(rows);
   }
 
   getRequest(symbol) {

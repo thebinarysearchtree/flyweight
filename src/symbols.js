@@ -48,21 +48,18 @@ const processArg = (options) => {
     db,
     arg,
     params,
-    columns
+    requests
   } = options;
-  const request = db.getRequest(arg);
+  const request = requests.get(arg);
   if (request && !request.isColumn) {
     return processMethod({
       db,
       method: request,
       params,
-      columns
+      requests
     });
   }
   else if (request && request.isColumn) {
-    if (columns) {
-      columns.push(request);
-    }
     return {
       sql: request.selector,
       type: request.type
@@ -84,7 +81,7 @@ const getObjectBody = (options) => {
   const {
     db,
     select,
-    columns
+    requests
   } = options;
   const items = [];
   for (const [key, value] of Object.entries(select)) {
@@ -93,7 +90,7 @@ const getObjectBody = (options) => {
       const valueArg = processArg({
         db,
         arg: value,
-        columns
+        requests
       });
       items.push(valueArg.sql);
     }
@@ -113,7 +110,8 @@ const processWindow = (options) => {
   const {
     db,
     query,
-    params
+    params,
+    requests
   } = options;
   let sql = '';
   const { 
@@ -127,33 +125,29 @@ const processWindow = (options) => {
     const clause = toWhere({
       db,
       where,
-      params
+      params,
+      requests
     });
     sql += `filter (where ${clause})`;
   }
   if (partitionBy || orderBy) {
     let clause = '';
-    if (partitionBy) {
-      const items = Array.isArray(partitionBy) ? partitionBy : [partitionBy];
-      const statements = items
-        .map(arg => processArg({
+    const processItems = (items) => {
+      const args = items.map(arg => processArg({
           db,
           arg,
-          params
-        }))
-        .map(a => a.sql);
-      clause += ` partition by ${statements.join(', ')}`;
+          params,
+          requests
+        }));
+      return args.map(a => a.sql).join(', ');
+    }
+    if (partitionBy) {
+      const items = Array.isArray(partitionBy) ? partitionBy : [partitionBy];
+      clause += ` partition by ${processItems(items)}`;
     }
     if (orderBy) {
       const items = Array.isArray(orderBy) ? orderBy : [orderBy];
-      const statements = items
-        .map(arg => processArg({
-          db,
-          arg,
-          params
-        }))
-        .map(a => a.sql);
-      clause += ` order by ${statements.join(', ')}${desc ? ' desc' : ''}`;
+      clause += ` order by ${processItems(items)}${desc ? ' desc' : ''}`;
     }
     if (frame) {
       const {
@@ -201,13 +195,12 @@ const processMethod = (options) => {
     db,
     method,
     params,
-    columns
+    requests
   } = options;
   if (method.alias) {
     return {
       sql: method.alias,
-      type: method.type,
-      columns: method.columns
+      type: method.type
     };
   }
   const arg = method.args.at(0);
@@ -224,7 +217,7 @@ const processMethod = (options) => {
           db,
           arg: valueArg,
           params,
-          columns
+          requests
         });
         sql = `${name}(${body.sql})`;
       }
@@ -234,7 +227,7 @@ const processMethod = (options) => {
           db,
           select,
           params,
-          columns
+          requests
         });
         sql = `${name}(json_object(${body}))`;
       }
@@ -242,7 +235,8 @@ const processMethod = (options) => {
         const clause = processWindow({
           db,
           query: arg,
-          params
+          params,
+          requests
         });
         sql += ` ${clause}`;
       }
@@ -266,20 +260,21 @@ const processMethod = (options) => {
         db,
         arg: key,
         params,
-        columns
+        requests
       });
       const valueArg = processArg({
         db,
         arg: value,
         params,
-        columns
+        requests
       });
       let windowClause = '';
       if (!isSymbol) {
         windowClause = processWindow({
           db,
           query: arg,
-          params
+          params,
+          requests
         });
       }
       const sql = `${name}(${keyArg.sql}, ${valueArg.sql})${windowClause}`;
@@ -293,7 +288,7 @@ const processMethod = (options) => {
         db,
         select: arg,
         params,
-        columns
+        requests
       });
       const sql = `${name}(${body})`;
       return {
@@ -317,7 +312,7 @@ const processMethod = (options) => {
         db,
         arg,
         params,
-        columns
+        requests
       });
       const sql = `${name}(${bodyArg.sql})`;
       if (['min', 'max'].includes(name)) {
@@ -342,7 +337,7 @@ const processMethod = (options) => {
         db,
         arg: field,
         params,
-        columns
+        requests
       });
       if (['min', 'max'].includes(name)) {
         type = bodyArg.type;
@@ -355,7 +350,8 @@ const processMethod = (options) => {
     const clause = processWindow({
       db,
       query: arg,
-      params
+      params,
+      requests
     });
     if (clause) {
       sql += ` ${clause}`;
@@ -369,7 +365,7 @@ const processMethod = (options) => {
     db,
     arg,
     params,
-    columns
+    requests
   }));
   const statements = processed.map(p => p.sql);
   let sql;
@@ -407,14 +403,15 @@ const toWhere = (options) => {
   const {
     db,
     where,
-    params
+    params,
+    requests
   } = options;
   const type = options.type || 'and';
   const statements = [];
   const whereKeys = Object.getOwnPropertySymbols(where);
   for (const symbol of whereKeys) {
     let selector;
-    const request = db.getRequest(symbol);
+    const request = requests.get(symbol);
     if (!request.isColumn) {
       if (request.alias) {
         selector = request.alias;
@@ -423,7 +420,8 @@ const toWhere = (options) => {
         const keyArg = processMethod({
           db,
           method: request,
-          params
+          params,
+          requests
         });
         selector = keyArg.sql;
       }
@@ -432,7 +430,7 @@ const toWhere = (options) => {
       selector = request.selector;
     }
     const value = where[symbol];
-    const valueRequest = db.getRequest(value);
+    const valueRequest = requests.get(value);
     if (valueRequest && valueRequest.isCompare) {
       const { method, param } = valueRequest;
       if (method === 'not') {
@@ -462,7 +460,8 @@ const toWhere = (options) => {
       const methodArg = processMethod({
         db,
         method: valueRequest,
-        params
+        params,
+        requests
       });
       statements.push(`${selector} = ${methodArg.sql}`);
     }
@@ -492,7 +491,8 @@ const toWhere = (options) => {
           db, 
           where, 
           type,
-          params
+          params,
+          requests
         }))
         .join(` ${type} `);
       statements.push(statement);
@@ -511,10 +511,17 @@ const toDbName = (name) => {
     .toLowerCase();
 }
 
-const makeProxy = (db, requests) => {
-  const usedAliases = new Set();
+const makeProxy = (options) => {
+  const {
+    db,
+    requests,
+    subqueries,
+    contextId
+  } = options;
+  const existing = Object.keys(db.columns);
+  const usedAliases = new Set(existing);
   const makeAlias = (table) => {
-    const letter = table[0].toLowerCase();
+    const letter = table ? table[0].toLowerCase() : 's';
     for (let i = 0; i < 100; i++) {
       const alias = i ? `${letter}${i}` : letter;
       if (!usedAliases.has(alias)) {
@@ -534,13 +541,14 @@ const makeProxy = (db, requests) => {
         }
         const symbol = Symbol();
         const type = db.columns[table][property];
-        db.setRequest(symbol, {
+        requests.set(symbol, {
           table,
           column: property,
           selector: `${tableAlias}.${property}`,
           type,
           isColumn: true,
-          tableAlias
+          tableAlias,
+          contextId
         });
         return symbol;
       },
@@ -562,6 +570,46 @@ const makeProxy = (db, requests) => {
   }
   const handler = {
     get: function(target, property) {
+      if (property === 'use') {
+        return (context) => {
+          const keys = Object.keys(context.columns);
+          const tableAlias = makeAlias();
+          subqueries.push({
+            alias: tableAlias,
+            sql: context.sql,
+            params: context.params
+          });
+          const contextId = Symbol();
+          const handler = {
+            get: function(target, property) {
+              const symbol = Symbol();
+              const type = context.columns[property];
+              requests.set(symbol, {
+                column: property,
+                selector: `${tableAlias}.${property}`,
+                type,
+                isColumn: true,
+                tableAlias,
+                contextId
+              });
+              return symbol;
+            },
+            ownKeys: function(target) {
+              return keys;
+            },
+            getOwnPropertyDescriptor: function(target, property) {
+              if (keys.includes(property)) {
+                return {
+                  enumerable: true,
+                  configurable: true
+                };
+              }
+              return undefined;
+            }
+          }
+          return new Proxy({}, handler);
+        }
+      }
       const isCompare = compareMethods.includes(property);
       const isCompute = computeMethods.includes(property);
       const isWindow = windowMethods.includes(property);
@@ -570,9 +618,10 @@ const makeProxy = (db, requests) => {
         const request = {
           method: property,
           isCompare,
-          param: null
+          param: null,
+          contextId
         };
-        db.setRequest(symbol, request);
+        requests.set(symbol, request);
         return (param) => {
           request.param = param;
           return symbol;
@@ -585,9 +634,9 @@ const makeProxy = (db, requests) => {
           isWindow,
           args: null,
           alias: null,
-          columns: []
+          contextId
         };
-        db.setRequest(symbol, request);
+        requests.set(symbol, request);
         return (...args) => {
           request.args = args;
           return symbol;
@@ -599,8 +648,16 @@ const makeProxy = (db, requests) => {
   return new Proxy({}, handler);
 }
 
-const processQuery = async (db, expression) => {
-  const proxy = makeProxy(db);
+const processQuery = (db, expression) => {
+  const contextId = Symbol();
+  const requests = new Map();
+  const subqueries = [];
+  const proxy = makeProxy({
+    db,
+    requests,
+    subqueries,
+    contextId
+  });
   const params = {};
   const result = expression(proxy);
   const { 
@@ -620,37 +677,38 @@ const processQuery = async (db, expression) => {
   if (join) {
     symbols = Object.getOwnPropertySymbols(join);
     const symbol = symbols.at(0);
-    const request = db.getRequest(symbol);
+    const request = requests.get(symbol);
     first = request;
     used.add(first.table);
   }
   let sql = 'select ';
   const statements = [];
   const parsers = {};
-  const columns = [];
+  const columnTypes = {};
   for (const [key, value] of Object.entries(select)) {
     let parser;
-    const request = db.getRequest(value);
+    const request = requests.get(value);
     if (!request.isColumn) {
       const valueArg = processMethod({
         db,
         method: request,
         params,
-        columns
+        requests
       });
       request.alias = key;
       request.type = valueArg.type;
+      columnTypes[key] = valueArg.type;
       statements.push(`${valueArg.sql} as ${key}`);
       parser = db.getDbToJsConverter(valueArg.type);
     }
     else {
-      columns.push(request);
       if (!join && request.column === key) {
         statements.push(key);
       }
       else {
         statements.push(`${request.selector} as ${key}`);
       }
+      columnTypes[key] = request.type;
       parser = db.getDbToJsConverter(request.type);
     }
     if (parser) {
@@ -662,31 +720,37 @@ const processQuery = async (db, expression) => {
     sql += ` from ${first.table} ${first.tableAlias}`;
     for (const symbol of symbols) {
       const value = join[symbol];
-      const left = db.getRequest(symbol);
+      const left = requests.get(symbol);
       let joinClause = 'join';
       let right;
       if (typeof value === 'symbol') {
-        right = db.getRequest(value);
+        right = requests.get(value);
       }
       else {
         const key = Object.keys(value).at(0);
         joinClause = `${key} join`;
-        right = db.getRequest(value[key]);
+        right = requests.get(value[key]);
       }
       const [from, to] = used.has(left.table) ? [right, left] : [left, right];
-      used.add(from.table);
-      sql += ` ${joinClause} ${from.table} ${from.tableAlias} on ${from.selector} = ${to.selector}`;
+      const table = from.table || from.tableAlias;
+      const tableClause = from.table ? `${from.table} ${from.tableAlias}` : from.tableAlias;
+      used.add(table);
+      sql += ` ${joinClause} ${tableClause} on ${from.selector} = ${to.selector}`;
     }
   }
   else {
-    const { tableAlias, table } = columns.at(0);
-    sql += ` from ${table} ${tableAlias}`;
+    const columns = Array.from(requests.values()).filter(r => r.isColumn);
+    if (columns.length > 0) {
+      const { tableAlias, table } = columns.at(0);
+      sql += ` from ${table} ${tableAlias}`;
+    }
   }
   if (where) {
     const clause = toWhere({
       db,
       where,
-      params
+      params,
+      requests
     });
     if (clause) {
       sql += ` where ${clause}`;
@@ -698,7 +762,8 @@ const processQuery = async (db, expression) => {
       .map(c => processArg({
         db,
         arg: c,
-        params
+        params,
+        requests
       }))
       .map(a => a.sql);
     sql += ` group by ${statements.join(', ')}`;
@@ -707,7 +772,8 @@ const processQuery = async (db, expression) => {
     const clause = toWhere({
       db,
       where: having,
-      params
+      params,
+      requests
     });
     if (clause) {
       sql += ` having ${clause}`;
@@ -719,7 +785,8 @@ const processQuery = async (db, expression) => {
       .map(arg => processArg({
         db,
         arg,
-        params
+        params,
+        requests
       }))
       .map(a => a.sql)
       .join(', ');
@@ -744,21 +811,38 @@ const processQuery = async (db, expression) => {
     });
     sql += ` limit ${placeholder}`;
   }
-  const rows = await db.all({
-    query: sql,
-    params
-  });
-  if (Object.keys(parsers).length > 0) {
-    for (let i = 0; i < rows.length; i++) {
-      const row = rows[i];
-      for (const [key, parser] of Object.entries(parsers)) {
-        row[key] = parser(row[key]);
+  const post = (rows) => {
+    if (Object.keys(parsers).length > 0) {
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        for (const [key, parser] of Object.entries(parsers)) {
+          row[key] = parser(row[key]);
+        }
+      }
+    }
+    return rows;
+  }
+  let adjusted = sql;
+  if (subqueries.length > 0) {
+    const mapped = subqueries
+      .map(q => `${q.alias} as (${q.sql})`)
+      .join(', ');
+    adjusted = `with ${mapped} ${sql}`;
+    for (const query of subqueries) {
+      for (const [key, value] of Object.entries(query.params)) {
+        params[key] = value;
       }
     }
   }
-  return rows;
+  return {
+    sql: adjusted,
+    params,
+    columns: columnTypes,
+    post
+  }
 }
 
 export {
-  processQuery
+  processQuery,
+  makeProxy
 }

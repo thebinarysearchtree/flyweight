@@ -753,7 +753,12 @@ interface SubqueryReturn {
   as: string;
 }
 
-type SubqueryContext = Tables & CompareMethods<Date | number | boolean | null | string | Buffer | symbol> & ComputeMethods & SymbolMethods;
+type SubqueryContext = 
+  Tables & 
+  CompareMethods<Date | number | boolean | null | string | Buffer | symbol> & 
+  ComputeMethods & 
+  SymbolMethods &
+  { use<T>(context: T): T }
 
 type MakeOptional<T> = {
   [K in keyof T]: T[K] extends Array<infer U>
@@ -773,7 +778,7 @@ interface TypedDb {
   batch:<T extends any[]> (batcher: (bx: TypedDb) => T) => Promise<Unwrap<T>>;
   sync(): Promise<void>;
   query<S extends SelectType, K extends { select: { [key: string | symbol]: S }, optional?: { [key: string | symbol]: S }}, T extends (context: SubqueryContext) => K>(expression: T): Promise<ToJsType<ReturnType<T>['select'] & MakeOptional<NonNullable<ReturnType<T>['optional']>>>[]>;
-  context: SubqueryContext;
+  subquery<S extends SelectType, K extends { select: { [key: string | symbol]: S }, optional?: { [key: string | symbol]: S }}, T extends (context: SubqueryContext) => K>(expression: T): Promise<ReturnType<T>['select'] & MakeOptional<NonNullable<ReturnType<T>['optional']>>>;
 }
 
 export const database: SQLiteDatabase;

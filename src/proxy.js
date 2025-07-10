@@ -175,6 +175,9 @@ const makeClient = (db, tx) => {
       if (table === 'query') {
         return (expression) => db.query(expression);
       }
+      if (table === 'subquery') {
+        return (expression) => db.subquery(expression);
+      }
       if (db[table] && ['exec', 'begin', 'commit', 'rollback', 'pragma', 'deferForeignKeys'].includes(table)) {
         db[table] = db[table].bind(db);
         return (sql) => db[table](tx, sql);
