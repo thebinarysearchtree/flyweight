@@ -11,7 +11,7 @@ const operators = new Map([
 
 const compareMethods = ['not', 'gt', 'lt', 'lte', 'like', 'natch', 'glob', 'eq'];
 const computeMethods = ['abs', 'coalesce', 'concat', 'concatWs', 'format', 'glob', 'hex', 'if', 'instr', 'length', 'lower', 'ltrim', 'max', 'min', 'nullif', 'octetLength', 'replace', 'round', 'rtrim', 'sign', 'substring', 'trim', 'unhex', 'unicode', 'upper', 'date', 'time', 'dateTime', 'julianDay', 'unixEpoch', 'strfTime', 'timeDiff', 'acos', 'acosh', 'asin', 'asinh', 'atan', 'atan2', 'atanh', 'ceil', 'cos', 'cosh', 'degrees', 'exp', 'floor', 'ln', 'log', 'mod', 'pi', 'power', 'radians', 'sin', 'sinh', 'sqrt', 'tan', 'tanh', 'trunc', 'json', 'jsonExtract', 'plus', 'minus', 'divide', 'multiply', 'jsonObject', 'jsonArrayLength'];
-const windowMethods = ['count', 'min', 'max', 'avg', 'sum', 'rowNumber', 'rank', 'denseRank', 'percentRank', 'cumeDist', 'ntile', 'jsonGroupArray', 'jsonGroupObject'];
+const windowMethods = ['count', 'min', 'max', 'avg', 'sum', 'rowNumber', 'rank', 'denseRank', 'percentRank', 'cumeDist', 'ntile', 'lag', 'lead', 'firstValue', 'lastValue', 'nthValue', 'jsonGroupArray', 'jsonGroupObject'];
 
 const addParam = (options) => {
   const { db, params, value } = options;
@@ -330,6 +330,41 @@ const processMethod = (options) => {
         throw Error('Invalid "groups" argument');
       }
       sql = `ntil(${groups})`;
+    }
+    else if (name === 'lag' || name === 'lead') {
+      const { expression, offset, otherwise } = arg;
+      const args = [expression, offset, otherwise];
+      const parsed = args
+        .filter(a => a !== undefined)
+        .map(arg => processArg({
+          db,
+          arg,
+          params,
+          requests
+        }));
+      if (parsed.length === 1) {
+        type = parsed.at(0).type;
+      }
+      else if (parsed.length === 3) {
+        if (parsed.at(0).type === parsed.at(2).type) {
+          type = parsed.at(0).type;
+        }
+      }
+      sql = `${name}(${parsed.map(a => a.sql).join(', ')})`;
+    }
+    else if (['first_value', 'last_value', 'nth_value'].includes(name)) {
+      const { expression, row } = arg;
+      const args = [expression, row];
+      const parsed = args
+        .filter(a => a !== undefined)
+        .map(arg => processArg({
+          db,
+          arg,
+          params,
+          requests
+        }));
+      type = parsed.at(0).type;
+      sql = `${name}(${parsed.map(a => a.sql).join(', ')})`;
     }
     else if (['min', 'max', 'avg', 'sum', 'count'].includes(name) && isSymbol) {
       const bodyArg = processArg({
@@ -760,10 +795,14 @@ const processQuery = (db, expression) => {
     }
     else {
       if (!join && request.column === key) {
-        statements.push(key);
+        statements.push(request.selector);
       }
       else {
-        statements.push(`${request.selector} as ${key}`);
+        let sql = request.selector;
+        if (request.column !== key) {
+          sql += ` as ${key}`;
+        }
+        statements.push(sql);
       }
       columnTypes[key] = request.type;
       parser = db.getDbToJsConverter(request.type);

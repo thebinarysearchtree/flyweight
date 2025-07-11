@@ -503,6 +503,12 @@ type ToJsType<T> =
     T extends DbJson ? Json :
     never;
 
+interface LagOptions<T> {
+  expression: T;
+  offset?: number | DbNumber;
+  otherwise?: T;
+}
+
 interface SymbolMethods {
   count(): DbNumber;
   count(column: AnyResult): DbNumber;
@@ -525,7 +531,12 @@ interface SymbolMethods {
   denseRank(options?: WindowOptions): DbNumber;
   percentRank(options?: WindowOptions): DbNumber;
   cumeDist(options?: WindowOptions): DbNumber;
-  ntile(options: WindowOptions & { groups: number }): DbNumber;
+  ntile(options: WindowOptions & { groups: number | DbNumber }): DbNumber;
+  lag<T extends DbAny>(options: WindowsOptions & LagOptions<T>): T;
+  lead<T extends DbAny>(options: WindowsOptions & LagOptions<T>): T;
+  firstValue<T extends DbAny>(options: WindowOptions & { expression: T }): T;
+  lastValue<T extends DbAny>(options: WindowOptions & { expression: T }): T;
+  nthValue<T extends DbAny>(options: WindowOptions & { expression: T, row: number | DbNumber }): T;
   jsonGroupArray<T extends AllowedJson>(select: T): ToJson<T>[];
   jsonGroupArray<T extends AllowedJson>(options: WindowOptions & { select: T }): ToJson<T>[];
   jsonGroupArray<T extends { [key: string]: AllowedJson }>(options: WindowOptions & { select: T }): InterfaceToJson<T>[];
