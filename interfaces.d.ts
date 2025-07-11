@@ -363,6 +363,8 @@ type JsonParam = string | Buffer | null | DbString | DbBuffer | DbJson | DbNull;
 type ExtractResult = DbString | DbNumber | DbNull;
 type JsonResult = DbJson | DbNull;
 
+type DbTypes = number | string | boolean | Date | Buffer | null;
+
 interface ComputeMethods {
   abs(n: NumberParam): NumberResult;
   coalesce(a: StringResult, b: string): DbString;
@@ -375,7 +377,7 @@ interface ComputeMethods {
   concatWs(...args: any[]): DbString;
   format(format: StringParam, ...args: any[]): StringResult;
   glob(pattern: StringParam, value: StringParam): NumberResult;
-  hex(value: NumberBufferParam): StringResult;
+  if<T extends DbTypes | DbAny>(expression: DbBoolean, trueValue: T, falseValue: T): ToDbType<T>;
   if(...args: any[]): AnyResult;
   instr(a: StringBufferParam, b: StringBufferParam): NumberResult;
   length(value: any): NumberResult;
@@ -481,7 +483,7 @@ type ToDbType<T> =
     U extends null ? DbNull :
     U extends Json ? DbJson :
     DbJson
-  ) : never;
+  ) : T;
 
 type ToDbInterface<T> = {
   [K in keyof T]: ToDbType<T[K]>;
@@ -610,6 +612,17 @@ type CompareMethods<T> = {
 	match: (pattern: NonNullable<T>) => symbol;
 	glob: (pattern: NonNullable<T>) => symbol;
 	eq: (value: T) => symbol;
+}
+
+type SymbolCompareMethods<T> = {
+  not: (column: symbol, value: T) => DbBoolean;
+	gt: (column: symbol, value: NonNullable<T>) => DbBoolean;
+	lt: (column: symbol, value: NonNullable<T>) => DbBoolean;
+	lte: (column: symbol, value: NonNullable<T>) => DbBoolean;
+	like: (column: symbol, pattern: NonNullable<T>) => DbBoolean;
+	match: (column: symbol, pattern: NonNullable<T>) => DbBoolean;
+	glob: (column: symbol, pattern: NonNullable<T>) => DbBoolean;
+	eq: (column: symbol, value: T) => DbBoolean;
 }
 
 type Transform<T> = NonNullable<T> extends string | number | Date
@@ -753,10 +766,13 @@ interface SubqueryReturn {
   as: string;
 }
 
+type QueryCompareTypes = Date | number | boolean | null | string | Buffer | symbol;
+
 type SubqueryContext = 
-  Tables & 
-  CompareMethods<Date | number | boolean | null | string | Buffer | symbol> & 
-  ComputeMethods & 
+  Tables &
+  CompareMethods<QueryCompareTypes> &
+  SymbolCompareMethods<QueryCompareTypes> &
+  ComputeMethods &
   SymbolMethods &
   { use<T>(context: T): T }
 

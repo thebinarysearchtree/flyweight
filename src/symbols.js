@@ -207,7 +207,31 @@ const processMethod = (options) => {
   const isSymbol = typeof arg === 'symbol';
   const name = toDbName(method.name);
   const operator = operators.get(name);
-  let type = operator ? 'real' : returnTypes[name];
+  let type = operator ? 'real' : (method.isCompare ? 'integer' : returnTypes[name]);
+  if (method.isCompare) {
+    const result = processArg({
+      db,
+      arg,
+      params,
+      requests
+    });
+    const selector = result.sql;
+    const to = method.args.at(1);
+    if (name === 'not' && to === null) {
+      return {
+        sql: `${selector} is not null`,
+        type
+      }
+    }
+    const operator = methods.get(method.name);
+    const toResult = processArg({
+      db,
+      arg: to,
+      params,
+      requests
+    });
+    return `${selector} ${operator} ${toResult.sql}`;
+  }
   if (['json_group_array', 'json_group_object', 'json_object'].includes(name)) {
     if (name === 'json_group_array') {
       let sql;
@@ -367,6 +391,12 @@ const processMethod = (options) => {
     params,
     requests
   }));
+  if (method.name === 'if' && method.args.length === 3) {
+    const [l, r] = processed.slice(1).map(p => p.type);
+    if (l === r) {
+      type = r;
+    }
+  }
   const statements = processed.map(p => p.sql);
   let sql;
   if (operator) {
@@ -432,28 +462,20 @@ const toWhere = (options) => {
     const value = where[symbol];
     const valueRequest = requests.get(value);
     if (valueRequest && valueRequest.isCompare) {
-      const { method, param } = valueRequest;
-      if (method === 'not') {
-        if (param === null) {
-          statements.push(`${selector} is not null`);
-        }
-        else {
-          const statement = addParam({
-            db,
-            params,
-            value: param
-          });
-          statements.push(`${selector} != ${statement}`);
-        }
+      const { name, args } = valueRequest;
+      const param = args.at(0);
+      if (name === 'not' && param === null) {
+        statements.push(`${selector} is not null`);
       }
       else {
-        const operator = methods.get(method);
-        const statement = addParam({
+        const operator = methods.get(name);
+        const result = processArg({
           db,
+          arg: param,
           params,
-          value: param
+          requests
         });
-        statements.push(`${selector} ${operator} ${statement}`);
+        statements.push(`${selector} ${operator} ${result.sql}`);
       }
     }
     else if (valueRequest && !valueRequest.isColumn) {
@@ -505,6 +527,9 @@ const toDbName = (name) => {
   const excluded = ['dateTime', 'julianDay', 'unixEpoch', 'strfTime', 'timeDiff'];
   if (excluded.includes(name)) {
     return name.toLowerCase();
+  }
+  if (name === 'if') {
+    return 'iif';
   }
   return name
     .replaceAll(/([A-Z])/gm, '_$1')
@@ -616,14 +641,14 @@ const makeProxy = (options) => {
       const symbol = Symbol();
       if (isCompare) {
         const request = {
-          method: property,
+          name: property,
           isCompare,
-          param: null,
+          args: null,
           contextId
         };
         requests.set(symbol, request);
-        return (param) => {
-          request.param = param;
+        return (...args) => {
+          request.args = args;
           return symbol;
         }
       }
@@ -646,6 +671,38 @@ const makeProxy = (options) => {
     }
   }
   return new Proxy({}, handler);
+}
+
+const replaceParams = (subqueries, sql, params) => {
+  if (subqueries.length === 0) {
+    return {
+      sql,
+      params
+    }
+  }
+  let i = 1;
+  const combined = {};
+  const statements = [];
+  const replace = (sql, params) => {
+    return sql.replaceAll(/\$p_\d+/gmi, (m) => {
+      const updated = `p_${i}`;
+      i++;
+      const existing = m.substring(1);
+      combined[updated] = params[existing];
+      return `$${updated}`;
+    });
+  }
+  for (const query of subqueries) {
+    const { alias, sql, params } = query;
+    const adjusted = replace(sql, params);
+    statements.push(`${alias} as (${adjusted})`);
+  }
+  const adjusted = replace(sql, params);
+  const statement = `with ${statements.join(', ')} ${adjusted}`;
+  return {
+    sql: statement,
+    params: combined
+  }
 }
 
 const processQuery = (db, expression) => {
@@ -822,21 +879,9 @@ const processQuery = (db, expression) => {
     }
     return rows;
   }
-  let adjusted = sql;
-  if (subqueries.length > 0) {
-    const mapped = subqueries
-      .map(q => `${q.alias} as (${q.sql})`)
-      .join(', ');
-    adjusted = `with ${mapped} ${sql}`;
-    for (const query of subqueries) {
-      for (const [key, value] of Object.entries(query.params)) {
-        params[key] = value;
-      }
-    }
-  }
+  const adjusted = replaceParams(subqueries, sql, params);
   return {
-    sql: adjusted,
-    params,
+    ...adjusted,
     columns: columnTypes,
     post
   }
