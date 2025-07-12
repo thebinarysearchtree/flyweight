@@ -496,28 +496,27 @@ const cards = db.subquery(c => {
     groupBy: eventId
   }
 });
-const events = await db.query(context => {
+const events = await db.query(c => {
   const {
     locations: l,
-    events: e,
-    length,
-    gt
-  } = context;
-  const c = context.use(cards);
-  const nameLength = length(e.name);
+    events: e
+  } = c;
+  const ca = context.use(cards);
+  const nameLength = c.length(e.name);
+  const join = [
+    [e.locationId, l.id],
+    [e.id, ca.eventId]
+  ];
   return {
     select: {
       ...e,
       location: l.name,
+      cards: ca.count,
       nameLength,
-      cards: c.count
     },
-    join: {
-      [e.locationId]: l.id,
-      [e.id]: c.eventId
-    },
+    join,
     where: {
-      [nameLength]: gt(20)
+      [nameLength]: c.gt(20)
     }
   }
 });
@@ -529,12 +528,10 @@ The object returned from the ```query``` and ```subquery``` methods can include 
 
 ```optional```: the same as ```select``` but provides hints to TypeScript that these columns may be ```null```. This is useful for columns that come from a left join.
 
-```join```: an object representing the keys to join on. To use something other than a standard join, you can do the following:
+```join```: a tuple or array of tuples representing the keys to join on. For a left or right join, you can use:
 
 ```js
-const join = { 
-  [f.id]: { left: n.fighterId }
-};
+const join = [f.id, n.fighterId, 'left'];
 ```
 
 ## JSON support

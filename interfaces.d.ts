@@ -436,7 +436,7 @@ interface ComputeMethods {
   tanh(value: NumberParam): NumberResult;
   trunc(value: NumberParam): NumberResult;
   json(param: JsonParam | any[]): StringResult;
-  jsonExtract(json: JsonParam | any[], path: StringParam): ExtractResult;
+  extract(json: JsonParam | any[], path: StringParam): ExtractResult;
   plus(...args: DbNumber[]): DbNumber;
   plus(...args: NumberParam[]): NumberResult;
   minus(...args: DbNumber[]): DbNumber;
@@ -445,8 +445,8 @@ interface ComputeMethods {
   divide(...args: NumberParam[]): NumberResult;
   multiply(...args: DbNumber[]): DbNumber;
   multiply(...args: NumberParam[]): NumberResult;
-  jsonObject<T extends { [key: string]: AllowedJson }>(select: T): ToJson<T>;
-  jsonArrayLength(param: JsonParam | any[]): NumberResult;
+  object<T extends { [key: string]: AllowedJson }>(select: T): ToJson<T>;
+  arrayLength(param: JsonParam | any[]): NumberResult;
 }
 
 interface FrameOptions {
@@ -539,10 +539,10 @@ interface SymbolMethods {
   firstValue<T extends DbAny>(options: WindowOptions & { expression: T }): T;
   lastValue<T extends DbAny>(options: WindowOptions & { expression: T }): T;
   nthValue<T extends DbAny>(options: WindowOptions & { expression: T, row: number | DbNumber }): T;
-  jsonGroupArray<T extends AllowedJson>(options: WindowOptions & { select: T }): ToJson<T>[];
-  jsonGroupArray<T extends AllowedJson>(select: T): ToJson<T>[];
-  jsonGroupObject<T extends AllowedJson>(key: DbString, value: T): Record<string, ToJson<T>>;
-  jsonGroupObject<T extends AllowedJson>(options: WindowOptions & { key: DbString, value: T }): Record<string, ToJson<T>>;
+  group<T extends AllowedJson>(options: WindowOptions & { select: T }): ToJson<T>[];
+  group<T extends AllowedJson>(select: T): ToJson<T>[];
+  group<T extends AllowedJson>(key: DbString, value: T): Record<string, ToJson<T>>;
+  group<T extends AllowedJson>(options: WindowOptions & { key: DbString, value: T }): Record<string, ToJson<T>>;
 }
 
 interface Compute<T> {
@@ -768,9 +768,11 @@ type Unwrap<T extends any[]> = {
 
 type WhereType = symbol | null | number | boolean | Date | WhereType[];
 
+type JoinTuple = [symbol, symbol, 'left' | 'right'?];
+
 interface SubqueryReturn {
   select: { [key: string | symbol]: SelectType };
-  join?: { [key: symbol]: symbol | { left?: symbol, right?: symbol }};
+  join?: JoinTuple | [JoinTuple];
   where?: { [key: symbol]: WhereType };
   groupBy?: symbol | symbol[];
   having?: { [key: symbol]: symbol };

@@ -10,8 +10,8 @@ const operators = new Map([
 ]);
 
 const compareMethods = ['not', 'gt', 'lt', 'lte', 'like', 'natch', 'glob', 'eq'];
-const computeMethods = ['abs', 'coalesce', 'concat', 'concatWs', 'format', 'glob', 'hex', 'if', 'instr', 'length', 'lower', 'ltrim', 'max', 'min', 'nullif', 'octetLength', 'replace', 'round', 'rtrim', 'sign', 'substring', 'trim', 'unhex', 'unicode', 'upper', 'date', 'time', 'dateTime', 'julianDay', 'unixEpoch', 'strfTime', 'timeDiff', 'acos', 'acosh', 'asin', 'asinh', 'atan', 'atan2', 'atanh', 'ceil', 'cos', 'cosh', 'degrees', 'exp', 'floor', 'ln', 'log', 'mod', 'pi', 'power', 'radians', 'sin', 'sinh', 'sqrt', 'tan', 'tanh', 'trunc', 'json', 'jsonExtract', 'plus', 'minus', 'divide', 'multiply', 'jsonObject', 'jsonArrayLength'];
-const windowMethods = ['count', 'min', 'max', 'avg', 'sum', 'rowNumber', 'rank', 'denseRank', 'percentRank', 'cumeDist', 'ntile', 'lag', 'lead', 'firstValue', 'lastValue', 'nthValue', 'jsonGroupArray', 'jsonGroupObject'];
+const computeMethods = ['abs', 'coalesce', 'concat', 'concatWs', 'format', 'glob', 'hex', 'if', 'instr', 'length', 'lower', 'ltrim', 'max', 'min', 'nullif', 'octetLength', 'replace', 'round', 'rtrim', 'sign', 'substring', 'trim', 'unhex', 'unicode', 'upper', 'date', 'time', 'dateTime', 'julianDay', 'unixEpoch', 'strfTime', 'timeDiff', 'acos', 'acosh', 'asin', 'asinh', 'atan', 'atan2', 'atanh', 'ceil', 'cos', 'cosh', 'degrees', 'exp', 'floor', 'ln', 'log', 'mod', 'pi', 'power', 'radians', 'sin', 'sinh', 'sqrt', 'tan', 'tanh', 'trunc', 'json', 'extract', 'plus', 'minus', 'divide', 'multiply', 'object', 'arrayLength'];
+const windowMethods = ['count', 'min', 'max', 'avg', 'sum', 'rowNumber', 'rank', 'denseRank', 'percentRank', 'cumeDist', 'ntile', 'lag', 'lead', 'firstValue', 'lastValue', 'nthValue', 'group'];
 
 const addParam = (options) => {
   const { db, params, value } = options;
@@ -206,7 +206,7 @@ const processMethod = (options) => {
   }
   const arg = method.args.at(0);
   const isSymbol = typeof arg === 'symbol';
-  const name = toDbName(method.name);
+  const name = toDbName(method);
   const operator = operators.get(name);
   let type = operator ? 'real' : (method.isCompare ? 'boolean' : returnTypes[name]);
   if (method.isCompare) {
@@ -224,7 +224,7 @@ const processMethod = (options) => {
         type
       }
     }
-    const operator = methods.get(method.name);
+    const operator = methods.get(name);
     const toResult = processArg({
       db,
       arg: to,
@@ -563,13 +563,29 @@ const toWhere = (options) => {
   return statements.join(` ${type} `);
 }
 
-const toDbName = (name) => {
+const toDbName = (method) => {
+  const { name, args } = method;
   const excluded = ['dateTime', 'julianDay', 'unixEpoch', 'strfTime', 'timeDiff'];
   if (excluded.includes(name)) {
     return name.toLowerCase();
   }
   if (name === 'if') {
     return 'iif';
+  }
+  if (name === 'group') {
+    if (args.length === 2) {
+      return 'json_group_object';
+    }
+    return 'json_group_array';
+  }
+  if (name === 'arrayLength') {
+    return 'json_array_length';
+  }
+  if (name === 'extract') {
+    return 'json_extract';
+  }
+  if (name === 'object') {
+    return 'json_object';
   }
   return name
     .replaceAll(/([A-Z])/gm, '_$1')
@@ -749,8 +765,7 @@ const processQuery = (db, expression) => {
   });
   const params = {};
   const result = expression(proxy);
-  const { 
-    join,
+  const {
     where,
     groupBy,
     having,
@@ -762,12 +777,21 @@ const processQuery = (db, expression) => {
   const select = { ...result.select, ...result.optional };
   const used = new Set();
   let first;
-  let symbols;
+  let join;
+  if (result.join) {
+    if (Array.isArray(result.join[0])) {
+      join = result.join
+    }
+    else {
+      join = [result.join];
+    }
+    join = join.map(tuple => {
+      const [l, r, type] = tuple;
+      return [requests.get(l), requests.get(r), type];
+    })
+  }
   if (join) {
-    symbols = Object.getOwnPropertySymbols(join);
-    const symbol = symbols.at(0);
-    const request = requests.get(symbol);
-    first = request;
+    first = join[0][0];
     used.add(first.table);
   }
   let sql = 'select ';
@@ -811,20 +835,10 @@ const processQuery = (db, expression) => {
   sql += statements.join(', ');
   if (join) {
     sql += ` from ${first.table} ${first.tableAlias}`;
-    for (const symbol of symbols) {
-      const value = join[symbol];
-      const left = requests.get(symbol);
-      let joinClause = 'join';
-      let right;
-      if (typeof value === 'symbol') {
-        right = requests.get(value);
-      }
-      else {
-        const key = Object.keys(value).at(0);
-        joinClause = `${key} join`;
-        right = requests.get(value[key]);
-      }
-      const [from, to] = used.has(left.table) ? [right, left] : [left, right];
+    for (const tuple of join) {
+      const [l, r, type] = tuple;
+      const joinClause = type ? `${type} join` : 'join';
+      const [from, to] = used.has(l.table) ? [r, l] : [l, r];
       const table = from.table || from.tableAlias;
       const tableClause = from.table ? `${from.table} ${from.tableAlias}` : from.tableAlias;
       used.add(table);
