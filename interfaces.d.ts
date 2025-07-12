@@ -445,7 +445,7 @@ interface ComputeMethods {
   divide(...args: NumberParam[]): NumberResult;
   multiply(...args: DbNumber[]): DbNumber;
   multiply(...args: NumberParam[]): NumberResult;
-  jsonObject<T extends { [key: string]: AllowedJson }>(select: T): InterfaceToJson<T>;
+  jsonObject<T extends { [key: string]: AllowedJson }>(select: T): ToJson<T>;
   jsonArrayLength(param: JsonParam | any[]): NumberResult;
 }
 
@@ -539,10 +539,8 @@ interface SymbolMethods {
   firstValue<T extends DbAny>(options: WindowOptions & { expression: T }): T;
   lastValue<T extends DbAny>(options: WindowOptions & { expression: T }): T;
   nthValue<T extends DbAny>(options: WindowOptions & { expression: T, row: number | DbNumber }): T;
-  jsonGroupArray<T extends AllowedJson>(select: T): ToJson<T>[];
   jsonGroupArray<T extends AllowedJson>(options: WindowOptions & { select: T }): ToJson<T>[];
-  jsonGroupArray<T extends { [key: string]: AllowedJson }>(options: WindowOptions & { select: T }): InterfaceToJson<T>[];
-  jsonGroupArray<T extends { [key: string]: AllowedJson }>(select: T): InterfaceToJson<T>[];
+  jsonGroupArray<T extends AllowedJson>(select: T): ToJson<T>[];
   jsonGroupObject<T extends AllowedJson>(key: DbString, value: T): Record<string, ToJson<T>>;
   jsonGroupObject<T extends AllowedJson>(options: WindowOptions & { key: DbString, value: T }): Record<string, ToJson<T>>;
 }
@@ -768,10 +766,12 @@ type Unwrap<T extends any[]> = {
   [K in keyof T]: T[K] extends Promise<infer U> ? U : T[K];
 }
 
+type WhereType = symbol | null | number | boolean | Date | WhereType[];
+
 interface SubqueryReturn {
   select: { [key: string | symbol]: SelectType };
-  join?: { [key: symbol]: symbol | { left?: symbol, right?: symbol, recursive?: symbol }};
-  where?: { [key: symbol]: symbol | null | number | boolean | Date };
+  join?: { [key: symbol]: symbol | { left?: symbol, right?: symbol }};
+  where?: { [key: symbol]: WhereType };
   groupBy?: symbol | symbol[];
   having?: { [key: symbol]: symbol };
   orderBy?: symbol | symbol[];
