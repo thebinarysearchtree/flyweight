@@ -59,9 +59,6 @@ class TursoDatabase extends Database {
   }
 
   async getTransaction(type) {
-    if (!this.initialized) {
-      await this.initialize();
-    }
     const db = await this.raw.transaction(type);
     return makeClient(this, { db });
   }
@@ -123,9 +120,6 @@ class TursoDatabase extends Database {
   }
 
   async run(props) {
-    if (!this.initialized) {
-      await this.initialize();
-    }
     let { query, params, adjusted, tx } = props;
     const isBatch = tx && tx.isBatch;
     if (props.statement && !isBatch) {
@@ -148,9 +142,6 @@ class TursoDatabase extends Database {
   }
 
   async all(props) {
-    if (!this.initialized) {
-      await this.initialize();
-    }
     let { query, params, options, adjusted, tx } = props;
     const isBatch = tx && tx.isBatch;
     if (props.statement && !isBatch) {

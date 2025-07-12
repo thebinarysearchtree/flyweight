@@ -92,7 +92,8 @@ const getObjectBody = (options) => {
         arg: value,
         requests
       });
-      items.push(valueArg.sql);
+      const sql = valueArg.type === 'json' ? `json(${valueArg.sql})` : valueArg.sql;
+      items.push(sql);
     }
     else {
       const statement = addParam({
@@ -207,7 +208,7 @@ const processMethod = (options) => {
   const isSymbol = typeof arg === 'symbol';
   const name = toDbName(method.name);
   const operator = operators.get(name);
-  let type = operator ? 'real' : (method.isCompare ? 'integer' : returnTypes[name]);
+  let type = operator ? 'real' : (method.isCompare ? 'boolean' : returnTypes[name]);
   if (method.isCompare) {
     const result = processArg({
       db,
@@ -230,7 +231,10 @@ const processMethod = (options) => {
       params,
       requests
     });
-    return `${selector} ${operator} ${toResult.sql}`;
+    return {
+      sql: `${selector} ${operator} ${toResult.sql}`,
+      type
+    }
   }
   if (['json_group_array', 'json_group_object', 'json_object'].includes(name)) {
     if (name === 'json_group_array') {
@@ -243,7 +247,8 @@ const processMethod = (options) => {
           params,
           requests
         });
-        sql = `${name}(${body.sql})`;
+        const bodySql = body.type === 'json' ? `json(${body.sql})` : body.sql;
+        sql = `${name}(${bodySql})`;
       }
       else {
         const select = arg.select ? arg.select : arg;
@@ -575,8 +580,7 @@ const makeProxy = (options) => {
   const {
     db,
     requests,
-    subqueries,
-    contextId
+    subqueries
   } = options;
   const existing = Object.keys(db.columns);
   const usedAliases = new Set(existing);
@@ -607,8 +611,7 @@ const makeProxy = (options) => {
           selector: `${tableAlias}.${property}`,
           type,
           isColumn: true,
-          tableAlias,
-          contextId
+          tableAlias
         });
         return symbol;
       },
@@ -639,7 +642,6 @@ const makeProxy = (options) => {
             sql: context.sql,
             params: context.params
           });
-          const contextId = Symbol();
           const handler = {
             get: function(target, property) {
               const symbol = Symbol();
@@ -649,8 +651,7 @@ const makeProxy = (options) => {
                 selector: `${tableAlias}.${property}`,
                 type,
                 isColumn: true,
-                tableAlias,
-                contextId
+                tableAlias
               });
               return symbol;
             },
@@ -678,8 +679,7 @@ const makeProxy = (options) => {
         const request = {
           name: property,
           isCompare,
-          args: null,
-          contextId
+          args: null
         };
         requests.set(symbol, request);
         return (...args) => {
@@ -693,8 +693,7 @@ const makeProxy = (options) => {
           isCompute,
           isWindow,
           args: null,
-          alias: null,
-          contextId
+          alias: null
         };
         requests.set(symbol, request);
         return (...args) => {
@@ -741,14 +740,12 @@ const replaceParams = (subqueries, sql, params) => {
 }
 
 const processQuery = (db, expression) => {
-  const contextId = Symbol();
   const requests = new Map();
   const subqueries = [];
   const proxy = makeProxy({
     db,
     requests,
-    subqueries,
-    contextId
+    subqueries
   });
   const params = {};
   const result = expression(proxy);

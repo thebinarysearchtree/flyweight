@@ -80,9 +80,6 @@ class Database {
   }
 
   async makeTypes(fileSystem, paths, sampleData) {
-    if (!this.initialized) {
-      await this.initialize();
-    }
     await createTypes({
       db: this,
       sqlDir: paths.sql,
@@ -98,17 +95,11 @@ class Database {
     return makeClient(this);
   }
 
-  async subquery(expression) {
-    if (!this.initialized) {
-      await this.initialize();
-    }
+  subquery(expression) {
     return processQuery(this, expression);
   }
 
   async query(expression) {
-    if (!this.initialized) {
-      await this.initialize();
-    }
     const { sql, params, post } = processQuery(this, expression);
     const rows = await this.all({
       query: sql,
@@ -189,9 +180,6 @@ class Database {
   }
 
   async getTables() {
-    if (!this.initialized) {
-      await this.initialize();
-    }
     const sql = await this.readTables();
     return this.convertTables(sql);
   }
@@ -213,9 +201,6 @@ class Database {
   }
 
   async createMigration(fileSystem, paths, name, reset) {
-    if (!this.initialized) {
-      await this.initialize();
-    }
     const sql = await migrate(fileSystem, paths, this, name, reset);
     return sql.trim();
   }

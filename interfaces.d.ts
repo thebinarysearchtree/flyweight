@@ -338,7 +338,7 @@ type DbNull = typeof dbNull1 | typeof dbNull2;
 type DbAny = DbNumber | DbString | DbBuffer | DbJson | DbDate | DbBoolean;
 type AnyParam = DbAny | DbNull;
 
-type AllowedJson = DbNumber | DbString | DbJson | DbDate | DbBoolean | DbNull;
+type AllowedJson = DbNumber | DbString | DbJson | DbDate | DbBoolean | DbNull | { [key: string]: AllowedJson } | AllowedJson[];
 type SelectType = AllowedJson | AllowedJson[] | SelectType[] | { [key: string | symbol]: AllowedJson };
 
 type NumberParam = number | null | DbNumber | DbNull;
@@ -467,6 +467,8 @@ interface WindowOptions {
 type ToJson<T> =
   T extends DbDate ? DbString :
   T extends DbBoolean ? DbNumber :
+  T extends (infer U)[] ? ToJson<U>[] :
+  T extends object ? InterfaceToJson<T> :
   T;
 
 type InterfaceToJson<T> = {
@@ -735,6 +737,7 @@ interface SQLitePaths extends Paths {
 
 declare class Database {
   constructor(options: DatabaseConfig);
+  initialize(): Promise<void>;
   runMigration(sql: string): Promise<void>;
   makeTypes(fileSystem: FileSystem, paths: Paths, sampleData?: boolean): Promise<void>;
   getClient(): TypedDb;
@@ -805,7 +808,7 @@ interface TypedDb {
   batch:<T extends any[]> (batcher: (bx: TypedDb) => T) => Promise<Unwrap<T>>;
   sync(): Promise<void>;
   query<S extends SelectType, K extends { select: { [key: string | symbol]: S }, optional?: { [key: string | symbol]: S }}, T extends (context: SubqueryContext) => K>(expression: T): Promise<ToJsType<ReturnType<T>['select'] & MakeOptional<NonNullable<ReturnType<T>['optional']>>>[]>;
-  subquery<S extends SelectType, K extends { select: { [key: string | symbol]: S }, optional?: { [key: string | symbol]: S }}, T extends (context: SubqueryContext) => K>(expression: T): Promise<ReturnType<T>['select'] & MakeOptional<NonNullable<ReturnType<T>['optional']>>>;
+  subquery<S extends SelectType, K extends { select: { [key: string | symbol]: S }, optional?: { [key: string | symbol]: S }}, T extends (context: SubqueryContext) => K>(expression: T): ReturnType<T>['select'] & MakeOptional<NonNullable<ReturnType<T>['optional']>>;
 }
 
 export const database: SQLiteDatabase;

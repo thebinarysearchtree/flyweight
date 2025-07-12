@@ -107,9 +107,6 @@ class SQLiteDatabase extends Database {
   }
 
   async getTransaction() {
-    if (!this.initialized) {
-      await this.initialize();
-    }
     const writer = await this.getWriter();
     const tx = { db: this.write, writer };
     return makeClient(this, tx);
@@ -145,9 +142,6 @@ class SQLiteDatabase extends Database {
   }
 
   async basicRun(sql, tx) {
-    if (!tx && !this.initialized) {
-      await this.initialize();
-    }
     const statement = this.write.prepare(sql);
     let lock;
     if (!tx) {
@@ -161,9 +155,6 @@ class SQLiteDatabase extends Database {
   }
 
   async basicAll(sql, tx) {
-    if (!tx && !this.initialized) {
-      await this.initialize();
-    }
     const client = this.getConnection(tx);
     const statement = client.prepare(sql);
     return statement.all();
@@ -205,9 +196,6 @@ class SQLiteDatabase extends Database {
   }
 
   async run(props) {
-    if (!this.initialized) {
-      await this.initialize();
-    }
     let { query, params, tx, adjusted } = props;
     if (params === null) {
       params = undefined;
@@ -246,9 +234,6 @@ class SQLiteDatabase extends Database {
   }
 
   async all(props) {
-    if (!this.initialized) {
-      await this.initialize();
-    }
     let { query, params, options, tx, write, adjusted } = props;
     if (params === null) {
       params = undefined;
@@ -291,9 +276,6 @@ class SQLiteDatabase extends Database {
   }
 
   async exec(tx, sql) {
-    if (!this.initialized) {
-      await this.initialize();
-    }
     let lock;
     if (!tx) {
       lock = await this.getWriter();

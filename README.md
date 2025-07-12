@@ -482,22 +482,39 @@ console.log(user.email);
 You can create queries programmatically inside JavaScript.
 
 ```js
-const events = await db.query(c => {
+const cards = db.subquery(c => {
+  const {
+    id,
+    eventId,
+    count
+  } = c.cards;
+  return {
+    select: {
+      eventId,
+      count: c.count()
+    },
+    groupBy: eventId
+  }
+});
+const events = await db.query(context => {
   const {
     locations: l,
     events: e,
     length,
     gt
-  } = c;
+  } = context;
+  const c = context.use(cards);
   const nameLength = length(e.name);
   return {
     select: {
       ...e,
       location: l.name,
-      nameLength
+      nameLength,
+      cards: c.count
     },
     join: {
-      [e.locationId]: l.id
+      [e.locationId]: l.id,
+      [e.id]: c.eventId
     },
     where: {
       [nameLength]: gt(20)
@@ -506,7 +523,7 @@ const events = await db.query(c => {
 });
 ```
 
-The object returned from the ```query``` method can include the following:
+The object returned from the ```query``` and ```subquery``` methods can include the following:
 
 ```select```, ```optional```, ```where```, ```groupBy```, ```having```, ```orderBy```, ```desc```, ```limit```, and ```offset```.
 
