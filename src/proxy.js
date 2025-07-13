@@ -173,7 +173,7 @@ const makeClient = (db, tx) => {
   const tableHandler = {
     get: function(target, table, dbClient) {
       if (table === 'query') {
-        return (expression) => db.query(expression);
+        return (expression) => db.query(expression, tx);
       }
       if (table === 'subquery') {
         return (expression) => db.subquery(expression);

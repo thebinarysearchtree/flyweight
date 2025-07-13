@@ -352,10 +352,9 @@ Transactions involve locking writes to the database with ```getTransaction```. I
 ```js
 import { db } from './db.js';
 
+const tx = await db.getTransaction();
 try {
-  const tx = await db.getTransaction();
   await tx.begin();
-
   const coachId = await tx.coaches.insert({
     name: 'Eugene Bareman',
     city: 'Auckland'
@@ -365,11 +364,9 @@ try {
     fighterId,
     coachId
   });
-  
   await tx.commit();
 }
 catch (e) {
-  console.log(e);
   await tx.rollback();
 }
 ```

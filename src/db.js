@@ -99,12 +99,25 @@ class Database {
     return processQuery(this, expression);
   }
 
-  async query(expression) {
+  async query(expression, tx) {
     const { sql, params, post } = processQuery(this, expression);
-    const rows = await this.all({
+    const options = {
       query: sql,
-      params
-    });
+      params,
+      tx
+    };
+    if (tx && tx.isBatch) {
+      const result = await this.all(options);
+      return {
+        statement: result.statement,
+        params: result.params,
+        post: (meta) => {
+          const response = result.post(meta);
+          return post(response);
+        }
+      }
+    }
+    const rows = await this.all(options);
     return post(rows);
   }
 

@@ -488,6 +488,9 @@ const toWhere = (options) => {
   } = options;
   const type = options.type || 'and';
   const statements = [];
+  if (Object.keys(where).length > 0) {
+    throw Error('The "where" clause has a string as a key');
+  }
   const whereKeys = Object.getOwnPropertySymbols(where);
   for (const symbol of whereKeys) {
     let selector;
