@@ -431,10 +431,23 @@ const processMethod = (options) => {
     params,
     requests
   }));
-  if (method.name === 'if' && method.args.length === 3) {
-    const [l, r] = processed.slice(1).map(p => p.type);
-    if (l === r) {
-      type = r;
+  if (method.name === 'if') {
+    const length = method.args.length;
+    if (length === 2) {
+      type = processed.map(p => p.type).at(1);
+    }
+    else if (length <= 13) {
+      const types = [];
+      for (let i = 1; i < processed.length; i += 2) {
+        types.push(processed[i].type);
+      }
+      if (length % 2 === 1) {
+        types.push(processed.at(-1).type);
+      }
+      const unique = new Set(types);
+      if (unique.size === 1) {
+        type = types.at(0);
+      }
     }
   }
   const statements = processed.map(p => p.sql);

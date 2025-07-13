@@ -357,6 +357,7 @@ type BufferResult = DbBuffer | DbNull;
 type DateParam = number | string | null | DbNumber | DbString | DbDate | DbNull;
 type DateResult = DbDate | DbNull;
 
+type BooleanParam = boolean | DbBoolean;
 type BooleanResult = DbBoolean | DbNull;
 
 type JsonParam = string | Buffer | null | DbString | DbBuffer | DbJson | DbNull;
@@ -364,6 +365,22 @@ type ExtractResult = DbString | DbNumber | DbNull;
 type JsonResult = DbJson | DbNull;
 
 type DbTypes = number | string | boolean | Date | Buffer | null;
+
+type IfOddArgs<T> = 
+  [BooleanParam, T, T] | 
+  [BooleanParam, T, BooleanParam, T, T] | 
+  [BooleanParam, T, BooleanParam, T, BooleanParam, T, T] | 
+  [BooleanParam, T, BooleanParam, T, BooleanParam, T, BooleanParam, T, T] | 
+  [BooleanParam, T, BooleanParam, T, BooleanParam, T, BooleanParam, T, BooleanParam, T, T] |
+  [BooleanParam, T, BooleanParam, T, BooleanParam, T, BooleanParam, T, BooleanParam, T, BooleanParam, T, T];
+
+type IfEvenArgs<T> = 
+  [BooleanParam, T] | 
+  [BooleanParam, T, BooleanParam, T] | 
+  [BooleanParam, T, BooleanParam, T, BooleanParam, T] | 
+  [BooleanParam, T, BooleanParam, T, BooleanParam, T, BooleanParam, T] | 
+  [BooleanParam, T, BooleanParam, T, BooleanParam, T, BooleanParam, T, BooleanParam, T] |
+  [BooleanParam, T, BooleanParam, T, BooleanParam, T, BooleanParam, T, BooleanParam, T, BooleanParam, T];
 
 interface ComputeMethods {
   abs(n: NumberParam): NumberResult;
@@ -377,7 +394,8 @@ interface ComputeMethods {
   concatWs(...args: any[]): DbString;
   format(format: StringParam, ...args: any[]): StringResult;
   glob(pattern: StringParam, value: StringParam): NumberResult;
-  if<T extends DbTypes | DbAny>(expression: DbBoolean, trueValue: T, falseValue: T): ToDbType<T>;
+  if<T extends DbTypes | DbAny>(...args: IfOddArgs<T>): ToDbType<T>;
+  if<T extends DbTypes | DbAny>(...args: IfEvenArgs<T>): ToDbType<T | null>;
   if(...args: any[]): AnyResult;
   instr(a: StringBufferParam, b: StringBufferParam): NumberResult;
   length(value: any): NumberResult;
@@ -534,8 +552,8 @@ interface SymbolMethods {
   percentRank(options?: WindowOptions): DbNumber;
   cumeDist(options?: WindowOptions): DbNumber;
   ntile(options: WindowOptions & { groups: number | DbNumber }): DbNumber;
-  lag<T extends DbAny>(options: WindowsOptions & LagOptions<T>): T;
-  lead<T extends DbAny>(options: WindowsOptions & LagOptions<T>): T;
+  lag<T extends DbAny>(options: WindowOptions & LagOptions<T>): T;
+  lead<T extends DbAny>(options: WindowOptions & LagOptions<T>): T;
   firstValue<T extends DbAny>(options: WindowOptions & { expression: T }): T;
   lastValue<T extends DbAny>(options: WindowOptions & { expression: T }): T;
   nthValue<T extends DbAny>(options: WindowOptions & { expression: T, row: number | DbNumber }): T;
@@ -768,7 +786,7 @@ type Unwrap<T extends any[]> = {
 
 type WhereType = symbol | null | number | boolean | Date | WhereType[];
 
-type JoinTuple = [symbol, symbol, 'left' | 'right'?];
+type JoinTuple = [symbol, symbol] | [symbol, symbol, 'left' | 'right'];
 
 interface SubqueryReturn {
   select: { [key: string | symbol]: SelectType };
