@@ -788,18 +788,6 @@ type WhereType = symbol | null | number | boolean | Date | WhereType[];
 
 type JoinTuple = [symbol, symbol] | [symbol, symbol, 'left' | 'right'];
 
-interface SubqueryReturn {
-  select: { [key: string | symbol]: SelectType };
-  join?: JoinTuple | [JoinTuple];
-  where?: { [key: symbol]: WhereType };
-  groupBy?: symbol | symbol[];
-  having?: { [key: symbol]: symbol };
-  orderBy?: symbol | symbol[];
-  offset?: number;
-  limit?: number;
-  as: string;
-}
-
 type QueryCompareTypes = Date | number | boolean | null | string | Buffer | symbol;
 
 type SubqueryContext = 
@@ -816,6 +804,12 @@ type MakeOptional<T> = {
     : T[K] | DbNull;
 };
 
+interface QueryReturn<S> {
+  select?: { [key: string | symbol]: S };
+  distinct?: { [key: string | symbol]: S };
+  optional?: { [key: string | symbol]: S };
+}
+
 interface TypedDb {
   [key: string]: any;
   exec(sql: string): Promise<void>;
@@ -827,8 +821,8 @@ interface TypedDb {
   getTransaction(type?: ('read' | 'write' | 'deferred')): Promise<TypedDb>;
   batch:<T extends any[]> (batcher: (bx: TypedDb) => T) => Promise<Unwrap<T>>;
   sync(): Promise<void>;
-  query<S extends SelectType, K extends { select: { [key: string | symbol]: S }, optional?: { [key: string | symbol]: S }}, T extends (context: SubqueryContext) => K>(expression: T): Promise<ToJsType<ReturnType<T>['select'] & MakeOptional<NonNullable<ReturnType<T>['optional']>>>[]>;
-  subquery<S extends SelectType, K extends { select: { [key: string | symbol]: S }, optional?: { [key: string | symbol]: S }}, T extends (context: SubqueryContext) => K>(expression: T): ReturnType<T>['select'] & MakeOptional<NonNullable<ReturnType<T>['optional']>>;
+  query<S extends SelectType, K extends QueryReturn<S>, T extends (context: SubqueryContext) => K>(expression: T): Promise<ToJsType<ReturnType<T>['select'] & ReturnType<T>['distinct'] & MakeOptional<NonNullable<ReturnType<T>['optional']>>>[]>;
+  subquery<S extends SelectType, K extends QueryReturn<S>, T extends (context: SubqueryContext) => K>(expression: T): ReturnType<T>['select'] & ReturnType<T>['distinct'] & MakeOptional<NonNullable<ReturnType<T>['optional']>>;
 }
 
 export const database: SQLiteDatabase;

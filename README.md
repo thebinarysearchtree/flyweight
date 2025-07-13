@@ -521,9 +521,11 @@ const events = await db.query(c => {
 
 The object returned from the ```query``` and ```subquery``` methods can include the following:
 
-```select```, ```optional```, ```where```, ```groupBy```, ```having```, ```orderBy```, ```desc```, ```limit```, and ```offset```.
+```select```, ```optional```, ```distinct```, ```where```, ```groupBy```, ```having```, ```orderBy```, ```desc```, ```limit```, and ```offset```.
 
 ```optional```: the same as ```select``` but provides hints to TypeScript that these columns may be ```null```. This is useful for columns that come from a left join.
+
+```distinct```: used instead of ```select``` when you want the results to be distinct.
 
 ```join```: a tuple or array of tuples representing the keys to join on. For a left or right join, you can use:
 

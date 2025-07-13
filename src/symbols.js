@@ -797,7 +797,7 @@ const processQuery = (db, expression) => {
     offset,
     limit
   } = result;
-  const select = { ...result.select, ...result.optional };
+  const select = { ...result.select, ...result.distinct, ...result.optional };
   const used = new Set();
   let first;
   let join;
@@ -818,6 +818,9 @@ const processQuery = (db, expression) => {
     used.add(first.table);
   }
   let sql = 'select ';
+  if (result.distinct) {
+    sql += 'distinct ';
+  }
   const statements = [];
   const parsers = {};
   const columnTypes = {};
