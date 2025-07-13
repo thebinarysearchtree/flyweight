@@ -433,10 +433,7 @@ const processMethod = (options) => {
   }));
   if (method.name === 'if') {
     const length = method.args.length;
-    if (length === 2) {
-      type = processed.map(p => p.type).at(1);
-    }
-    else if (length <= 13) {
+    if (length <= 13) {
       const types = [];
       for (let i = 1; i < processed.length; i += 2) {
         types.push(processed[i].type);
@@ -528,7 +525,12 @@ const toWhere = (options) => {
           params,
           requests
         });
-        statements.push(`${selector} ${operator} ${result.sql}`);
+        if (name === 'not' && Array.isArray(param)) {
+          statements.push(`${selector} not in (select json_each.value from json_each(${result.sql}))`);
+        }
+        else {
+          statements.push(`${selector} ${operator} ${result.sql}`);
+        }
       }
     }
     else if (valueRequest && !valueRequest.isColumn) {
@@ -552,7 +554,12 @@ const toWhere = (options) => {
         params,
         value
       });
-      statements.push(`${selector} = ${statement}`);
+      if (Array.isArray(value)) {
+        statements.push(`${selector} in (select json_each.value from json_each(${statement}))`);
+      }
+      else {
+        statements.push(`${selector} = ${statement}`);
+      }
     }
   }
   for (const type of ['and', 'or']) {
