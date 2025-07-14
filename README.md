@@ -476,10 +476,10 @@ console.log(user.email);
 
 ## SQL queries in JavaScript
 
-You can create queries programmatically inside JavaScript.
+You can create queries programmatically inside JavaScript. You can also create subqueries that can be used inside other queries.
 
 ```js
-const cards = db.subquery(c => {
+const cardsQuery = db.subquery(c => {
   const {
     id,
     eventId,
@@ -493,22 +493,27 @@ const cards = db.subquery(c => {
     groupBy: eventId
   }
 });
+```
+
+Once we defined the ```cardsQuery```, we can use it in the main query:
+
+```js
 const events = await db.query(c => {
   const {
     locations: l,
     events: e
   } = c;
-  const ca = context.use(cards);
+  const cards = context.use(cardsQuery);
   const nameLength = c.length(e.name);
   const join = [
     [e.locationId, l.id],
-    [e.id, ca.eventId]
+    [e.id, cards.eventId]
   ];
   return {
     select: {
       ...e,
       location: l.name,
-      cards: ca.count,
+      cards: cards.count,
       nameLength,
     },
     join,
@@ -526,6 +531,23 @@ The object returned from the ```query``` and ```subquery``` methods can include 
 ```optional```: the same as ```select``` but provides hints to TypeScript that these columns may be ```null```. This is useful for columns that come from a left join.
 
 ```distinct```: used instead of ```select``` when you want the results to be distinct.
+
+```select```, ```distinct```, and ```optional``` can also be single values instead of objects. This will mean the return type is an array of values instead of an array of objects.
+
+For example:
+
+```js
+const eventIds = await db.query(c => {
+  const { id, startTime } = c.events;
+  const now = new Date();
+  return {
+    select: id,
+    where: {
+      [startTime]: c.gt(now)
+    }
+  }
+});
+```
 
 ```join```: a tuple or array of tuples representing the keys to join on. For a left or right join, you can use:
 

@@ -797,7 +797,15 @@ const processQuery = (db, expression) => {
     offset,
     limit
   } = result;
-  const select = { ...result.select, ...result.distinct, ...result.optional };
+  const properties = [result.select, result.distinct, result.optional].filter(p => p !== undefined);
+  const valueReturn = properties.every(p => typeof p === 'symbol');
+  let select;
+  if (valueReturn) {
+    select = { valueReturn: properties.at(0) };
+  }
+  else {
+    select = { ...result.select, ...result.distinct, ...result.optional };
+  }
   const used = new Set();
   let first;
   let join;
@@ -929,20 +937,22 @@ const processQuery = (db, expression) => {
     }
   }
   if (offset) {
-    const placeholder = addParam({
+    const result = processArg({
       db,
+      arg: offset,
       params,
-      value: offset
+      requests
     });
-    sql += ` offset ${placeholder}`;
+    sql += ` offset ${result.sql}`;
   }
   if (limit) {
-    const placeholder = addParam({
+    const result = processArg({
       db,
+      arg: limit,
       params,
-      value: limit
+      requests
     });
-    sql += ` limit ${placeholder}`;
+    sql += ` limit ${result.sql}`;
   }
   const post = (rows) => {
     if (Object.keys(parsers).length > 0) {
@@ -952,6 +962,9 @@ const processQuery = (db, expression) => {
           row[key] = parser(row[key]);
         }
       }
+    }
+    if (valueReturn) {
+      return rows.map(r => r.valueReturn);
     }
     return rows;
   }

@@ -804,11 +804,34 @@ type MakeOptional<T> = {
     : T[K] | DbNull;
 };
 
-interface QueryReturn<S> {
+interface QueryReturn {
+  where?: { [key: symbol]: any };
+  join?: JoinTuple;
+  groupBy?: symbol | symbol[];
+  having?: { [key: symbol]: any };
+  orderBy?: symbol | symbol[];
+  desc?: true;
+  offset?: symbol | number;
+  limit?: symbol | number;
+}
+
+interface ObjectReturn<S> extends QueryReturn {
   select?: { [key: string | symbol]: S };
   distinct?: { [key: string | symbol]: S };
   optional?: { [key: string | symbol]: S };
 }
+
+interface ValueReturn<S> extends QueryReturn {
+  select?: S;
+  distinct?: S;
+  optional?: S;
+}
+
+type GetDefined<T> =
+  T extends { select: infer V } ? ToJsType<V> :
+  T extends { distinct: infer V } ? ToJsType<V> :
+  T extends { optional: infer V } ? ToJsType<V> | null :
+  never;
 
 interface TypedDb {
   [key: string]: any;
@@ -821,8 +844,9 @@ interface TypedDb {
   getTransaction(type?: ('read' | 'write' | 'deferred')): Promise<TypedDb>;
   batch:<T extends any[]> (batcher: (bx: TypedDb) => T) => Promise<Unwrap<T>>;
   sync(): Promise<void>;
-  query<S extends SelectType, K extends QueryReturn<S>, T extends (context: SubqueryContext) => K>(expression: T): Promise<ToJsType<ReturnType<T>['select'] & ReturnType<T>['distinct'] & MakeOptional<NonNullable<ReturnType<T>['optional']>>>[]>;
-  subquery<S extends SelectType, K extends QueryReturn<S>, T extends (context: SubqueryContext) => K>(expression: T): ReturnType<T>['select'] & ReturnType<T>['distinct'] & MakeOptional<NonNullable<ReturnType<T>['optional']>>;
+  query<S extends SelectType, K extends ValueReturn<S>, T extends (context: SubqueryContext) => K>(expression: T): Promise<GetDefined<ReturnType<T>>[]>;
+  query<S extends SelectType, K extends ObjectReturn<S>, T extends (context: SubqueryContext) => K>(expression: T): Promise<ToJsType<ReturnType<T>['select'] & ReturnType<T>['distinct'] & MakeOptional<NonNullable<ReturnType<T>['optional']>>>[]>;
+  subquery<S extends SelectType, K extends ObjectReturn<S>, T extends (context: SubqueryContext) => K>(expression: T): ReturnType<T>['select'] & ReturnType<T>['distinct'] & MakeOptional<NonNullable<ReturnType<T>['optional']>>;
 }
 
 export const database: SQLiteDatabase;
