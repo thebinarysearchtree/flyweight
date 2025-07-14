@@ -495,7 +495,7 @@ const cardsQuery = db.subquery(c => {
 });
 ```
 
-Once we defined the ```cardsQuery```, we can use it in the main query:
+Once ```cardsQuery``` is defined, we can use it in the main query:
 
 ```js
 const events = await db.query(c => {
