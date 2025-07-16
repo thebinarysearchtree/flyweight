@@ -784,10 +784,6 @@ type Unwrap<T extends any[]> = {
   [K in keyof T]: T[K] extends Promise<infer U> ? U : T[K];
 }
 
-type WhereType = symbol | null | number | boolean | Date | WhereType[];
-
-type JoinTuple = [symbol, symbol] | [symbol, symbol, 'left' | 'right'];
-
 type QueryCompareTypes = Date | number | boolean | null | string | Buffer | symbol;
 
 type SubqueryContext = 

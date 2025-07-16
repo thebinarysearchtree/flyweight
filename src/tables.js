@@ -6,6 +6,10 @@ const modifiers = [
   ['Unique', { unique: true }, 'before']
 ];
 
+const removeCapital = (name) => {
+  return name.at(0).toLowerCase() + name.substring(1);
+}
+
 class Table {
   static requests = new Map();
 
@@ -22,22 +26,6 @@ class Table {
               type,
               notNull: true,
               ...props
-            });
-            return symbol;
-          }
-        });
-      }
-    }
-    for (const type of ['Delete', 'Update']) {
-      for (const action of ['NoAction', 'Restrict', 'SetNull', 'SetDefault', 'Cascade']) {
-        const key = `On${type}${action}`;
-        Object.defineProperty(Table, key, {
-          get: function() {
-            const symbol = Symbol();
-            Table.requests.set(symbol, {
-              category: 'ForeignKey',
-              table: this.name,
-              type: key
             });
             return symbol;
           }
@@ -78,6 +66,23 @@ class Table {
   }
 }
 
+for (const type of ['Delete', 'Update']) {
+  for (const action of ['NoAction', 'Restrict', 'SetNull', 'SetDefault', 'Cascade']) {
+    const key = `On${type}${action}`;
+    Object.defineProperty(Table, key, {
+      get: function() {
+        const symbol = Symbol();
+        Table.requests.set(symbol, {
+          category: 'ForeignKey',
+          table: removeCapital(this.name),
+          type: key
+        });
+        return symbol;
+      }
+    });
+  }
+}
+
 class Locations extends Table {
   id = this.IntPrimaryKey;
   name = this.Text;
@@ -100,9 +105,15 @@ class Events extends Table {
   }
 }
 
-const process = (Custom) => {
+const process = (Custom, tables) => {
   const instance = new Custom();
-  const columns = [];
+  const table = {
+    columns: [],
+    indexes: [],
+    primaryKeys: []
+  };
+  const columnSymbols = new Map();
+  const literals = new Map();
   const keys = Object
     .getOwnPropertyNames(instance)
     .filter(k => /[a-z]/.test(k.at(0)));
@@ -111,22 +122,104 @@ const process = (Custom) => {
     const valueType = typeof value;
     if (valueType === 'symbol') {
       const request = Table.requests.get(value);
-      const { category, ...column } = request;
-      columns.push({
+      const { category, primaryKey, ...column } = request;
+      if (primaryKey) {
+        table.primaryKeys.push(key);
+      }
+      const data = {
         name: key,
         ...column
-      });
+      };
+      table.columns.push(data);
+      columnSymbols.set(value, data);
     }
     else {
-      columns.push({
+      if (literals.has(value)) {
+        throw Error('Cannot use the same default value more than once');
+      }
+      let type = valueType.toLowerCase();
+      if (valueType === 'string') {
+        type = 'text';
+      }
+      else if (valueType === 'number') {
+        if (Number.isInteger(value)) {
+          type = 'integer';
+        }
+        else {
+          type = 'real';
+        }
+      }
+      else if (value instanceof Date) {
+        type = 'date';
+      }
+      else {
+        throw Error('Unsupported default type');
+      }
+      const column = {
         name: key,
-        type: 'text',
+        type,
         notNull: true,
         default: value
-      });
+      };
+      literals.set(value, column);
+      table.columns.push(column);
     }
   }
-  const attributes = instance.Attributes;
+  const attributes = instance.Attributes || {};
+  const symbols = Object.getOwnPropertySymbols(attributes);
+  for (const symbol of symbols) {
+    const value = attributes[symbol];
+    const keyRequest = Table.requests.get(symbol);
+    const valueRequest = Table.requests.get(value);
+    const column = columnSymbols.get(symbol);
+    const valueTable = tables.find(t => t === value);
+    if (column) {
+      if (valueRequest) {
+        const category = valueRequest.category;
+        if (category === 'ForeignKey') {
+          column.references = valueRequest.table;
+          column.action = valueRequest
+            .type
+            .replaceAll(/([a-z])([A-Z])/gm, '$1 $2')
+            .toLowerCase();
+        }
+        else if (category === 'DataType') {
+          column.default = valueRequest.default;
+        }
+      }
+      else if (valueTable) {
+        column.references = valueTable.name;
+      }
+    }
+    else if (keyRequest) {
+      const category = keyRequest.category;
+      if (category === 'Default') {
+        const [columnSymbol, defaultValue] = value;
+        const column = columnSymbols.get(columnSymbol) || literals.get(columnSymbol);
+        column.default = defaultValue;
+      }
+      else if (category === 'Unique') {
+        const values = Array.isArray(value) ? value : [value];
+        const columns = values.map(v => columnSymbols.get(v).name);
+        table.indexes.push({
+          type: 'unique',
+          columns
+        });
+      }
+      else if (category === 'Index') {
+        const values = Array.isArray(value) ? value : [value];
+        const columns = values.map(v => columnSymbols.get(v).name);
+        table.indexes.push({ columns });
+      }
+      else if (category === 'PrimaryKey') {
+        const values = Array.isArray(value) ? value : [value];
+        const columns = values.map(v => columnSymbols.get(v).name);
+        table.primaryKeys.push(...columns);
+      }
+    }
+  }
+  console.log(table);
 }
 
-process(Events);
+process(Events, [Locations, Events]);
+process(Locations, [Locations, Events]);
