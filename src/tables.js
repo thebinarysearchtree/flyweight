@@ -18,12 +18,13 @@ class Table {
       for (const modifier of modifiers) {
         const [word, props, position] = modifier;
         const key = position === 'before' ? `${word}${type}` : `${type}${word}`;
+        const adjustedType = type === 'Int' ? 'integer' : type.toLowerCase();
         Object.defineProperty(this, key, {
           get: function() {
             const symbol = Symbol();
             Table.requests.set(symbol, {
               category: 'DataType',
-              type,
+              type: adjustedType,
               notNull: true,
               ...props
             });
@@ -107,7 +108,9 @@ class Events extends Table {
 
 const process = (Custom, tables) => {
   const instance = new Custom();
+  const name = removeCapital(Custom.name);
   const table = {
+    name,
     columns: [],
     indexes: [],
     primaryKeys: []
@@ -218,8 +221,50 @@ const process = (Custom, tables) => {
       }
     }
   }
-  console.log(table);
+  return table;
 }
 
-process(Events, [Locations, Events]);
-process(Locations, [Locations, Events]);
+const typeMap = {
+  date: 'text',
+  boolean: 'integer',
+  json: 'blob'
+};
+
+const toSql = (table) => {
+  const { 
+    name, 
+    columns, 
+    indexes, 
+    primaryKeys 
+  } = table;
+  let sql = `create table ${name} (\n`;
+  for (const column of columns) {
+    const type = typeMap[column.type] || column.type;
+    const notNull = column.notNull ? ' not null' : '';
+    let defaultClause = '';
+    sql += `  ${column.name} ${type}${notNull}${defaultClause},\n`;
+  }
+  if (primaryKeys.length > 0) {
+    sql += `  primary key (${primaryKeys.join(', ')})\n`;
+  }
+  if (sql.endsWith(',')) {
+    sql = sql.slice(0, -1);
+  }
+  sql += ') strict;\n\n';
+  for (const index of indexes) {
+    const { columns, type } = index;
+    columns.sort();
+    const indexName = `${name}${type ? `_${type}` : ''}_${columns.join('_')}`;
+    let indexSql = `create `;
+    if (type === 'unique') {
+      indexSql += 'unique ';
+    }
+    indexSql += `index ${indexName} on ${name} (${columns.join(', ')});\n`;
+    sql += indexSql;
+  }
+  return sql;
+}
+
+const table = process(Events, [Locations, Events]);
+console.log(table);
+console.log(toSql(table));
