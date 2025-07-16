@@ -484,7 +484,6 @@ interface WindowOptions {
 
 type ToJson<T> =
   T extends DbDate ? DbString :
-  T extends DbBoolean ? DbNumber :
   T extends (infer U)[] ? ToJson<U>[] :
   T extends object ? InterfaceToJson<T> :
   T;
@@ -559,6 +558,7 @@ interface SymbolMethods {
   nthValue<T extends DbAny>(options: WindowOptions & { expression: T, row: number | DbNumber }): T;
   group<T extends AllowedJson>(options: WindowOptions & { select: T }): ToJson<T>[];
   group<T extends AllowedJson>(select: T): ToJson<T>[];
+  group<T>(select: ToDbInterface<T>): ToJson<T>[];
   group<T extends AllowedJson>(key: DbString, value: T): Record<string, ToJson<T>>;
   group<T extends AllowedJson>(options: WindowOptions & { key: DbString, value: T }): Record<string, ToJson<T>>;
 }
@@ -805,20 +805,26 @@ type MakeOptional<T> = {
 };
 
 interface QueryReturn {
-  where?: { [key: symbol]: any };
-  join?: JoinTuple;
-  groupBy?: symbol | symbol[];
-  having?: { [key: symbol]: any };
-  orderBy?: symbol | symbol[];
-  desc?: true;
-  offset?: symbol | number;
-  limit?: symbol | number;
+  where?: any;
+  join?: any;
+  groupBy?: any;
+  having?: any;
+  orderBy?: any;
+  desc?: any;
+  offset?: any;
+  limit?: any;
 }
 
 interface ObjectReturn<S> extends QueryReturn {
   select?: { [key: string | symbol]: S };
   distinct?: { [key: string | symbol]: S };
   optional?: { [key: string | symbol]: S };
+}
+
+interface TableReturn<S, D, O> extends QueryReturn {
+  select?: ToDbInterface<S>;
+  distinct?: ToDbInterface<D>;
+  optional?: ToDbInterface<O>;
 }
 
 interface ValueReturn<S> extends QueryReturn {
@@ -828,10 +834,15 @@ interface ValueReturn<S> extends QueryReturn {
 }
 
 type GetDefined<T> =
-  T extends { select: infer V } ? ToJsType<V> :
-  T extends { distinct: infer V } ? ToJsType<V> :
-  T extends { optional: infer V } ? ToJsType<V> | null :
-  never;
+  (T extends { select: infer V }
+    ? ToJsType<V> : never) |
+  (T extends { distinct: infer V }
+    ? ToJsType<V> : never) |
+  (T extends { optional: infer V }
+    ? V extends ToDbInterface<infer _>
+      ? ToJsType<MakeOptional<NonNullable<V>>>
+      : ToJsType<V> | null
+    : never);
 
 interface TypedDb {
   [key: string]: any;

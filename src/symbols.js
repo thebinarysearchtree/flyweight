@@ -48,7 +48,8 @@ const processArg = (options) => {
     db,
     arg,
     params,
-    requests
+    requests,
+    inJson
   } = options;
   const request = requests.get(arg);
   if (request && !request.isColumn) {
@@ -60,9 +61,19 @@ const processArg = (options) => {
     });
   }
   else if (request && request.isColumn) {
+    let sql = request.selector;
+    const type = request.type;
+    if (inJson) {
+      if (type === 'boolean') {
+        sql = `iif(${request.selector} = 1, json('true'), ${request.selector} = 0, json('false'))`;
+      }
+      else if (type === 'json') {
+        sql = `json(${request.selector})`;
+      }
+    }
     return {
-      sql: request.selector,
-      type: request.type
+      sql,
+      type
     };
   }
   const sql = addParam({
@@ -81,6 +92,7 @@ const getObjectBody = (options) => {
   const {
     db,
     select,
+    params,
     requests
   } = options;
   const items = [];
@@ -90,10 +102,10 @@ const getObjectBody = (options) => {
       const valueArg = processArg({
         db,
         arg: value,
-        requests
+        requests,
+        inJson: true
       });
-      const sql = valueArg.type === 'json' ? `json(${valueArg.sql})` : valueArg.sql;
-      items.push(sql);
+      items.push(valueArg.sql);
     }
     else {
       const statement = addParam({
@@ -239,19 +251,38 @@ const processMethod = (options) => {
   if (['json_group_array', 'json_group_object', 'json_object'].includes(name)) {
     if (name === 'json_group_array') {
       let sql;
-      const valueArg = isSymbol ? arg : (typeof arg.select === 'symbol' ? arg.select : null);
-      if (valueArg) {
+      const argRequest = requests.get(arg);
+      const selectRequest = !argRequest && requests.get(arg.select);
+      const request = argRequest || selectRequest;
+      const argIsProxy = argRequest && argRequest.isProxy;
+      const isProxy = request && request.isProxy;
+      let valueArg;
+      if (!isProxy) {
+        valueArg = isSymbol ? arg : (typeof arg.select === 'symbol' ? arg.select : null);
+      }
+      if (!isProxy && valueArg) {
         const body = processArg({
           db,
           arg: valueArg,
           params,
-          requests
+          requests,
+          inJson: true
         });
-        const bodySql = body.type === 'json' ? `json(${body.sql})` : body.sql;
-        sql = `${name}(${bodySql})`;
+        sql = `${name}(${body.sql})`;
       }
       else {
-        const select = arg.select ? arg.select : arg;
+        let select;
+        if (isProxy) {
+          if (argIsProxy) {
+            select = { ...arg };
+          }
+          else {
+            select = { ...arg.select };
+          }
+        }
+        else {
+          select = arg.select ? arg.select : arg;
+        }
         const body = getObjectBody({
           db,
           select,
@@ -260,7 +291,7 @@ const processMethod = (options) => {
         });
         sql = `${name}(json_object(${body}))`;
       }
-      if (arg.select) {
+      if (!argIsProxy && arg.select) {
         const clause = processWindow({
           db,
           query: arg,
@@ -668,6 +699,7 @@ const makeProxy = (options) => {
       }
     };
     const proxy = new Proxy({}, handler);
+    requests.set(proxy, { isProxy: true });
     return proxy;
   }
   const handler = {
@@ -707,7 +739,9 @@ const makeProxy = (options) => {
               return undefined;
             }
           }
-          return new Proxy({}, handler);
+          const proxy = new Proxy({}, handler);
+          requests.set(proxy, { isProxy: true });
+          return proxy;
         }
       }
       const isCompare = compareMethods.includes(property);
@@ -811,7 +845,7 @@ const processQuery = (db, expression) => {
   let join;
   if (result.join) {
     if (Array.isArray(result.join[0])) {
-      join = result.join
+      join = result.join;
     }
     else {
       join = [result.join];
