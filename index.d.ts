@@ -506,10 +506,6 @@ interface Compute<T> {
   [key: string]: (column: T, method: ComputeMethods) => void;
 }
 
-interface Tables {
-  name: string;
-}
-
 interface VirtualQueries<T, W> {
   [key: string]: any;
   get(params?: W | null): Promise<T | undefined>;
@@ -742,7 +738,7 @@ type DbNull = typeof dbNull1 | typeof dbNull2;
 type DbAny = DbNumber | DbString | DbBuffer | DbJson | DbDate | DbBoolean;
 type AnyParam = DbAny | DbNull;
 
-type AllowedJson = DbNumber | DbString | DbJson | DbDate | DbBoolean | DbNull | { [key: string]: AllowedJson } | AllowedJson[];
+type AllowedJson = PkNumber | PkBuffer | PkDate | PkString | DbNumber | DbString | DbJson | DbDate | DbBoolean | DbNull | { [key: string]: AllowedJson } | AllowedJson[];
 type SelectType = AllowedJson | AllowedJson[] | SelectType[] | { [key: string | symbol]: AllowedJson };
 
 type NumberParam = number | null | DbNumber | DbNull;
@@ -832,14 +828,20 @@ type MakeClient<T extends { [key: string]: abstract new (...args: any) => any }>
     : never]: ToQuery<MakeClient<T>, ExtractColumns<InstanceType<T[K]>>>;
 };
 
+type MakeContext<T extends { [key: string]: abstract new (...args: any) => any }> = {
+  [K in keyof T as K extends string
+    ? `${Uncapitalize<K>}`
+    : never]: ExtractColumns<InstanceType<T[K]>>;
+};
+
 type Unwrap<T extends any[]> = {
   [K in keyof T]: T[K] extends Promise<infer U> ? U : T[K];
 }
 
 type QueryCompareTypes = Date | number | boolean | null | string | Buffer | symbol;
 
-type SubqueryContext = 
-  Tables &
+type SubqueryContext<C> = 
+  C &
   CompareMethods<QueryCompareTypes> &
   SymbolCompareMethods<QueryCompareTypes> &
   ComputeMethods &
@@ -902,9 +904,9 @@ interface TypedDb {
   getTransaction(type?: ('read' | 'write' | 'deferred')): Promise<this>;
   batch:<T extends any[]> (batcher: (bx: TypedDb) => T) => Promise<Unwrap<T>>;
   sync(): Promise<void>;
-  query<S extends SelectType, K extends ValueReturn<S>, T extends (context: SubqueryContext) => K>(expression: T): Promise<GetDefined<ReturnType<T>>[]>;
-  query<S extends SelectType, K extends ObjectReturn<S>, T extends (context: SubqueryContext) => K>(expression: T): Promise<ToJsType<ReturnType<T>['select'] & ReturnType<T>['distinct'] & MakeOptional<NonNullable<ReturnType<T>['optional']>>>[]>;
-  subquery<S extends SelectType, K extends ObjectReturn<S>, T extends (context: SubqueryContext) => K>(expression: T): ReturnType<T>['select'] & ReturnType<T>['distinct'] & MakeOptional<NonNullable<ReturnType<T>['optional']>>;
+  query<S extends SelectType, K extends ValueReturn<S>, T extends (context: SubqueryContext<this['context']>) => K>(expression: T): Promise<GetDefined<ReturnType<T>>[]>;
+  query<S extends SelectType, K extends ObjectReturn<S>, T extends (context: SubqueryContext<this['context']>) => K>(expression: T): Promise<ToJsType<ReturnType<T>['select'] & ReturnType<T>['distinct'] & MakeOptional<NonNullable<ReturnType<T>['optional']>>>[]>;
+  subquery<S extends SelectType, K extends ObjectReturn<S>, T extends (context: SubqueryContext<['context']>) => K>(expression: T): ReturnType<T>['select'] & ReturnType<T>['distinct'] & MakeOptional<NonNullable<ReturnType<T>['optional']>>;
 }
 
 export class Table {
@@ -960,7 +962,7 @@ export class Database {
   initialize(): Promise<void>;
   runMigration(sql: string): Promise<void>;
   makeTypes(fileSystem: FileSystem, paths: Paths, sampleData?: boolean): Promise<void>;
-  getClient<T, C extends { [key: string]: T }>(classes: C): TypedDb & MakeClient<C>;
+  getClient<T, C extends { [key: string]: T }>(classes: C): TypedDb & MakeClient<C> & { context: MakeContext<C> };
   getTables(): Promise<string>;
   createMigration(fileSystem: FileSystem, paths: Paths, name: string, reset?: boolean): Promise<string>;
   run(args: { query: any, params?: any }): Promise<number>;
