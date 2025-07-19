@@ -181,16 +181,25 @@ const parsers = [
   },
   {
     name: 'Function pattern',
-    pattern: /^(?<functionName>[a-z0-9_]+)\s*\(.+?(\s+as\s+(?<columnAlias>[a-z0-9_]+))?$/mid,
+    pattern: /^(?<functionName>[a-z0-9_]+)\s*\(.+(\s+as\s+(?<columnAlias>[a-z0-9_]+))?$/mid,
     pre: (statement) => blank(statement),
     extractor: (groups) => {
       const { functionName, columnAlias } = groups;
       const type = returnTypes[functionName] || 'any';
+      if (columnName !== undefined && isNumber(columnName)) {
+        return {
+          tableAlias,
+          type,
+          functionName
+        }
+      }
       return {
-        name: columnAlias,
+        tableAlias,
+        columnName,
         columnAlias,
         type,
-        functionName
+        functionName,
+        notNull
       };
     }
   },

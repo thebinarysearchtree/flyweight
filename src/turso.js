@@ -8,34 +8,6 @@ class TursoDatabase extends Database {
     this.raw = props.db;
   }
 
-  async initialize() {
-    if (this.initialized) {
-      return;
-    }
-    await this.setTables();
-    await this.setVirtual();
-    await this.setViews();
-    await this.setComputed();
-    this.initialized = true;
-  }
-
-  async readQuery(table, queryName) {
-    const path = this.adaptor.join(this.paths.sql, table, `${queryName}.sql`);
-    return await this.adaptor.readFile(path, 'utf8');
-  }
-
-  async readTables() {
-    return await this.adaptor.readSql(this.paths.tables);
-  }
-
-  async readViews() {
-    return await this.adaptor.readSql(this.paths.views);
-  }
-
-  async readComputed() {
-    return await this.adaptor.readFile(this.paths.computed, 'utf8');
-  }
-
   async runMigration(sql) {
     const defer = 'pragma defer_foreign_keys = true';
     const split = sql.split(';').filter(s => s.length > 2);
@@ -46,16 +18,6 @@ class TursoDatabase extends Database {
     catch (e) {
       throw e;
     }
-  }
-
-  async getSample(table, column) {
-    const sql = `select json(${column}) as ${column} from ${table} limit 100`;
-    const statement = {
-      sql,
-      args: {}
-    };
-    const meta = await this.raw.execute(statement);
-    return meta.rows.map(r => JSON.parse(r[column]));
   }
 
   async getTransaction(type) {

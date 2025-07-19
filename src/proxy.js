@@ -42,24 +42,6 @@ const basic = {
   remove: (database, table, tx) => async (query) => await remove(database, table, query, tx)
 }
 
-const convertItem = (item, converters) => {
-  for (const converter of converters) {
-    const keys = converter.keys;
-    const count = keys.length;
-    let i = 0;
-    let actual = item;
-    for (const key of keys) {
-      if (i + 1 === count) {
-        if (actual[key] !== null) {
-          actual[key] = converter.converter(actual[key]);
-        }
-      }
-      actual = actual[key];
-      i++;
-    }
-  }
-}
-
 const getConverters = (key, value, db, converters, keys = [], optional = []) => {
   keys.push(key);
   if (typeof value.type === 'string') {

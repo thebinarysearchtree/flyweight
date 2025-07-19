@@ -198,9 +198,6 @@ const upsert = async (db, table, options, tx) => {
 }
 
 const insert = async (db, table, values, tx) => {
-  if (!db.initialized) {
-    await db.initialize();
-  }
   const columns = Object.keys(values);
   verify(columns);
   const adjusted = adjust(db, table, values);

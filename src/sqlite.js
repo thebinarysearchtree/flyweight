@@ -38,28 +38,7 @@ class SQLiteDatabase extends Database {
     }
     this.read = await this.createDatabase();
     this.write = await this.createDatabase();
-    await this.setTables();
-    await this.setVirtual();
-    await this.setViews();
-    await this.setComputed();
     this.initialized = true;
-  }
-
-  async readQuery(table, queryName) {
-    const path = this.adaptor.join(this.paths.sql, table, `${queryName}.sql`);
-    return await this.adaptor.readFile(path, 'utf8');
-  }
-
-  async readTables() {
-    return await this.adaptor.readSql(this.paths.tables);
-  }
-
-  async readViews() {
-    return await this.adaptor.readSql(this.paths.views);
-  }
-
-  async readComputed() {
-    return await this.adaptor.readFile(this.paths.computed, 'utf8');
   }
 
   async runMigration(sql) {
@@ -74,11 +53,6 @@ class SQLiteDatabase extends Database {
       await tx.rollback();
       throw e;
     }
-  }
-
-  async getSample(table, column) {
-    const sql = `select json(${column}) as ${column} from ${table} limit 100`;
-    return this.read.prepare(sql).all().map(r => JSON.parse(r[column]));
   }
 
   async createDatabase() {
@@ -142,6 +116,9 @@ class SQLiteDatabase extends Database {
   }
 
   async basicRun(sql, tx) {
+    if (!this.initialize) {
+      await this.initialize();
+    }
     const statement = this.write.prepare(sql);
     let lock;
     if (!tx) {
@@ -155,12 +132,18 @@ class SQLiteDatabase extends Database {
   }
 
   async basicAll(sql, tx) {
+    if (!this.initialize) {
+      await this.initialize();
+    }
     const client = this.getConnection(tx);
     const statement = client.prepare(sql);
     return statement.all();
   }
 
   async insertBatch(inserts) {
+    if (!this.initialize) {
+      await this.initialize();
+    }
     const lock = await this.getWriter();
     const inserted = this.write.transaction(() => {
       for (const insert of inserts) {
@@ -196,6 +179,9 @@ class SQLiteDatabase extends Database {
   }
 
   async run(props) {
+    if (!this.initialize) {
+      await this.initialize();
+    }
     let { query, params, tx, adjusted } = props;
     if (params === null) {
       params = undefined;
@@ -234,6 +220,9 @@ class SQLiteDatabase extends Database {
   }
 
   async all(props) {
+    if (!this.initialize) {
+      await this.initialize();
+    }
     let { query, params, options, tx, write, adjusted } = props;
     if (params === null) {
       params = undefined;
@@ -276,6 +265,9 @@ class SQLiteDatabase extends Database {
   }
 
   async exec(tx, sql) {
+    if (!this.initialize) {
+      await this.initialize();
+    }
     let lock;
     if (!tx) {
       lock = await this.getWriter();
