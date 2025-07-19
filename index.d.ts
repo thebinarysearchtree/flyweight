@@ -822,14 +822,14 @@ type ToInsert<T> = {
 
 type ExtractVirtual<T> = T extends { Virtual: infer V } ? V : never;
 
-type ToQuery<T> = T extends { Virtual: object }
+type ToQuery<R, T> = T extends { Virtual: object }
   ? VirtualQueries<ToJsType<ExtractVirtual<T>>, ToWhere<ToJsType<ExtractVirtual<T>>>>
-  : Queries<ToJsType<T>, ToInsert<T>, ToWhere<ToJsType<T>>, unknown, GetReturnType<T>, TypedDb>;
+  : Queries<ToJsType<T>, ToInsert<T>, ToWhere<ToJsType<T>>, unknown, GetReturnType<T>, R>;
 
 type MakeClient<T extends { [key: string]: abstract new (...args: any) => any }> = {
   [K in keyof T as K extends string
     ? `${Uncapitalize<K>}`
-    : never]: ToQuery<ExtractColumns<InstanceType<T[K]>>>;
+    : never]: ToQuery<MakeClient<T>, ExtractColumns<InstanceType<T[K]>>>;
 };
 
 type Unwrap<T extends any[]> = {
