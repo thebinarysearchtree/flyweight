@@ -906,7 +906,7 @@ interface TypedDb {
   sync(): Promise<void>;
   query<S extends SelectType, K extends ValueReturn<S>, T extends (context: SubqueryContext<this['context']>) => K>(expression: T): Promise<GetDefined<ReturnType<T>>[]>;
   query<S extends SelectType, K extends ObjectReturn<S>, T extends (context: SubqueryContext<this['context']>) => K>(expression: T): Promise<ToJsType<ReturnType<T>['select'] & ReturnType<T>['distinct'] & MakeOptional<NonNullable<ReturnType<T>['optional']>>>[]>;
-  subquery<S extends SelectType, K extends ObjectReturn<S>, T extends (context: SubqueryContext<['context']>) => K>(expression: T): ReturnType<T>['select'] & ReturnType<T>['distinct'] & MakeOptional<NonNullable<ReturnType<T>['optional']>>;
+  subquery<S extends SelectType, K extends ObjectReturn<S>, T extends (context: SubqueryContext<this['context']>) => K>(expression: T): ReturnType<T>['select'] & ReturnType<T>['distinct'] & MakeOptional<NonNullable<ReturnType<T>['optional']>>;
 }
 
 export class Table {
