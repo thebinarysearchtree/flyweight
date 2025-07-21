@@ -930,19 +930,19 @@ type GetDefined<T> =
       : ToJsType<V> | null
     : never);
 
-interface TypedDb {
+interface TypedDb<P, C> {
   exec(sql: string): Promise<void>;
   begin(): Promise<void>;
   commit(): Promise<void>;
   rollback(): Promise<void>;
   pragma(sql: string): Promise<any[]>;
   deferForeignKeys(): Promise<void>;
-  getTransaction(type?: ('read' | 'write' | 'deferred')): Promise<this>;
-  batch:<T extends any[]> (batcher: (bx: TypedDb) => T) => Promise<Unwrap<T>>;
+  getTransaction(type?: ('read' | 'write' | 'deferred')): Promise<TypedDb<P, C> & C>;
+  batch:<T extends any[]> (batcher: (bx: TypedDb<P, C>) => T) => Promise<Unwrap<T>>;
   sync(): Promise<void>;
-  query<S extends SelectType, K extends ValueReturn<S>, T extends (context: SubqueryContext) => K>(expression: T): Promise<GetDefined<ReturnType<T>>[]>;
-  query<S extends SelectType, K extends ObjectReturn<S>, T extends (context: SubqueryContext) => K>(expression: T): Promise<ToJsType<ReturnType<T>['select'] & ReturnType<T>['distinct'] & MakeOptional<NonNullable<ReturnType<T>['optional']>>>[]>;
-  subquery<S extends SelectType, K extends ObjectReturn<S>, T extends (context: SubqueryContext) => K>(expression: T): ReturnType<T>['select'] & ReturnType<T>['distinct'] & MakeOptional<NonNullable<ReturnType<T>['optional']>>;
+  query<S extends SelectType, K extends ValueReturn<S>, T extends (context: SubqueryContext & C) => K>(expression: T): Promise<GetDefined<ReturnType<T>>[]>;
+  query<S extends SelectType, K extends ObjectReturn<S>, T extends (context: SubqueryContext & C) => K>(expression: T): Promise<ToJsType<ReturnType<T>['select'] & ReturnType<T>['distinct'] & MakeOptional<NonNullable<ReturnType<T>['optional']>>>[]>;
+  subquery<S extends SelectType, K extends ObjectReturn<S>, T extends (context: SubqueryContext & C) => K>(expression: T): ReturnType<T>['select'] & ReturnType<T>['distinct'] & MakeOptional<NonNullable<ReturnType<T>['optional']>>;
 }
 
 type ToComputed<T> =
@@ -1103,7 +1103,7 @@ export class Table {
 export class Database {
   constructor();
   runMigration(sql: string): Promise<void>;
-  getClient<T extends abstract new (...args: any[]) => any, C extends { [key: string]: T }>(classes: C): TypedDb & MakeClient<C> & { context: MakeContext<C> };
+  getClient<T extends abstract new (...args: any[]) => any, C extends { [key: string]: T }>(classes: C): TypedDb<MakeClient<C>, MakeContext<C>> & MakeClient<C>;
   run(args: { query: any, params?: any }): Promise<number>;
   all<T>(args: { query: any, params?: any, options?: QueryOptions }): Promise<Array<T>>;
   exec(query: string): Promise<void>;
