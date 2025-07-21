@@ -655,12 +655,12 @@ interface DatabaseConfig {
 
 interface SQLiteConfig extends DatabaseConfig {
   db: string | URL;
-  paths: SQLitePaths;
+  driver: any;
+  extensions?: string | URL | Array<string | URL>;
 }
 
 interface TursoConfig extends DatabaseConfig {
   db: any;
-  paths: Paths;
 }
 
 interface FileSystem {
@@ -671,34 +671,60 @@ interface FileSystem {
   readSql: (path: string) => Promise<string>;
 }
 
-interface Paths {
-  migrations: string | URL;
-}
-
-interface SQLitePaths extends Paths {
-  db: string | URL;
-  extensions?: string | URL | Array<string | URL>;
-}
-
 declare const intPk1: unique symbol;
 declare const intPk2: unique symbol;
 
 type PkNumber = typeof intPk1 | typeof intPk2;
+
+declare const intComp1: unique symbol;
+declare const intComp2: unique symbol;
+
+type ComputedNumber = typeof intComp1 | typeof intComp2;
 
 declare const stringPk1: unique symbol;
 declare const stringPk2: unique symbol;
 
 type PkString = typeof stringPk1 | typeof stringPk2;
 
+declare const stringComp1: unique symbol;
+declare const stringComp2: unique symbol;
+
+type ComputedString = typeof stringComp1 | typeof stringComp2;
+
 declare const bufferPk1: unique symbol;
 declare const bufferPk2: unique symbol;
 
 type PkBuffer = typeof bufferPk1 | typeof bufferPk2;
 
+declare const bufferComp1: unique symbol;
+declare const bufferComp2: unique symbol;
+
+type ComputedBuffer = typeof bufferComp1 | typeof bufferComp2;
+
 declare const datePk1: unique symbol;
 declare const datePk2: unique symbol;
 
 type PkDate = typeof datePk1 | typeof datePk2;
+
+declare const dateComp1: unique symbol;
+declare const dateComp2: unique symbol;
+
+type ComputedDate = typeof dateComp1 | typeof dateComp2;
+
+declare const boolComp1: unique symbol;
+declare const boolComp2: unique symbol;
+
+type ComputedBoolean = typeof boolComp1 | typeof boolComp2;
+
+declare const jsonComp1: unique symbol;
+declare const jsonComp2: unique symbol;
+
+type ComputedJson = typeof jsonComp1 | typeof jsonComp2;
+
+declare const nullComp1: unique symbol;
+declare const nullComp2: unique symbol;
+
+type ComputedNull = typeof nullComp1 | typeof nullComp2;
 
 declare const dbNumber1: unique symbol;
 declare const dbNumber2: unique symbol;
@@ -735,29 +761,29 @@ declare const dbNull2: unique symbol;
 
 type DbNull = typeof dbNull1 | typeof dbNull2;
 
-type DbAny = DbNumber | DbString | DbBuffer | DbJson | DbDate | DbBoolean;
-type AnyParam = DbAny | DbNull;
+type DbAny = ComputedBoolean | ComputedBuffer | ComputedDate | ComputedJson | ComputedNumber | ComputedString | PkNumber | PkDate | PkString | PkBuffer | DbNumber | DbString | DbBuffer | DbJson | DbDate | DbBoolean;
+type AnyParam = DbAny | DbNull | ComputedNull;
 
-type AllowedJson = PkNumber | PkBuffer | PkDate | PkString | DbNumber | DbString | DbJson | DbDate | DbBoolean | DbNull | { [key: string]: AllowedJson } | AllowedJson[];
+type AllowedJson = ComputedBoolean | ComputedDate | ComputedJson | ComputedNumber | ComputedString | PkNumber | PkDate | PkString | DbNumber | DbString | DbJson | DbDate | DbBoolean | DbNull | { [key: string]: AllowedJson } | AllowedJson[];
 type SelectType = AllowedJson | AllowedJson[] | SelectType[] | { [key: string | symbol]: AllowedJson };
 
-type NumberParam = number | null | DbNumber | DbNull;
+type NumberParam = number | null | ComputedNumber | PkNumber | DbNumber | DbNull | ComputedNull;
 type NumberResult = DbNumber | DbNull;
 
-type StringParam = string | null | DbString | DbNull;
+type StringParam = string | null | PkString | ComputedString | DbString | DbNull | ComputedNull;
 type StringResult = DbString | DbNull;
 
-type NumberBufferParam = number | Buffer | null | DbNumber | DbBuffer | DbNull;
-type StringBufferParam = string | Buffer | null | DbString | DbBuffer | DbNull;
+type NumberBufferParam = number | Buffer | null | DbNumber | PkNumber | ComputedNumber | PkBuffer | ComputedBuffer | DbBuffer | DbNull | ComputedNull;
+type StringBufferParam = string | Buffer | null | DbString | PkString | ComputedString | DbBuffer | DbNull | ComputedNull;
 
-type AnyResult = DbAny | DbNull;
+type AnyResult = DbString | DbNumber | DbDate | DbBoolean | DbJson | DbBuffer | DbNull;
 
 type BufferResult = DbBuffer | DbNull;
 
-type DateParam = number | string | null | DbNumber | DbString | DbDate | DbNull;
+type DateParam = number | string | null | DbNumber | DbString | DbDate | PkNumber | PkString | PkDate | ComputedDate | ComputedNumber | ComputedString | DbNull;
 type DateResult = DbDate | DbNull;
 
-type BooleanParam = boolean | DbBoolean;
+type BooleanParam = boolean | DbBoolean | ComputedBoolean;
 type BooleanResult = DbBoolean | DbNull;
 
 type JsonParam = string | Buffer | null | DbString | DbBuffer | DbJson | DbNull;
@@ -909,6 +935,22 @@ interface TypedDb {
   subquery<S extends SelectType, K extends ObjectReturn<S>, T extends (context: SubqueryContext<this['context']>) => K>(expression: T): ReturnType<T>['select'] & ReturnType<T>['distinct'] & MakeOptional<NonNullable<ReturnType<T>['optional']>>;
 }
 
+type ToComputed<T> =
+  T extends DbString ? ComputedString :
+  T extends DbBoolean ? ComputedBoolean :
+  T extends DbDate ? ComputedDate :
+  T extends DbNull ? ComputedNull :
+  T extends DbJson ? ComputedJson :
+  T extends DbNumber ? ComputedNumber :
+  T extends DbAny ? ComputedAny :
+  T extends boolean ? ComputedBoolean :
+  T extends number ? ComputedNumber :
+  T extends Date ? ComputedDate :
+  T extends string ? ComputedString :
+  T extends Buffer ? ComputedBuffer :
+  T extends null ? ComputedNull :
+  ComputedJson;
+
 export class Table {
   static OnDeleteNoAction: ForeignKeyAction;
   static OnDeleteRestrict: ForeignKeyAction;
@@ -955,33 +997,120 @@ export class Table {
   Index: DbIndex;
   Unique: DbUnique;
   PrimaryKey: DbPrimaryKey;
+
+  Abs(n: NumberParam): ToComputed<NumberResult>;
+  Coalesce(a: StringResult, b: string): ToComputed<DbString>;
+  Coalesce(a: NumberResult, b: number): ToComputed<DbNumber>;
+  Coalesce(a: BooleanResult, b: boolean): ToComputed<DbBoolean>;
+  Coalesce(a: DateResult, b: Date): ToComputed<DbDate>;
+  Coalesce<T extends DbAny>(a: T, b: T, ...rest: T[]): ToComputed<T>;
+  Coalesce(a: any, b: any, ...rest: any[]): ToComputed<AnyResult>;
+  Concat(...args: any[]): ToComputed<DbString>;
+  ConcatWs(...args: any[]): ToComputed<DbString>;
+  Format(format: StringParam, ...args: any[]): ToComputed<StringResult>;
+  Glob(pattern: StringParam, value: StringParam): ToComputed<NumberResult>;
+  If<T extends DbTypes | DbAny>(...args: IfOddArgs<T>): ToComputed<ToDbType<T>>;
+  If<T extends DbTypes | DbAny>(...args: IfEvenArgs<T>): ToComputed<ToDbType<T | null>>;
+  If(...args: any[]): ToComputed<AnyResult>;
+  Instr(a: StringBufferParam, b: StringBufferParam): ToComputed<NumberResult>;
+  Length(value: any): ToComputed<NumberResult>;
+  Lower<T extends StringResult>(value: T): ToComputed<T>;
+  Lower(value: StringParam): ToComputed<StringResult>;
+  Ltrim(value: StringParam, remove?: StringParam): ToComputed<StringResult>;
+  Max(a: DbNumber, b: number): ToComputed<DbNumber>;
+  Max<T extends DbAny>(a: T, b: T, ...rest: T[]): ToComputed<T>;
+  Max(a: any, b: any, ...rest: any[]): ToComputed<AnyResult>;
+  Min(a: DbNumber, b: number): ToComputed<DbNumber>;
+  Min<T extends DbAny>(a: T, b: T, ...rest: T[]): ToComputed<T>;
+  Min(a: any, b: any, ...rest: any[]): ToComputed<AnyResult>;
+  Nullif<T extends DbAny>(a: T, b: any): ToComputed<T | DbNull>;
+  Nullif(a: any, b: any): ToComputed<AnyResult>;
+  OctetLength(value: any): ToComputed<NumberResult>;
+  Replace(value: StringParam, occurances: StringParam, substitute: StringParam): ToComputed<StringResult>;
+  Round(value: NumberParam, places?: NumberParam): ToComputed<NumberResult>;
+  Rtrim(value: StringParam, remove?: StringParam): ToComputed<StringResult>;
+  Sign(value: any): ToComputed<NumberResult>;
+  Substring(value: StringParam, start: NumberParam, length?: NumberParam): ToComputed<StringResult>;
+  Rrim(value: StringParam, remove?: StringParam): ToComputed<StringResult>;
+  Unhex(hex: StringParam, ignore?: StringParam): ToComputed<BufferResult>;
+  Unicode(value: StringParam): ToComputed<NumberResult>;
+  Upper<T extends StringResult>(value: T): ToComputed<T>;
+  Upper(value: StringParam): ToComputed<StringResult>;
+  Date(time?: DateParam, ...modifers: StringParam[]): ToComputed<StringResult>;
+  Time(time?: DateParam, ...modifers: StringParam[]): ToComputed<StringResult>;
+  DateTime(time?: DateParam, ...modifers: StringParam[]): ToComputed<StringResult>;
+  JulianDay(time?: DateParam, ...modifers: StringParam[]): ToComputed<StringResult>;
+  UnixEpoch(time?: DateParam, ...modifers: StringParam[]): ToComputed<StringResult>;
+  StrfTime(format: StringParam, time: DateParam, ...modifers: StringParam[]): ToComputed<StringResult>;
+  TimeDiff(start: DateParam, end: DateParam): ToComputed<StringResult>;
+  Acos(value: NumberParam): ToComputed<NumberResult>;
+  Acosh(value: NumberParam): ToComputed<NumberResult>;
+  Asin(value: NumberParam): ToComputed<NumberResult>;
+  Asinh(value: NumberParam): ToComputed<NumberResult>;
+  Atan(value: NumberParam): ToComputed<NumberResult>;
+  Atan2(b: NumberParam, a: NumberParam): ToComputed<NumberResult>;
+  Atanh(value: NumberParam): ToComputed<NumberResult>;
+  Ceil(value: NumberParam): ToComputed<NumberResult>;
+  Cos(value: NumberParam): ToComputed<NumberResult>;
+  Cosh(value: NumberParam): ToComputed<NumberResult>;
+  Degrees(value: NumberParam): ToComputed<NumberResult>;
+  Exp(value: NumberParam): ToComputed<NumberResult>;
+  Floor(value: NumberParam): ToComputed<NumberResult>;
+  Ln(value: NumberParam): ToComputed<NumberResult>;
+  Log(base: NumberParam, value: NumberParam): ToComputed<NumberResult>;
+  Mod(value: NumberParam, divider: NumberParam): ToComputed<NumberResult>;
+  Pi(): ToComputed<NumberResult>;
+  Power(value: NumberParam, exponent: NumberParam): ToComputed<NumberResult>;
+  Radians(value: NumberParam): ToComputed<NumberResult>;
+  Sin(value: NumberParam): ToComputed<NumberResult>;
+  Sinh(value: NumberParam): ToComputed<NumberResult>;
+  Sqrt(value: NumberParam): ToComputed<NumberResult>;
+  Tan(value: NumberParam): ToComputed<NumberResult>;
+  Tanh(value: NumberParam): ToComputed<NumberResult>;
+  Trunc(value: NumberParam): ToComputed<NumberResult>;
+  ToJson(param: JsonParam | any[]): ToComputed<StringResult>;
+  Extract(json: JsonParam | any[], path: StringParam): ToComputed<ExtractResult>;
+  Object<T extends { [key: string]: AllowedJson }>(select: T): ToComputed<ToJson<T>>;
+  ArrayLength(param: JsonParam | any[]): ToComputed<NumberResult>;
+
+  Plus(...args: DbNumber[]): ToComputed<DbNumber>;
+  Plus(...args: NumberParam[]): ToComputed<NumberResult>;
+  Minus(...args: DbNumber[]): ToComputed<DbNumber>;
+  Minus(...args: NumberParam[]): ToComputed<NumberResult>;
+  Divide(...args: DbNumber[]): ToComputed<DbNumber>;
+  Divide(...args: NumberParam[]): ToComputed<NumberResult>;
+  Multiply(...args: DbNumber[]): ToComputed<DbNumber>;
+  Multiply(...args: NumberParam[]): ToComputed<NumberResult>;
+
+  Not: (column: symbol, value: T) => ToComputed<DbBoolean>;
+	Gt: (column: symbol, value: NonNullable<T>) => ToComputed<DbBoolean>;
+	Lt: (column: symbol, value: NonNullable<T>) => ToComputed<DbBoolean>;
+	Lte: (column: symbol, value: NonNullable<T>) => ToComputed<DbBoolean>;
+	Like: (column: symbol, pattern: NonNullable<T>) => ToComputed<DbBoolean>;
+	Match: (column: symbol, pattern: NonNullable<T>) => ToComputed<DbBoolean>;
+	Glob: (column: symbol, pattern: NonNullable<T>) => ToComputed<DbBoolean>;
+	Eq: (column: symbol, value: T) => ToComputed<DbBoolean>;
 }
 
 export class Database {
-  constructor(options: DatabaseConfig);
-  initialize(): Promise<void>;
+  constructor();
   runMigration(sql: string): Promise<void>;
-  makeTypes(fileSystem: FileSystem, paths: Paths, sampleData?: boolean): Promise<void>;
   getClient<T, C extends { [key: string]: T }>(classes: C): TypedDb & MakeClient<C> & { context: MakeContext<C> };
-  getTables(): Promise<string>;
-  createMigration(fileSystem: FileSystem, paths: Paths, name: string, reset?: boolean): Promise<string>;
   run(args: { query: any, params?: any }): Promise<number>;
   all<T>(args: { query: any, params?: any, options?: QueryOptions }): Promise<Array<T>>;
   exec(query: string): Promise<void>;
-  close(): Promise<void>;
+  begin(): Promise<void>;
+  commit(): Promise<void>;
+  rollback(): Promise<void>;
 }
 
 export class SQLiteDatabase extends Database {
   constructor(options: SQLiteConfig);
-  begin(): Promise<void>;
-  commit(): Promise<void>;
-  rollback(): Promise<void>;
+  initialize(): Promise<void>;
+  close(): Promise<void>;
 }
 
 export class TursoDatabase extends Database {
   constructor(options: TursoConfig);
-  begin(): Promise<void>;
-  commit(): Promise<void>;
-  rollback(): Promise<void>;
-  batch(handler: (batcher: any) => any[]): Promise<any[]>;
+  batch(handler: (batcher: any) => any[], type: 'read' | 'write'): Promise<any[]>;
 }

@@ -1,17 +1,12 @@
-import { returnTypes } from './parsers/returnTypes.js';
+import returnTypes from './returnTypes.js';
 import { getPlaceholder } from './utils.js';
-import methods from './methods.js';
-
-const operators = new Map([
-  ['plus', '+'],
-  ['minus', '-'],
-  ['divide', '/'],
-  ['multiply', '*']
-]);
-
-const compareMethods = ['not', 'gt', 'lt', 'lte', 'like', 'natch', 'glob', 'eq'];
-const computeMethods = ['abs', 'coalesce', 'concat', 'concatWs', 'format', 'glob', 'hex', 'if', 'instr', 'length', 'lower', 'ltrim', 'max', 'min', 'nullif', 'octetLength', 'replace', 'round', 'rtrim', 'sign', 'substring', 'trim', 'unhex', 'unicode', 'upper', 'date', 'time', 'dateTime', 'julianDay', 'unixEpoch', 'strfTime', 'timeDiff', 'acos', 'acosh', 'asin', 'asinh', 'atan', 'atan2', 'atanh', 'ceil', 'cos', 'cosh', 'degrees', 'exp', 'floor', 'ln', 'log', 'mod', 'pi', 'power', 'radians', 'sin', 'sinh', 'sqrt', 'tan', 'tanh', 'trunc', 'json', 'extract', 'plus', 'minus', 'divide', 'multiply', 'object', 'arrayLength'];
-const windowMethods = ['count', 'min', 'max', 'avg', 'sum', 'rowNumber', 'rank', 'denseRank', 'percentRank', 'cumeDist', 'ntile', 'lag', 'lead', 'firstValue', 'lastValue', 'nthValue', 'group'];
+import { 
+  compareOperators, 
+  mathOperators,
+  compareMethods,
+  computeMethods,
+  windowMethods,
+  toDbName } from './methods.js';
 
 const addParam = (options) => {
   const { db, params, value } = options;
@@ -52,7 +47,7 @@ const processArg = (options) => {
     inJson
   } = options;
   const request = requests.get(arg);
-  if (request && !request.isColumn) {
+  if (request && request.category !== 'Column') {
     return processMethod({
       db,
       method: request,
@@ -60,7 +55,7 @@ const processArg = (options) => {
       requests
     });
   }
-  else if (request && request.isColumn) {
+  else if (request && request.category === 'Column') {
     let sql = request.selector;
     const type = request.type;
     if (inJson) {
@@ -219,9 +214,9 @@ const processMethod = (options) => {
   const arg = method.args.at(0);
   const isSymbol = typeof arg === 'symbol';
   const name = toDbName(method);
-  const operator = operators.get(name);
-  let type = operator ? 'real' : (method.isCompare ? 'boolean' : returnTypes[name]);
-  if (method.isCompare) {
+  const operator = mathOperators.get(name);
+  let type = operator ? 'real' : (method.type === 'Compare' ? 'boolean' : returnTypes[name]);
+  if (method.type === 'Compare') {
     const result = processArg({
       db,
       arg,
@@ -236,7 +231,7 @@ const processMethod = (options) => {
         type
       }
     }
-    const operator = methods.get(name);
+    const operator = compareOperators.get(name);
     const toResult = processArg({
       db,
       arg: to,
@@ -357,8 +352,7 @@ const processMethod = (options) => {
       };
     }
   }
-  const isSpecial = ['min', 'max'].includes(name) && method.args.length === 1;
-  if (method.isWindow && (!method.isCompute || isSpecial)) {
+  if (method.type === 'Window') {
     let sql;
     if (name === 'ntile') {
       const { groups } = arg;
@@ -526,7 +520,7 @@ const toWhere = (options) => {
   for (const symbol of whereKeys) {
     let selector;
     const request = requests.get(symbol);
-    if (!request.isColumn) {
+    if (request.category !== 'Column') {
       if (request.alias) {
         selector = request.alias;
       }
@@ -545,14 +539,14 @@ const toWhere = (options) => {
     }
     const value = where[symbol];
     const valueRequest = requests.get(value);
-    if (valueRequest && valueRequest.isCompare) {
+    if (valueRequest && valueRequest.type === 'Compare') {
       const { name, args } = valueRequest;
       const param = args.at(0);
       if (name === 'not' && param === null) {
         statements.push(`${selector} is not null`);
       }
       else {
-        const operator = methods.get(name);
+        const operator = compareOperators.get(name);
         const result = processArg({
           db,
           arg: param,
@@ -567,7 +561,7 @@ const toWhere = (options) => {
         }
       }
     }
-    else if (valueRequest && !valueRequest.isColumn) {
+    else if (valueRequest && valueRequest.category !== 'Column') {
       const methodArg = processMethod({
         db,
         method: valueRequest,
@@ -576,7 +570,7 @@ const toWhere = (options) => {
       });
       statements.push(`${selector} = ${methodArg.sql}`);
     }
-    else if (valueRequest && valueRequest.isColumn) {
+    else if (valueRequest && valueRequest.category === 'Column') {
       statements.push(`${selector} = ${valueRequest.selector}`);
     }
     else if (value === null) {
@@ -617,35 +611,6 @@ const toWhere = (options) => {
   return statements.join(` ${type} `);
 }
 
-const toDbName = (method) => {
-  const { name, args } = method;
-  const excluded = ['dateTime', 'julianDay', 'unixEpoch', 'strfTime', 'timeDiff'];
-  if (excluded.includes(name)) {
-    return name.toLowerCase();
-  }
-  if (name === 'if') {
-    return 'iif';
-  }
-  if (name === 'group') {
-    if (args.length === 2) {
-      return 'json_group_object';
-    }
-    return 'json_group_array';
-  }
-  if (name === 'arrayLength') {
-    return 'json_array_length';
-  }
-  if (name === 'extract') {
-    return 'json_extract';
-  }
-  if (name === 'object') {
-    return 'json_object';
-  }
-  return name
-    .replaceAll(/([A-Z])/gm, '_$1')
-    .toLowerCase();
-}
-
 const makeProxy = (options) => {
   const {
     db,
@@ -676,11 +641,11 @@ const makeProxy = (options) => {
         const symbol = Symbol();
         const type = db.columns[table][property];
         requests.set(symbol, {
+          category: 'Column',
           table,
-          column: property,
+          name: property,
           selector: `${tableAlias}.${property}`,
           type,
-          isColumn: true,
           tableAlias
         });
         return symbol;
@@ -718,10 +683,10 @@ const makeProxy = (options) => {
               const symbol = Symbol();
               const type = context.columns[property];
               requests.set(symbol, {
-                column: property,
+                category: 'Column',
+                name: property,
                 selector: `${tableAlias}.${property}`,
                 type,
-                isColumn: true,
                 tableAlias
               });
               return symbol;
@@ -747,34 +712,35 @@ const makeProxy = (options) => {
       const isCompare = compareMethods.includes(property);
       const isCompute = computeMethods.includes(property);
       const isWindow = windowMethods.includes(property);
-      const symbol = Symbol();
+      let type;
       if (isCompare) {
-        const request = {
-          name: property,
-          isCompare,
-          args: null
-        };
-        requests.set(symbol, request);
-        return (...args) => {
-          request.args = args;
-          return symbol;
+        type = 'Compare';
+      }
+      else if (isCompute) {
+        type = 'Compute';
+      }
+      else if (isWindow) {
+        type = 'Window';
+      }
+      else {
+        return makeTableHandler(property);
+      }
+      const symbol = Symbol();
+      const request = {
+        category: 'Method',
+        type,
+        name: property,
+        args: null,
+        alias: null
+      }
+      requests.set(symbol, request);
+      return (...args) => {
+        request.args = args;
+        if (['min', 'max'].includes(property) && args.length === 1) {
+          request.type = 'Window';
         }
+        return symbol;
       }
-      if (isCompute || isWindow) {
-        const request = {
-          name: property,
-          isCompute,
-          isWindow,
-          args: null,
-          alias: null
-        };
-        requests.set(symbol, request);
-        return (...args) => {
-          request.args = args;
-          return symbol;
-        };
-      }
-      return makeTableHandler(property);
     }
   }
   return new Proxy({}, handler);
@@ -869,7 +835,7 @@ const processQuery = (db, expression) => {
   for (const [key, value] of Object.entries(select)) {
     let parser;
     const request = requests.get(value);
-    if (!request.isColumn) {
+    if (request.category !== 'Column') {
       const valueArg = processMethod({
         db,
         method: request,
@@ -883,12 +849,12 @@ const processQuery = (db, expression) => {
       parser = db.getDbToJsConverter(valueArg.type);
     }
     else {
-      if (!join && request.column === key) {
+      if (!join && request.name === key) {
         statements.push(request.selector);
       }
       else {
         let sql = request.selector;
-        if (request.column !== key) {
+        if (request.name !== key) {
           sql += ` as ${key}`;
         }
         statements.push(sql);
@@ -914,7 +880,7 @@ const processQuery = (db, expression) => {
     }
   }
   else {
-    const columns = Array.from(requests.values()).filter(r => r.isColumn);
+    const columns = Array.from(requests.values()).filter(r => r.category === 'Column');
     if (columns.length > 0) {
       const { tableAlias, table } = columns.at(0);
       sql += ` from ${table} ${tableAlias}`;

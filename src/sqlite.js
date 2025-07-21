@@ -9,9 +9,12 @@ const isEmpty = (params) => {
 }
 
 class SQLiteDatabase extends Database {
-  constructor(props) {
-    super({ ...props, name: 'sqlite' });
-    this.config = props.config;
+  constructor(options) {
+    super();
+    this.dbPath = options.db;
+    this.sqlite3 = options.driver;
+    this.extensions = options.extensions;
+    this.read = null;
     this.writer = null;
   }
 
@@ -42,6 +45,9 @@ class SQLiteDatabase extends Database {
   }
 
   async runMigration(sql) {
+    if (!this.initialized) {
+      await this.initialize();
+    }
     const tx = await this.getTransaction();
     try {
       await tx.begin();
@@ -56,9 +62,9 @@ class SQLiteDatabase extends Database {
   }
 
   async createDatabase() {
-    const db = new this.adaptor.sqlite3(this.paths.db, this.config);
+    const db = new this.sqlite3(this.dbPath);
     await this.enableForeignKeys(db);
-    const extensions = this.paths.extensions;
+    const extensions = this.extensions;
     if (extensions) {
       if (typeof extensions === 'string') {
         await this.loadExtension(extensions, db);
@@ -81,6 +87,9 @@ class SQLiteDatabase extends Database {
   }
 
   async getTransaction() {
+    if (!this.initialized) {
+      await this.initialize();
+    }
     const writer = await this.getWriter();
     const tx = { db: this.write, writer };
     return makeClient(this, tx);
@@ -91,6 +100,9 @@ class SQLiteDatabase extends Database {
   }
 
   async pragma(tx, sql) {
+    if (!this.initialized) {
+      await this.initialize();
+    }
     const client = this.getConnection(tx);
     return client.pragma(sql);
   }
@@ -116,7 +128,7 @@ class SQLiteDatabase extends Database {
   }
 
   async basicRun(sql, tx) {
-    if (!this.initialize) {
+    if (!this.initialized) {
       await this.initialize();
     }
     const statement = this.write.prepare(sql);
@@ -132,7 +144,7 @@ class SQLiteDatabase extends Database {
   }
 
   async basicAll(sql, tx) {
-    if (!this.initialize) {
+    if (!this.initialized) {
       await this.initialize();
     }
     const client = this.getConnection(tx);
@@ -141,7 +153,7 @@ class SQLiteDatabase extends Database {
   }
 
   async insertBatch(inserts) {
-    if (!this.initialize) {
+    if (!this.initialized) {
       await this.initialize();
     }
     const lock = await this.getWriter();
@@ -158,6 +170,9 @@ class SQLiteDatabase extends Database {
   }
 
   async batch(handler) {
+    if (!this.initialized) {
+      await this.initialize();
+    }
     const client = makeClient(this, { isBatch: true });
     const promises = handler(client).flat();
     const handlers = await Promise.all(promises);
@@ -179,7 +194,7 @@ class SQLiteDatabase extends Database {
   }
 
   async run(props) {
-    if (!this.initialize) {
+    if (!this.initialized) {
       await this.initialize();
     }
     let { query, params, tx, adjusted } = props;
@@ -220,7 +235,7 @@ class SQLiteDatabase extends Database {
   }
 
   async all(props) {
-    if (!this.initialize) {
+    if (!this.initialized) {
       await this.initialize();
     }
     let { query, params, options, tx, write, adjusted } = props;
@@ -265,7 +280,7 @@ class SQLiteDatabase extends Database {
   }
 
   async exec(tx, sql) {
-    if (!this.initialize) {
+    if (!this.initialized) {
       await this.initialize();
     }
     let lock;

@@ -1,9 +1,7 @@
-import { toValues, expressionHandler } from './utils.js';
+import { toValues } from './utils.js';
 import { parse } from './parsers.js';
 import { mapOne, mapMany } from './map.js';
-import { migrate } from './migrations.js';
 import { makeClient } from './proxy.js';
-import { tsReturnTypes } from './parsers/returnTypes.js';
 import { processQuery } from './symbols.js';
 import { process } from './tables.js';
 
@@ -25,10 +23,7 @@ const typeMap = {
 }
 
 class Database {
-  constructor(props) {
-    this.paths = props.paths;
-    this.adaptor = props.adaptor;
-    this.name = props.name;
+  constructor() {
     this.read = null;
     this.write = null;
     this.transact = null;
@@ -41,7 +36,6 @@ class Database {
     this.computedTypes = new Map();
     this.statements = new Map();
     this.virtualSet = new Set();
-    this.debug = props ? props.debug : false;
     this.closed = false;
     this.initialized = false;
     this.registerTypes([
@@ -110,74 +104,6 @@ class Database {
     return post(rows);
   }
 
-  compute(table, properties) {
-    const map = new Map();
-    this.computed.set(table, map);
-    for (const [name, expression] of Object.entries(properties)) {
-      const {
-        operators,
-        columnRequests,
-        methodRequests,
-        createClause 
-      } = expressionHandler(expression);
-      const method = methodRequests.at(0);
-      let tsType;
-      let columnType;
-      if (method) {
-        if (operators.has(method.name)) {
-          tsType = 'number | null';
-        }
-        else {
-          tsType = tsReturnTypes[method.name];
-        }
-      }
-      else {
-        const request = columnRequests.at(0);
-        if (request.path.length === 0) {
-          columnType = this.columns[table][request.name];
-          tsType = typeMap[columnType];
-        }
-        else {
-          tsType = 'number | string | null';
-        }
-      }
-      let jsonPath;
-      if (!method) {
-        const request = columnRequests.at(0);
-        if (request.path.length > 0) {
-          jsonPath = {
-            key: `${table} ${request.name}`,
-            path: request.path
-          };
-        }
-      }
-      else if (method.name === 'json_extract') {
-        const column = method.args.at(0);
-        const path = method.args.at(1);
-        if (!path.includes('[')) {
-          const request = columnRequests.find(r => r.proxy === column);
-          const split = path.substring(2).split('.');
-          jsonPath = {
-            key: `${table} ${request.name}`,
-            path: split
-          };
-        }
-      }
-      const item = {
-        createClause,
-        columnType,
-        tsType,
-        jsonPath
-      };
-      map.set(name, item);
-    }
-  }
-
-  async createMigration(fileSystem, paths, name, reset) {
-    const sql = await migrate(fileSystem, paths, this, name, reset);
-    return sql.trim();
-  }
-
   async runMigration() {
     return;
   }
@@ -217,30 +143,11 @@ class Database {
     }
   }
 
-  getComputedParser(table, column) {
-    const computed = this.computed.get(table);
-    if (computed) {
-      const item = computed.get(column);
-      if (item) {
-        if (item.columnType && !dbTypes[item.columnType]) {
-          return this.customTypes[item.columnType].dbToJs;
-        }
-        const computedType = this.computedTypes.get(`${table} ${column}`);
-        if (computedType) {
-          return this.customTypes[computedType].dbToJs;
-        }
-      }
-    }
-  }
-
   needsParsing(table, keys) {
     if (typeof keys === 'string') {
       keys = [keys];
     }
     for (const key of keys) {
-      if (this.getComputedParser(table, key)) {
-        return true;
-      }
       const type = this.columns[table][key];
       if (!dbTypes[type]) {
         return true;
@@ -256,14 +163,6 @@ class Database {
 
   convertToJs(table, column, value, customFields) {
     if (value === null) {
-      return value;
-    }
-    const parser = this.getComputedParser(table, column);
-    if (parser) {
-      return parser(value);
-    }
-    const computed = this.computed.get(table);
-    if (computed && computed.has(column)) {
       return value;
     }
     let type;

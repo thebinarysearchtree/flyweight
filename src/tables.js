@@ -1,3 +1,5 @@
+import { compareMethods, computeMethods } from './methods.js';
+
 const types = ['Int', 'Real', 'Text', 'Blob', 'Json', 'Date', 'Bool'];
 const modifiers = [
   ['', {}],
@@ -8,6 +10,10 @@ const modifiers = [
 
 const removeCapital = (name) => {
   return name.at(0).toLowerCase() + name.substring(1);
+}
+
+const addCapital = (name) => {
+  return name.at(0).toUpperCase() + name.substring(1);
 }
 
 const sanitize = (s) => s.replaceAll(/'/gmi, '\'\'');
@@ -28,8 +34,47 @@ const toLiteral = (value) => {
 
 class Table {
   static requests = new Map();
+  static Context = () => {
+    const handler = {
+      get: function(target, property) {
+        const symbol = Symbol();
+        const request = {
+          category: 'Method',
+          type: '',
+          name: property,
+          args: null
+        };
+        Table.requests.set(symbol, request);
+        return (...args) => {
+          request.args = args;
+          return symbol;
+        }
+      }
+    }
+  }
 
   constructor() {
+    const methods = [...compareMethods, ...computeMethods];
+    for (const method of methods) {
+      const name = addCapital(method);
+      const type = compareMethods.includes(method) ? 'Compare' : 'Compute';
+      Object.defineProperty(this, name, {
+        get: function() {
+          const symbol = Symbol();
+          const request = {
+            category: 'Method',
+            type,
+            name,
+            args: null
+          };
+          Table.requests.set(symbol, request);
+          return (...args) => {
+            request.args = args;
+            return symbol;
+          }
+        }
+      });
+    }
     for (const type of types) {
       for (const modifier of modifiers) {
         const [word, props] = modifier;

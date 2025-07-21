@@ -1,6 +1,5 @@
 import Database from './db.js';
 import { makeClient } from './proxy.js';
-import { isWrite } from './parsers/queries.js';
 
 class TursoDatabase extends Database {
   constructor(props) {
@@ -64,14 +63,12 @@ class TursoDatabase extends Database {
     await this.raw.batch(mapped, 'write');
   }
 
-  async batch(handler) {
+  async batch(handler, type) {
     const client = makeClient(this, { isBatch: true });
     const handlers = handler(client).flat();
     const results = await Promise.all(handlers);
     const flat = results.flat();
-    const statements = flat.map(r => r.statement);
-    const batchType = statements.some(s => isWrite(s.sql)) ? 'write' : 'read';
-    const responses = await this.raw.batch(flat.map(r => r.statement), batchType);
+    const responses = await this.raw.batch(flat.map(r => r.statement), type);
     return responses.map((response, i) => {
       const handler = results[i];
       if (handler.post) {

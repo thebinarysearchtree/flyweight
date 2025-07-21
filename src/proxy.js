@@ -6,7 +6,6 @@ import {
   exists,
   group,
   aggregate,
-  custom,
   all,
   remove
 } from './queries.js';
@@ -125,26 +124,19 @@ const makeQueryHandler = (table, db, tx, dbClient) => {
         return (args) => db.compute(table, args);
       }
       if (!target[method]) {
-        if (basic[method]) {
-          const makeQuery = basic[method];
-          const run = makeQuery(db, table, tx, dbClient);
-          if (method === 'groupBy') {
-            target[method] = (...args) => {
-              return run(...args);
-            }
-          }
-          else {
-            target[method] = async (...args) => {
-              return await run(...args);
-            }
-          }
-          return target[method];
-        }
-        const makeQuery = (database, table, tx, dbClient) => async (query, config) => await custom({ db: database, table, method, query, tx, dbClient, ...config });
+        const makeQuery = basic[method];
         const run = makeQuery(db, table, tx, dbClient);
-        return async (...args) => {
-          return await run(...args);
+        if (method === 'groupBy') {
+          target[method] = (...args) => {
+            return run(...args);
+          }
         }
+        else {
+          target[method] = async (...args) => {
+            return await run(...args);
+          }
+        }
+        return target[method];
       }
       return target[method];
     }
