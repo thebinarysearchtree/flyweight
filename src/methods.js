@@ -30,6 +30,9 @@ const toDbName = (method) => {
   if (name === 'toJson') {
     return 'json';
   }
+  if (name === 'toDate') {
+    return 'date';
+  }
   if (name === 'if') {
     return 'iif';
   }

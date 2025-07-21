@@ -1,4 +1,5 @@
 import { compareMethods, computeMethods } from './methods.js';
+import { processMethod } from './requests.js';
 
 const types = ['Int', 'Real', 'Text', 'Blob', 'Json', 'Date', 'Bool'];
 const modifiers = [
@@ -91,7 +92,7 @@ class Table {
             const symbol = Symbol();
             const tableName = removeCapital(this.constructor.name);
             Table.requests.set(symbol, {
-              category: 'DataType',
+              category: 'Column',
               tableName,
               type: dbType,
               notNull: true,
@@ -124,7 +125,7 @@ class Table {
         get: function() {
           const symbol = Symbol();
           Table.requests.set(symbol, {
-            category: 'DataType',
+            category: 'Column',
             type,
             notNull: true,
             default: value
@@ -259,7 +260,7 @@ const process = (Custom, tables) => {
             action: valueRequest.action
           });
         }
-        else if (category === 'DataType') {
+        else if (category === 'Column') {
           column.default = valueRequest.default;
         }
       }

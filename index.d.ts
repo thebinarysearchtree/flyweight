@@ -35,7 +35,7 @@ type IncludeWhere<U extends ObjectFunction> = {
 
 interface VirtualKeywords<T> {
   rank?: true;
-  bm25?: Record<keyof Omit<T, "rowid">, number>;
+  bm25?: Partial<Record<keyof Omit<T, "rowid">, number>>;
   limit?: number;
   offset?: number;
 }
@@ -78,17 +78,17 @@ interface AggregateQueryDebug<W, K> extends AggregateQuery<W, K> {
   debug: true;
 }
 
-interface ComplexQueryInclude<W, T, U extends ObjectFunction, C> extends Keywords<T & C, Array<keyof (T & C)> | keyof (T & C)> {
+interface ComplexQueryInclude<W, T, U extends ObjectFunction> extends Keywords<T, Array<keyof T> | keyof T> {
   where?: W;
   select?: undefined;
   include?: U;
 }
 
-interface ComplexSqlQueryIncludeParams<P, W, T, R extends ObjectFunction> extends ComplexQueryInclude<W, T, R, unknown> {
+interface ComplexSqlQueryIncludeParams<P, W, T, R extends ObjectFunction> extends ComplexQueryInclude<W, T, R> {
   params: P;
 }
 
-interface ComplexSqlQueryInclude<W, T, R extends ObjectFunction> extends ComplexQueryInclude<W, T, R, unknown> {
+interface ComplexSqlQueryInclude<W, T, R extends ObjectFunction> extends ComplexQueryInclude<W, T, R> {
   params?: undefined;
 }
 
@@ -100,21 +100,21 @@ interface ComplexSqlQueryIncludeDebug<W, T, R extends ObjectFunction> extends Co
   debug: true;
 }
 
-interface ComplexQueryIncludeDebug<W, T, U extends ObjectFunction, C> extends ComplexQueryInclude<W, T, U, C> {
+interface ComplexQueryIncludeDebug<W, T, U extends ObjectFunction> extends ComplexQueryInclude<W, T, U> {
   debug: true;
 }
 
-interface ComplexQueryObjectInclude<W, K, T, U extends ObjectFunction, C> extends Keywords<T & C, keyof (T & C) | Array<keyof (T & C)>> {
+interface ComplexQueryObjectInclude<W, K, T, U extends ObjectFunction> extends Keywords<T, keyof T | Array<keyof T>> {
   where?: W;
-  select: (keyof (T & C))[] | K[];
+  select: (keyof T)[] | K[];
   include?: U;
 }
 
-interface ComplexSqlQueryObjectIncludeParams<P, W, K, T, R extends ObjectFunction> extends ComplexQueryObjectInclude<W, K, T, R, unknown> {
+interface ComplexSqlQueryObjectIncludeParams<P, W, K, T, R extends ObjectFunction> extends ComplexQueryObjectInclude<W, K, T, R> {
   params: P;
 }
 
-interface ComplexSqlQueryObjectInclude<W, K, T, R extends ObjectFunction> extends ComplexQueryObjectInclude<W, K, T, R, unknown> {
+interface ComplexSqlQueryObjectInclude<W, K, T, R extends ObjectFunction> extends ComplexQueryObjectInclude<W, K, T, R> {
   params?: undefined;
 }
 
@@ -126,22 +126,22 @@ interface ComplexSqlQueryObjectIncludeDebug<W, K, T, R extends ObjectFunction> e
   debug: true;
 }
 
-interface ComplexQueryObjectIncludeDebug<W, K, T, U extends ObjectFunction, C> extends ComplexQueryObjectInclude<W, K, T, U, C> {
+interface ComplexQueryObjectIncludeDebug<W, K, T, U extends ObjectFunction> extends ComplexQueryObjectInclude<W, K, T, U> {
   debug: true;
 }
 
-interface ComplexQueryObjectIncludeOmit<W, K, T, U extends ObjectFunction, C> extends Keywords<T & C, keyof (T & C) | Array<keyof (T & C)>> {
+interface ComplexQueryObjectIncludeOmit<W, K, T, U extends ObjectFunction> extends Keywords<T, keyof T | Array<keyof T>> {
   where?: W;
   select?: undefined;
   omit: (keyof T)[] | K[] | K;
   include?: U;
 }
 
-interface ComplexSqlQueryObjectIncludeOmitParams<P, W, K, T, R extends ObjectFunction> extends ComplexQueryObjectIncludeOmit<W, K, T, R, unknown> {
+interface ComplexSqlQueryObjectIncludeOmitParams<P, W, K, T, R extends ObjectFunction> extends ComplexQueryObjectIncludeOmit<W, K, T, R> {
   params: P;
 }
 
-interface ComplexSqlQueryObjectIncludeOmit<W, K, T, R extends ObjectFunction> extends ComplexQueryObjectIncludeOmit<W, K, T, R, unknown> {
+interface ComplexSqlQueryObjectIncludeOmit<W, K, T, R extends ObjectFunction> extends ComplexQueryObjectIncludeOmit<W, K, T, R> {
   params?: undefined;
 }
 
@@ -153,22 +153,22 @@ interface ComplexSqlQueryObjectIncludeOmitDebug<W, K, T, R extends ObjectFunctio
   debug: true;
 }
 
-interface ComplexQueryObjectIncludeOmitDebug<W, K, T, U extends ObjectFunction, C> extends ComplexQueryObjectIncludeOmit<W, K, T, U, C> {
+interface ComplexQueryObjectIncludeOmitDebug<W, K, T, U extends ObjectFunction> extends ComplexQueryObjectIncludeOmit<W, K, T, U> {
   debug: true;
 }
 
-interface ComplexQueryValue<W, K, T, C> extends Keywords<T & C, Array<keyof (T & C)> | keyof (T & C)> {
+interface ComplexQueryValue<W, K, T> extends Keywords<T, Array<keyof T> | keyof T> {
   where?: W;
   select: K;
   omit?: undefined;
   include?: undefined;
 }
 
-interface ComplexSqlQueryValueParams<P, W, K, T> extends ComplexQueryValue<W, K, T, unknown> {
+interface ComplexSqlQueryValueParams<P, W, K, T> extends ComplexQueryValue<W, K, T> {
   params: P;
 }
 
-interface ComplexSqlQueryValue<W, K, T> extends ComplexQueryValue<W, K, T, unknown> {
+interface ComplexSqlQueryValue<W, K, T> extends ComplexQueryValue<W, K, T> {
   params?: undefined;
 }
 
@@ -180,7 +180,7 @@ interface ComplexSqlQueryValueDebug<W, K, T> extends ComplexSqlQueryValue<W, K, 
   debug: true;
 }
 
-interface ComplexQueryValueDebug<W, K, T, C> extends ComplexQueryValue<W, K, T, C> {
+interface ComplexQueryValueDebug<W, K, T> extends ComplexQueryValue<W, K, T> {
   debug: true;
 }
 
@@ -284,20 +284,20 @@ interface GroupArrayValue<A extends string, W, K, U, S> extends GroupArrayKeywor
   }
 }
 
-interface AggregateMethods<T, W, C, K extends keyof (T & C), Y> {
-  count<A extends string, U extends Includes<Y, (Pick<(T & C), K> & { count: number })>>(params?: GroupQueryCountStarColumn<A, T, W & ToWhere<{ count: number }>, K | 'count', U>): Promise<Array<MergeIncludes<Pick<(T & C), K> & { [key in A]: number }, U>>>;
-  count<A extends string, U extends Includes<Y, (Pick<(T & C), K> & { count: number })>>(params?: GroupQueryCountStarDistinct<A, T, W & ToWhere<{ count: number }>, K | 'count', U>): Promise<Array<MergeIncludes<Pick<(T & C), K> & { [key in A]: number }, U>>>;
-  avg<A extends string, U extends Includes<Y, (Pick<(T & C), K> & { avg: number })>>(params: GroupQueryAggregateColumn<A, T, W & ToWhere<{ avg: number }>, K | 'avg', U>): Promise<Array<MergeIncludes<Pick<(T & C), K> & { [key in A]: number }, U>>>;
-  avg<A extends string, U extends Includes<Y, (Pick<(T & C), K> & { avg: number })>>(params: GroupQueryAggregateDistinct<A, T, W & ToWhere<{ avg: number }>, K | 'avg', U>): Promise<Array<MergeIncludes<Pick<(T & C), K> & { [key in A]: number }, U>>>;
-  max<A extends string, U extends Includes<Y, (Pick<(T & C), K> & { max: number })>>(params: GroupQueryAggregateColumn<A, T, W & ToWhere<{ avg: number }>, K | 'max', U>): Promise<Array<MergeIncludes<Pick<(T & C), K> & { [key in A]: number }, U>>>;
-  max<A extends string, U extends Includes<Y, (Pick<(T & C), K> & { max: number })>>(params: GroupQueryAggregateDistinct<A, T, W & ToWhere<{ avg: number }>, K | 'max', U>): Promise<Array<MergeIncludes<Pick<(T & C), K> & { [key in A]: number }, U>>>;
-  min<A extends string, U extends Includes<Y, (Pick<(T & C), K> & { min: number })>>(params: GroupQueryAggregateColumn<A, T, W & ToWhere<{ avg: number }>, K | 'min', U>): Promise<Array<MergeIncludes<Pick<(T & C), K> & { [key in A]: number }, U>>>;
-  min<A extends string, U extends Includes<Y, (Pick<(T & C), K> & { min: number })>>(params: GroupQueryAggregateDistinct<A, T, W & ToWhere<{ avg: number }>, K | 'min', U>): Promise<Array<MergeIncludes<Pick<(T & C), K> & { [key in A]: number }, U>>>;
-  sum<A extends string, U extends Includes<Y, (Pick<(T & C), K> & { sum: number })>>(params: GroupQueryAggregateColumn<A, T, W & ToWhere<{ avg: number }>, K | 'sum', U>): Promise<Array<MergeIncludes<Pick<(T & C), K> & { [key in A]: number }, U>>>;
-  sum<A extends string, U extends Includes<Y, (Pick<(T & C), K> & { sum: number })>>(params: GroupQueryAggregateDistinct<A, T, W & ToWhere<{ avg: number }>, K | 'sum', U>): Promise<Array<MergeIncludes<Pick<(T & C), K> & { [key in A]: number }, U>>>;
-  array<A extends string, S extends keyof (T & C), U extends Includes<Y, Pick<(T & C), K>>>(params: GroupArrayValue<A, W & ToWhere<{ sum: number }>, K, U, S>): Promise<Array<MergeIncludes<Pick<(T & C), K> & { [key in A]: Array<(T & C)[S]> }, U>>>;
-  array<A extends string, U extends Includes<Y, Pick<(T & C), K>>>(params: GroupArray<A, W & ToWhere<{ sum: number }>, K, U>): Promise<Array<MergeIncludes<Pick<(T & C), K> & { [key in A]: Array<T> }, U>>>;
-  array<A extends string, S extends keyof (T & C), U extends Includes<Y, Pick<(T & C), K>>>(params: GroupArraySelect<A, W & ToWhere<{ sum: number }>, K, U, S>): Promise<Array<MergeIncludes<Pick<(T & C), K> & { [key in A]: Array<Pick<(T & C), S>> }, U>>>;
+interface AggregateMethods<T, W, K extends keyof T, Y> {
+  count<A extends string, U extends Includes<Y, (Pick<T, K> & { count: number })>>(params?: GroupQueryCountStarColumn<A, T, W & ToWhere<{ count: number }>, K | 'count', U>): Promise<Array<MergeIncludes<Pick<T, K> & { [key in A]: number }, U>>>;
+  count<A extends string, U extends Includes<Y, (Pick<T, K> & { count: number })>>(params?: GroupQueryCountStarDistinct<A, T, W & ToWhere<{ count: number }>, K | 'count', U>): Promise<Array<MergeIncludes<Pick<T, K> & { [key in A]: number }, U>>>;
+  avg<A extends string, U extends Includes<Y, (Pick<T, K> & { avg: number })>>(params: GroupQueryAggregateColumn<A, T, W & ToWhere<{ avg: number }>, K | 'avg', U>): Promise<Array<MergeIncludes<Pick<T, K> & { [key in A]: number }, U>>>;
+  avg<A extends string, U extends Includes<Y, (Pick<T, K> & { avg: number })>>(params: GroupQueryAggregateDistinct<A, T, W & ToWhere<{ avg: number }>, K | 'avg', U>): Promise<Array<MergeIncludes<Pick<T, K> & { [key in A]: number }, U>>>;
+  max<A extends string, U extends Includes<Y, (Pick<T, K> & { max: number })>>(params: GroupQueryAggregateColumn<A, T, W & ToWhere<{ avg: number }>, K | 'max', U>): Promise<Array<MergeIncludes<Pick<T, K> & { [key in A]: number }, U>>>;
+  max<A extends string, U extends Includes<Y, (Pick<T, K> & { max: number })>>(params: GroupQueryAggregateDistinct<A, T, W & ToWhere<{ avg: number }>, K | 'max', U>): Promise<Array<MergeIncludes<Pick<T, K> & { [key in A]: number }, U>>>;
+  min<A extends string, U extends Includes<Y, (Pick<T, K> & { min: number })>>(params: GroupQueryAggregateColumn<A, T, W & ToWhere<{ avg: number }>, K | 'min', U>): Promise<Array<MergeIncludes<Pick<T, K> & { [key in A]: number }, U>>>;
+  min<A extends string, U extends Includes<Y, (Pick<T, K> & { min: number })>>(params: GroupQueryAggregateDistinct<A, T, W & ToWhere<{ avg: number }>, K | 'min', U>): Promise<Array<MergeIncludes<Pick<T, K> & { [key in A]: number }, U>>>;
+  sum<A extends string, U extends Includes<Y, (Pick<T, K> & { sum: number })>>(params: GroupQueryAggregateColumn<A, T, W & ToWhere<{ avg: number }>, K | 'sum', U>): Promise<Array<MergeIncludes<Pick<T, K> & { [key in A]: number }, U>>>;
+  sum<A extends string, U extends Includes<Y, (Pick<T, K> & { sum: number })>>(params: GroupQueryAggregateDistinct<A, T, W & ToWhere<{ avg: number }>, K | 'sum', U>): Promise<Array<MergeIncludes<Pick<T, K> & { [key in A]: number }, U>>>;
+  array<A extends string, S extends keyof T, U extends Includes<Y, Pick<T, K>>>(params: GroupArrayValue<A, W & ToWhere<{ sum: number }>, K, U, S>): Promise<Array<MergeIncludes<Pick<T, K> & { [key in A]: Array<T[S]> }, U>>>;
+  array<A extends string, U extends Includes<Y, Pick<T, K>>>(params: GroupArray<A, W & ToWhere<{ sum: number }>, K, U>): Promise<Array<MergeIncludes<Pick<T, K> & { [key in A]: Array<T> }, U>>>;
+  array<A extends string, S extends keyof T, U extends Includes<Y, Pick<T, K>>>(params: GroupArraySelect<A, W & ToWhere<{ sum: number }>, K, U, S>): Promise<Array<MergeIncludes<Pick<T, K> & { [key in A]: Array<Pick<T, S>> }, U>>>;
 }
 
 type IfOddArgs<T> = 
@@ -444,6 +444,7 @@ type ToDbInterface<T> = {
 
 type ToJsType<T> =
   T extends DbNull ? null :
+  T extends ComputedNull ? null :
   T extends (infer U)[] ? ToJsType<U>[] :
   T extends object
     ? {
@@ -451,14 +452,20 @@ type ToJsType<T> =
       }
   : T extends DbNumber ? number :
     T extends PkNumber ? number :
+    T extends ComputedNumber ? number :
     T extends DbString ? string :
     T extends PkString ? string :
+    T extends ComputedString ? string :
     T extends DbDate ? Date :
     T extends PkDate ? Date :
+    T extends ComputedDate ? Date :
     T extends DbBoolean ? boolean :
+    T extends ComputedBoolean ? boolean :
     T extends DbJson ? Json :
+    T extends ComputedJson ? Json :
     T extends DbBuffer ? Buffer :
     T extends PkBuffer ? Buffer :
+    T extends ComputedBuffer ? Buffer :
     never;
 
 interface LagOptions<T> {
@@ -525,50 +532,50 @@ interface VirtualQueries<T, W> {
   query(query: SnippetQuery<W, T>): Promise<Array<{ id: number, snippet: string }>>;
 }
 
-interface Queries<T, I, W, C, R, Y> {
+interface Queries<T, I, W, R, Y> {
   [key: string]: any;
   insert(params: I): Promise<R>;
   insertMany(params: Array<I>): Promise<void>;
   update(options: UpdateQuery<W, I>): Promise<number>;
   upsert<K extends keyof T>(options: UpsertQuery<I, K>): Promise<R>;
   get(params?: W | null): Promise<T | undefined>;
-  get<K extends keyof (T & C)>(params: W | null, column: K): Promise<(T & C)[K] | undefined>;
-  get<K extends keyof (T & C)>(params: W | null, columns: (keyof (T & C))[] | K[]): Promise<Pick<(T & C), K> | undefined>;
+  get<K extends keyof T>(params: W | null, column: K): Promise<T[K] | undefined>;
+  get<K extends keyof T>(params: W | null, columns: (keyof T)[] | K[]): Promise<Pick<T, K> | undefined>;
   get<N>(params: W | null, column: (selector: T) => N): Promise<N | undefined>;
   many(params?: W): Promise<Array<T>>;
-  many<K extends keyof (T & C)>(params: W | null, columns: (keyof (T & C))[] | K[]): Promise<Array<Pick<(T & C), K>>>;
-  many<K extends keyof (T & C)>(params: W | null, column: K): Promise<Array<(T & C)[K]>>;
+  many<K extends keyof T>(params: W | null, columns: (keyof T)[] | K[]): Promise<Array<Pick<T, K>>>;
+  many<K extends keyof T>(params: W | null, column: K): Promise<Array<T[K]>>;
   query(): Promise<Array<T>>;
-  query<K extends keyof (T & C)>(query: ComplexQueryValue<W, K, T, C>): Promise<Array<(T & C)[K]>>;
-  query<K extends keyof (T & C)>(query: ComplexQueryValueDebug<W, K, T, C>): Promise<DebugResult<Array<(T & C)[K]>>>;
-  query<K extends keyof (T & C), U extends Includes<Y, T>>(query: ComplexQueryObjectInclude<W, K, T, U, C>): Promise<Array<MergeIncludes<Pick<(T & C), K>, U>>>;
-  query<K extends keyof (T & C), U extends Includes<Y, T>>(query: ComplexQueryObjectIncludeDebug<W, K, T, U, C>): Promise<DebugResult<Array<MergeIncludes<Pick<(T & C), K>, U>>>>;
-  query<K extends keyof (T & C), U extends Includes<Y, T>>(query: ComplexQueryObjectIncludeOmit<W, K, T, U, C>): Promise<Array<MergeIncludes<Omit<T, K>, U>>>;
-  query<K extends keyof (T & C), U extends Includes<Y, T>>(query: ComplexQueryObjectIncludeOmitDebug<W, K, T, U, C>): Promise<DebugResult<Array<MergeIncludes<Omit<T, K>, U>>>>;
-  query<U extends Includes<Y, T>>(query: ComplexQueryInclude<W, T, U, C>): Promise<Array<MergeIncludes<T, U>>>;
-  query<U extends Includes<Y, T>>(query: ComplexQueryIncludeDebug<W, T, U, C>): Promise<DebugResult<Array<MergeIncludes<T, U>>>>;
+  query<K extends keyof T>(query: ComplexQueryValue<W, K, T>): Promise<Array<T[K]>>;
+  query<K extends keyof T>(query: ComplexQueryValueDebug<W, K, T>): Promise<DebugResult<Array<T[K]>>>;
+  query<K extends keyof T, U extends Includes<Y, T>>(query: ComplexQueryObjectInclude<W, K, T, U>): Promise<Array<MergeIncludes<Pick<T, K>, U>>>;
+  query<K extends keyof T, U extends Includes<Y, T>>(query: ComplexQueryObjectIncludeDebug<W, K, T, U>): Promise<DebugResult<Array<MergeIncludes<Pick<T, K>, U>>>>;
+  query<K extends keyof T, U extends Includes<Y, T>>(query: ComplexQueryObjectIncludeOmit<W, K, T, U>): Promise<Array<MergeIncludes<Omit<T, K>, U>>>;
+  query<K extends keyof T, U extends Includes<Y, T>>(query: ComplexQueryObjectIncludeOmitDebug<W, K, T, U>): Promise<DebugResult<Array<MergeIncludes<Omit<T, K>, U>>>>;
+  query<U extends Includes<Y, T>>(query: ComplexQueryInclude<W, T, U>): Promise<Array<MergeIncludes<T, U>>>;
+  query<U extends Includes<Y, T>>(query: ComplexQueryIncludeDebug<W, T, U>): Promise<DebugResult<Array<MergeIncludes<T, U>>>>;
   first(): Promise<T | undefined>;
-  first<K extends keyof (T & C)>(query: ComplexQueryValue<W, K, T, C>): Promise<(T & C)[K] | undefined>;
-  first<K extends keyof (T & C)>(query: ComplexQueryValueDebug<W, K, T, C>): Promise<DebugResult<(T & C)[K] | undefined>>;
-  first<K extends keyof (T & C), U extends Includes<Y, T>>(query: ComplexQueryObjectInclude<W, K, T, U, C>): Promise<MergeIncludes<Pick<(T & C), K>, U> | undefined>;
-  first<K extends keyof (T & C), U extends Includes<Y, T>>(query: ComplexQueryObjectIncludeDebug<W, K, T, U, C>): Promise<DebugResult<MergeIncludes<Pick<(T & C), K>, U> | undefined>>;
-  first<K extends keyof (T & C), U extends Includes<Y, T>>(query: ComplexQueryObjectIncludeOmit<W, K, T, U, C>): Promise<MergeIncludes<Omit<T, K>, U> | undefined>;
-  first<K extends keyof (T & C), U extends Includes<Y, T>>(query: ComplexQueryObjectIncludeOmitDebug<W, K, T, U, C>): Promise<DebugResult<MergeIncludes<Omit<T, K>, U> | undefined>>;
-  first<U extends Includes<Y, T>>(query: ComplexQueryInclude<W, T, U, C>): Promise<MergeIncludes<(T & C), U> | undefined>;
-  first<U extends Includes<Y, T>>(query: ComplexQueryIncludeDebug<W, T, U, C>): Promise<DebugResult<MergeIncludes<(T & C), U> | undefined>>;
-  count<K extends keyof (T & C)>(query?: AggregateQuery<W, K>): Promise<number>;
-  avg<K extends keyof (T & C)>(query: AggregateQuery<W, K>): Promise<number>;
-  max<K extends keyof (T & C)>(query: AggregateQuery<W, K>): Promise<(T & C)[K]>;
-  min<K extends keyof (T & C)>(query: AggregateQuery<W, K>): Promise<(T & C)[K]>;
-  sum<K extends keyof (T & C)>(query: AggregateQuery<W, K>): Promise<number>;
+  first<K extends keyof T>(query: ComplexQueryValue<W, K, T>): Promise<T[K] | undefined>;
+  first<K extends keyof T>(query: ComplexQueryValueDebug<W, K, T>): Promise<DebugResult<T[K] | undefined>>;
+  first<K extends keyof T, U extends Includes<Y, T>>(query: ComplexQueryObjectInclude<W, K, T, U>): Promise<MergeIncludes<Pick<T, K>, U> | undefined>;
+  first<K extends keyof T, U extends Includes<Y, T>>(query: ComplexQueryObjectIncludeDebug<W, K, T, U>): Promise<DebugResult<MergeIncludes<Pick<T, K>, U> | undefined>>;
+  first<K extends keyof T, U extends Includes<Y, T>>(query: ComplexQueryObjectIncludeOmit<W, K, T, U>): Promise<MergeIncludes<Omit<T, K>, U> | undefined>;
+  first<K extends keyof T, U extends Includes<Y, T>>(query: ComplexQueryObjectIncludeOmitDebug<W, K, T, U>): Promise<DebugResult<MergeIncludes<Omit<T, K>, U> | undefined>>;
+  first<U extends Includes<Y, T>>(query: ComplexQueryInclude<W, T, U>): Promise<MergeIncludes<T, U> | undefined>;
+  first<U extends Includes<Y, T>>(query: ComplexQueryIncludeDebug<W, T, U>): Promise<DebugResult<MergeIncludes<T, U> | undefined>>;
+  count<K extends keyof T>(query?: AggregateQuery<W, K>): Promise<number>;
+  avg<K extends keyof T>(query: AggregateQuery<W, K>): Promise<number>;
+  max<K extends keyof T>(query: AggregateQuery<W, K>): Promise<T[K]>;
+  min<K extends keyof T>(query: AggregateQuery<W, K>): Promise<T[K]>;
+  sum<K extends keyof T>(query: AggregateQuery<W, K>): Promise<number>;
   exists(params: W | null): Promise<boolean>;
-  groupBy<K extends keyof (T & C)>(columns: K | Array<K>): AggregateMethods<T, W, C, K, Y>;
+  groupBy<K extends keyof T>(columns: K | Array<K>): AggregateMethods<T, W, K, Y>;
   compute(properties: Compute<T>): void;
   remove(params?: W): Promise<number>;
 }
 
 type CompareMethods<T> = {
-  not: (value: T) => symbol;
+  not: (value: T | T[]) => symbol;
 	gt: (value: NonNullable<T>) => symbol;
 	lt: (value: NonNullable<T>) => symbol;
 	lte: (value: NonNullable<T>) => symbol;
@@ -623,7 +630,7 @@ interface SqlQueryParams<P> {
   params: P;
 }
 
-type WhereField<T> = T | Array<NonNullable<T>> | WhereFunction<T>;
+type WhereField<T> = T | Array<NonNullable<T>> | WhereFunction<T> | null;
 
 type OptionalToNull<T> = {
   [K in keyof T]-?: undefined extends T[K] ? Exclude<T[K], undefined> | null : T[K];
@@ -828,30 +835,34 @@ type ExtractColumns<T> = {
     : never]: T[K];
 };
 
+type PkType = PkNumber | PkString | PkDate | PkBuffer;
+
 type ToInsert<T> = {
-  [K in keyof T as T[K] extends PkNumber | PkString | PkDate | PkBuffer
+  [K in keyof T as T[K] extends PkType
     ? K
     : DbNull extends T[K]
       ? K
       : never]?: Exclude<T[K], DbNull>;
 } & {
-  [K in keyof T as T[K] extends PkNumber | PkString | PkDate | PkBuffer
+  [K in keyof T as T[K] extends PkType
     ? never
     : DbNull extends T[K]
       ? never
       : K]: T[K];
 };
 
-type ExtractVirtual<T> = T extends { Virtual: infer V } ? V : never;
+type ExcludeComputed<T> = {
+  [K in keyof T as T[K] extends AnyResult | PkType ? K : never]: T[K]
+};
 
-type ToQuery<R, T> = T extends { Virtual: object }
-  ? VirtualQueries<ToJsType<ExtractVirtual<T>>, ToWhere<ToJsType<ExtractVirtual<T>>>>
-  : Queries<ToJsType<T>, ToInsert<T>, ToWhere<ToJsType<T>>, unknown, GetReturnType<T>, R>;
+type ToQuery<R, T> = Queries<ToJsType<T>, ToJsType<ToInsert<ExcludeComputed<T>>>, ToWhere<ToJsType<T>>, GetReturnType<T>, R>;
+
+type ToVirtual<T> = VirtualQueries<ToJsType<T>, ToWhere<ToJsType<T>>>;
 
 type MakeClient<T extends { [key: string]: abstract new (...args: any) => any }> = {
   [K in keyof T as K extends string
     ? `${Uncapitalize<K>}`
-    : never]: ToQuery<MakeClient<T>, ExtractColumns<InstanceType<T[K]>>>;
+    : never]: K extends string ? (InstanceType<T[K]> extends { Virtual: boolean } ? ToVirtual<ExtractColumns<InstanceType<T[K]>> & { [P in Uncapitalize<K>]: DbString }> : ToQuery<MakeClient<T>, ExtractColumns<InstanceType<T[K]>>>) : never;
 };
 
 type MakeContext<T extends { [key: string]: abstract new (...args: any) => any }> = {
@@ -866,8 +877,7 @@ type Unwrap<T extends any[]> = {
 
 type QueryCompareTypes = Date | number | boolean | null | string | Buffer | symbol;
 
-type SubqueryContext<C> = 
-  C &
+type SubqueryContext = 
   CompareMethods<QueryCompareTypes> &
   SymbolCompareMethods<QueryCompareTypes> &
   ComputeMethods &
@@ -930,9 +940,9 @@ interface TypedDb {
   getTransaction(type?: ('read' | 'write' | 'deferred')): Promise<this>;
   batch:<T extends any[]> (batcher: (bx: TypedDb) => T) => Promise<Unwrap<T>>;
   sync(): Promise<void>;
-  query<S extends SelectType, K extends ValueReturn<S>, T extends (context: SubqueryContext<this['context']>) => K>(expression: T): Promise<GetDefined<ReturnType<T>>[]>;
-  query<S extends SelectType, K extends ObjectReturn<S>, T extends (context: SubqueryContext<this['context']>) => K>(expression: T): Promise<ToJsType<ReturnType<T>['select'] & ReturnType<T>['distinct'] & MakeOptional<NonNullable<ReturnType<T>['optional']>>>[]>;
-  subquery<S extends SelectType, K extends ObjectReturn<S>, T extends (context: SubqueryContext<this['context']>) => K>(expression: T): ReturnType<T>['select'] & ReturnType<T>['distinct'] & MakeOptional<NonNullable<ReturnType<T>['optional']>>;
+  query<S extends SelectType, K extends ValueReturn<S>, T extends (context: SubqueryContext) => K>(expression: T): Promise<GetDefined<ReturnType<T>>[]>;
+  query<S extends SelectType, K extends ObjectReturn<S>, T extends (context: SubqueryContext) => K>(expression: T): Promise<ToJsType<ReturnType<T>['select'] & ReturnType<T>['distinct'] & MakeOptional<NonNullable<ReturnType<T>['optional']>>>[]>;
+  subquery<S extends SelectType, K extends ObjectReturn<S>, T extends (context: SubqueryContext) => K>(expression: T): ReturnType<T>['select'] & ReturnType<T>['distinct'] & MakeOptional<NonNullable<ReturnType<T>['optional']>>;
 }
 
 type ToComputed<T> =
@@ -942,14 +952,13 @@ type ToComputed<T> =
   T extends DbNull ? ComputedNull :
   T extends DbJson ? ComputedJson :
   T extends DbNumber ? ComputedNumber :
-  T extends DbAny ? ComputedAny :
   T extends boolean ? ComputedBoolean :
   T extends number ? ComputedNumber :
   T extends Date ? ComputedDate :
   T extends string ? ComputedString :
   T extends Buffer ? ComputedBuffer :
   T extends null ? ComputedNull :
-  ComputedJson;
+  T;
 
 export class Table {
   static OnDeleteNoAction: ForeignKeyAction;
@@ -1008,7 +1017,6 @@ export class Table {
   Concat(...args: any[]): ToComputed<DbString>;
   ConcatWs(...args: any[]): ToComputed<DbString>;
   Format(format: StringParam, ...args: any[]): ToComputed<StringResult>;
-  Glob(pattern: StringParam, value: StringParam): ToComputed<NumberResult>;
   If<T extends DbTypes | DbAny>(...args: IfOddArgs<T>): ToComputed<ToDbType<T>>;
   If<T extends DbTypes | DbAny>(...args: IfEvenArgs<T>): ToComputed<ToDbType<T | null>>;
   If(...args: any[]): ToComputed<AnyResult>;
@@ -1036,7 +1044,7 @@ export class Table {
   Unicode(value: StringParam): ToComputed<NumberResult>;
   Upper<T extends StringResult>(value: T): ToComputed<T>;
   Upper(value: StringParam): ToComputed<StringResult>;
-  Date(time?: DateParam, ...modifers: StringParam[]): ToComputed<StringResult>;
+  ToDate(time?: DateParam, ...modifers: StringParam[]): ToComputed<StringResult>;
   Time(time?: DateParam, ...modifers: StringParam[]): ToComputed<StringResult>;
   DateTime(time?: DateParam, ...modifers: StringParam[]): ToComputed<StringResult>;
   JulianDay(time?: DateParam, ...modifers: StringParam[]): ToComputed<StringResult>;
@@ -1082,20 +1090,20 @@ export class Table {
   Multiply(...args: DbNumber[]): ToComputed<DbNumber>;
   Multiply(...args: NumberParam[]): ToComputed<NumberResult>;
 
-  Not: (column: symbol, value: T) => ToComputed<DbBoolean>;
-	Gt: (column: symbol, value: NonNullable<T>) => ToComputed<DbBoolean>;
-	Lt: (column: symbol, value: NonNullable<T>) => ToComputed<DbBoolean>;
-	Lte: (column: symbol, value: NonNullable<T>) => ToComputed<DbBoolean>;
-	Like: (column: symbol, pattern: NonNullable<T>) => ToComputed<DbBoolean>;
-	Match: (column: symbol, pattern: NonNullable<T>) => ToComputed<DbBoolean>;
-	Glob: (column: symbol, pattern: NonNullable<T>) => ToComputed<DbBoolean>;
-	Eq: (column: symbol, value: T) => ToComputed<DbBoolean>;
+  Not: (column: symbol, value: QueryCompareTypes | QueryCompareTypes[]) => ToComputed<DbBoolean>;
+	Gt: (column: symbol, value: QueryCompareTypes) => ToComputed<DbBoolean>;
+	Lt: (column: symbol, value: QueryCompareTypes) => ToComputed<DbBoolean>;
+	Lte: (column: symbol, value: QueryCompareTypes) => ToComputed<DbBoolean>;
+	Like: (column: symbol, pattern: QueryCompareTypes) => ToComputed<DbBoolean>;
+	Match: (column: symbol, pattern: QueryCompareTypes) => ToComputed<DbBoolean>;
+	Glob: (column: symbol, pattern: QueryCompareTypes) => ToComputed<DbBoolean>;
+	Eq: (column: symbol, value: QueryCompareTypes) => ToComputed<DbBoolean>;
 }
 
 export class Database {
   constructor();
   runMigration(sql: string): Promise<void>;
-  getClient<T, C extends { [key: string]: T }>(classes: C): TypedDb & MakeClient<C> & { context: MakeContext<C> };
+  getClient<T extends abstract new (...args: any[]) => any, C extends { [key: string]: T }>(classes: C): TypedDb & MakeClient<C> & { context: MakeContext<C> };
   run(args: { query: any, params?: any }): Promise<number>;
   all<T>(args: { query: any, params?: any, options?: QueryOptions }): Promise<Array<T>>;
   exec(query: string): Promise<void>;
