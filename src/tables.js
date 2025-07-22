@@ -57,7 +57,10 @@ class Table {
   constructor() {
     const methods = [...compareMethods, ...computeMethods];
     for (const method of methods) {
-      const name = addCapital(method);
+      let name = addCapital(method);
+      if (['Date', 'Json'].includes(name)) {
+        name = `To${name}`;
+      }
       const type = compareMethods.includes(method) ? 'Compare' : 'Compute';
       Object.defineProperty(this, name, {
         get: function() {
@@ -90,10 +93,8 @@ class Table {
         Object.defineProperty(this, key, {
           get: function() {
             const symbol = Symbol();
-            const tableName = removeCapital(this.constructor.name);
             Table.requests.set(symbol, {
               category: 'Column',
-              tableName,
               type: dbType,
               notNull: true,
               ...props
@@ -157,6 +158,12 @@ for (const type of ['Delete', 'Update']) {
   }
 }
 
+const getKeys = (instance) => {
+  return Object
+    .getOwnPropertyNames(instance)
+    .filter(k => /[a-z]/.test(k.at(0)));
+}
+
 const process = (Custom, tables) => {
   const instance = new Custom();
   const name = removeCapital(Custom.name);
@@ -164,6 +171,7 @@ const process = (Custom, tables) => {
     name,
     type: instance.Virtual ? 'virtual' : 'real',
     columns: [],
+    computed: [],
     indexes: [],
     primaryKeys: [],
     foreignKeys: [],
@@ -171,32 +179,56 @@ const process = (Custom, tables) => {
   };
   const columnSymbols = new Map();
   const literals = new Map();
-  let keys;
-  let target;
+  const keys = getKeys(instance);
   if (table.type === 'virtual') {
-    keys = Object.keys(instance.Virtual);
-    target = instance.Virtual;
-  }
-  else {
-    keys = Object
-      .getOwnPropertyNames(instance)
-      .filter(k => /[a-z]/.test(k.at(0)));
-    target = instance;
+    const parent = new instance.Virtual();
+    const keys = getKeys(parent);
+    const primaryKey = keys
+      .map(key => {
+        const request = Table.requests.get(parent[key]);
+        return {
+          name: key,
+          request
+        }
+      })
+      .find(m => m.request.primaryKey);
+    table.columns.push({
+      name: 'rowId',
+      type: primaryKey.request.type,
+      original: {
+        table: removeCapital(instance.Virtual.name),
+        name: primaryKey.name
+      }
+    });
   }
   for (const key of keys) {
-    const value = target[key];
+    const value = instance[key];
     const valueType = typeof value;
     if (valueType === 'symbol') {
       const request = Table.requests.get(value);
-      const { category, tableName, ...column } = request;
+      const { category, ...column } = request;
+      if (category === 'Method') {
+        const { type, sql } = processMethod({
+          method: request,
+          requests: Table.requests
+        });
+        const data = {
+          name: key,
+          type,
+          sql
+        };
+        table.computed.push(data);
+        columnSymbols.set(value, data);
+        continue;
+      }
       const data = {
         name: key,
         ...column
       };
       if (table.type === 'virtual') {
         data.original = {
-          table: tableName,
-          name: column.name
+          table: removeCapital(instance.Virtual.name),
+          name: key
         }
       }
       else {
@@ -240,7 +272,7 @@ const process = (Custom, tables) => {
       table.columns.push(column);
     }
   }
-  const attributes = target.Attributes || {};
+  const attributes = instance.Attributes || {};
   const symbols = Object.getOwnPropertySymbols(attributes);
   for (const symbol of symbols) {
     const value = attributes[symbol];
@@ -462,5 +494,6 @@ const toSql = (table) => {
 export {
   Table,
   process,
-  toSql
+  toSql,
+  removeCapital
 }

@@ -27,7 +27,7 @@ const getConditions = (column, query, params, adjuster) => {
   const operatorHandler = {
     get: function(target, property) {
       target.push(property);
-      if (methods.has(property)) {
+      if (compareOperators.has(property)) {
         return (value) => {
           target.push(value);
           return target;
@@ -51,7 +51,7 @@ const getConditions = (column, query, params, adjuster) => {
   }
   const value = chain.pop();
   const method = chain.pop();
-  if (!methods.has(method)) {
+  if (!compareOperators.has(method)) {
     throw Error(`Invalid operator: ${method}`);
   }
   const path = chain.length === 0 ? null : `$.${chain.join('.')}`;
@@ -179,11 +179,11 @@ const upsert = async (db, table, options, tx) => {
     verify([target]);
     verify(Object.keys(set));
     const query = adjust(db, table, set);
-    const computed = db.computed.get(table);
     const adjuster = (name) => adjustName({
+      db,
+      table,
       column: name,
-      params,
-      computed
+      params
     });
     const setClause = createSetClause(db, table, query, params, adjuster);
     sql += ` on conflict(${target}) do update set ${setClause}`;
@@ -352,11 +352,11 @@ const update = async (db, table, options, tx) => {
   verify(keys);
   const params = {};
   const query = adjust(db, table, set);
-  const computed = db.computed.get(table);
   const adjuster = (name) => adjustName({
+    db,
+    table,
     column: name,
-    params,
-    computed
+    params
   });
   const setString = createSetClause(db, table, query, params, adjuster);
   let sql = `update ${table} set ${setString}`;
@@ -391,7 +391,11 @@ const expandStar = (db, table) => {
   }
   const statements = [];
   for (const [column, type] of Object.entries(columnTypes)) {
-    if (type === 'json') {
+    const sql = db.computed[table][column];
+    if (sql) {
+      statements.push(`${sql} as ${column}`);
+    }
+    else if (type === 'json') {
       statements.push(`json(${column}) as ${column}`);
     }
     else {
@@ -406,16 +410,12 @@ const expandStar = (db, table) => {
 
 const toSelect = (db, table, columns, types, params) => {
   if (columns) {
-    const computed = db.computed.get(table);
     if (typeof columns === 'string') {
       verify(columns);
       let clause;
-      if (computed && computed.has(columns)) {
-        const item = computed.get(columns);
-        clause = item.createClause({
-          params,
-          alias: columns
-        });
+      const sql = db.computed[table][columns];
+      if (sql) {
+        clause = `${sql} as ${columns}`;
       }
       else if (types[columns] === 'json') {
         clause = `json(${columns}) as ${columns}`;
@@ -436,12 +436,9 @@ const toSelect = (db, table, columns, types, params) => {
           verify(column);
           names.push(column);
           let statement;
-          if (computed && computed.has(column)) {
-            const item = computed.get(column);
-            statement = item.createClause({
-              params,
-              alias: column
-            });
+          const sql = db.computed[table][column];
+          if (sql) {
+            statement = `${sql} as ${column}`;
           }
           else if (types[column] === 'json') {
             statement = `json(${column}) as ${column}`;
@@ -511,14 +508,14 @@ const getVirtual = async (db, table, query, tx, keywords, select, returnValue, o
     await db.initialize();
   }
   let params = {};
+  const keys = Object.keys(db.columns[table]).filter(k => k !== 'rowid');
   if (keywords && keywords.highlight) {
     const highlight = keywords.highlight;
     verify(highlight.column);
-    const index = db.tables[table].map((c, i) => ({ name: c.name, index: i })).find(c => c.name === highlight.column).index - 1;
     const i = getPlaceholder();
     const s = getPlaceholder();
     const e = getPlaceholder();
-    params[i] = index;
+    params[i] = keys.findIndex(name => name === highlight.column) - 1;
     params[s] = highlight.tags[0];
     params[e] = highlight.tags[1];
     select = `rowid as id, highlight(${table}, $${i}, $${s}, $${e}) as highlight`;
@@ -526,13 +523,12 @@ const getVirtual = async (db, table, query, tx, keywords, select, returnValue, o
   if (keywords && keywords.snippet) {
     const snippet = keywords.snippet;
     verify(snippet.column);
-    const index = db.tables[table].map((c, i) => ({ name: c.name, index: i })).find(c => c.name === highlight.column).index - 1;
     const i = getPlaceholder();
     const s = getPlaceholder();
     const e = getPlaceholder();
     const tr = getPlaceholder();
     const to = getPlaceholder();
-    params[i] = index;
+    params[i] = keys.findIndex(name => name === snippet.column) - 1;
     params[s] = snippet.tags[0];
     params[e] = snippet.tags[1];
     params[tr] = snippet.trailing;
@@ -759,8 +755,8 @@ const group = async (config) => {
   const hasKeywords = Object.keys(keywords).length > 0;
   const rawBy = Array.isArray(config.by) ? config.by : [config.by];
   const params = {};
-  const computed = db.computed.get(table);
-  if (computed && computed.has(alias)) {
+  const computed = db.computed[table][alias];
+  if (computed) {
     throw Error(`The alias cannot have the same name as a computed field.`);
   }
   const by = rawBy.map(column => adjustName({
@@ -1065,11 +1061,11 @@ const aggregate = async (config) => {
   const params = {};
   const query = config.query || {};
   const { where, column, distinct } = query;
-  const computed = db.computed.get(table);
   const adjuster = (name) => adjustName({
+    db,
+    table,
     column: name,
-    params,
-    computed
+    params
   });
   const alias = `${method}_result`;
   const actualMethod = method === 'sum' ? 'total' : method;
@@ -1510,7 +1506,6 @@ const all = async (config) => {
       };
     }
   }
-  const computed = db.computed.get(table);
   const returnValue = ['string', 'function'].includes(typeof columns);
   const includeResults = [];
   const columnsToRemove = [];
@@ -1535,10 +1530,11 @@ const all = async (config) => {
   const columnTypes = db.columns[table];
   const select = toSelect(db, table, columns, columnTypes, params);
   const adjuster = (name) => adjustName({
+    db,
+    table,
     column: name,
     selectColumns: select.names,
-    params,
-    computed
+    params
   });
   if (db.virtualSet.has(table)) {
     return await getVirtual(db, table, query, tx, keywords, select.clause, returnValue, false);
@@ -1764,11 +1760,11 @@ const remove = async (db, table, query, tx) => {
   }
   let sql = `delete from ${table}`;
   const params = {};
-  const computed = db.computed.get(table);
   const adjuster = (name) => adjustName({
+    db,
+    table,
     column: name,
-    params,
-    computed
+    params
   });
   const clause = toWhere({
     table,

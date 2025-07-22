@@ -32,8 +32,7 @@ class Database {
     this.customTypes = {};
     this.columns = {};
     this.hasJson = {};
-    this.computed = new Map();
-    this.computedTypes = new Map();
+    this.computed = {};
     this.statements = new Map();
     this.virtualSet = new Set();
     this.closed = false;
@@ -115,12 +114,17 @@ class Database {
       }
       this.tables[table.name] = table.columns;
       this.columns[table.name] = {};
+      this.computed[table.name] = {};
       this.hasJson[table.name] = false;
-      for (const column of table.columns) {
+      const columns = [...table.columns, ...table.computed];
+      for (const column of columns) {
         this.columns[table.name][column.name] = column.type;
         if (column.type === 'json') {
           this.hasJson[table.name] = true;
         }
+      }
+      for (const computed of table.computed) {
+        this.computed[table.name][computed.name] = computed.sql;
       }
     }
   }
