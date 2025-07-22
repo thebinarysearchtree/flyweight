@@ -44,7 +44,7 @@ class SQLiteDatabase extends Database {
     this.initialized = true;
   }
 
-  async runMigration(sql) {
+  async migrate(sql) {
     if (!this.initialized) {
       await this.initialize();
     }

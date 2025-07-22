@@ -1146,7 +1146,9 @@ export class Table {
 
 export class Database {
   constructor();
-  runMigration(sql: string): Promise<void>;
+  migrate(sql: string): Promise<void>;
+  getSchema(): string;
+  diff(schema: string): string;
   getClient<T extends abstract new (...args: any[]) => any, C extends { [key: string]: T }>(classes: C): TypedDb<MakeClient<C>, MakeContext<C>> & MakeClient<C>;
   run(args: { query: any, params?: any }): Promise<number>;
   all<T>(args: { query: any, params?: any, options?: QueryOptions }): Promise<Array<T>>;

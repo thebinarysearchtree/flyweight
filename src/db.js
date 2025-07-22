@@ -14,25 +14,16 @@ const dbTypes = {
   any: true
 }
 
-const typeMap = {
-  integer: 'number',
-  real: 'number',
-  text: 'string',
-  blob: 'Buffer',
-  any: 'number | string | Buffer'
-}
-
 class Database {
   constructor() {
-    this.read = null;
     this.write = null;
-    this.transact = null;
     this.tables = {};
     this.mappers = {};
     this.customTypes = {};
     this.columns = {};
     this.hasJson = {};
     this.computed = {};
+    this.schema = [];
     this.statements = new Map();
     this.virtualSet = new Set();
     this.closed = false;
@@ -44,7 +35,6 @@ class Database {
         makeConstraint: (column) => `check (${column} in (0, 1))`,
         dbToJs: (v) => Boolean(v),
         jsToDb: (v) => v === true ? 1 : 0,
-        tsType: 'boolean',
         dbType: 'integer'
       },
       {
@@ -52,7 +42,6 @@ class Database {
         valueTest: (v) => v instanceof Date,
         dbToJs: (v) => new Date(v),
         jsToDb: (v) => v.toISOString(),
-        tsType: 'Date',
         dbType: 'text'
       },
       {
@@ -60,7 +49,6 @@ class Database {
         valueTest: (v) => Object.getPrototypeOf(v) === Object.prototype || Array.isArray(v),
         dbToJs: (v) => JSON.parse(v),
         jsToDb: (v) => JSON.stringify(v),
-        tsType: 'Json',
         dbType: 'blob'
       }
     ]);
@@ -68,13 +56,16 @@ class Database {
 
   getClient(schema) {
     const classes = Object.values(schema);
-    const tables = [];
     for (const type of classes) {
       const table = process(type, classes);
-      tables.push(table);
+      this.schema.push(table);
     }
-    this.addTables(tables);
+    this.addTables();
     return makeClient(this);
+  }
+
+  getSchema() {
+    return JSON.stringify(this.schema);
   }
 
   subquery(expression) {
@@ -103,12 +94,12 @@ class Database {
     return post(rows);
   }
 
-  async runMigration() {
+  async migrate() {
     return;
   }
 
-  addTables(tables) {
-    for (const table of tables) {
+  addTables() {
+    for (const table of this.schema) {
       if (table.type === 'virtual') {
         this.virtualSet.add(table.name);
       }
@@ -132,9 +123,6 @@ class Database {
   registerTypes(customTypes) {
     for (const customType of customTypes) {
       const { name, ...options } = customType;
-      if (options.dbType && !options.tsType) {
-        options.tsType = typeMap[options.dbType];
-      }
       if (name.includes(',')) {
         const names = name.split(',').map(n => n.trim());
         for (const name of names) {
