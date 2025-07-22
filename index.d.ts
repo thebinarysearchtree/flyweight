@@ -956,8 +956,8 @@ interface TypedDb<P, C> {
   rollback(): Promise<void>;
   pragma(sql: string): Promise<any[]>;
   deferForeignKeys(): Promise<void>;
-  getTransaction(type?: ('read' | 'write' | 'deferred')): Promise<TypedDb<P, C> & C>;
-  batch:<T extends any[]> (batcher: (bx: TypedDb<P, C>) => T) => Promise<Unwrap<T>>;
+  getTransaction(type?: ('read' | 'write' | 'deferred')): Promise<TypedDb<P, C> & P>;
+  batch:<T extends any[]> (batcher: (bx: TypedDb<P, C> & P) => T) => Promise<Unwrap<T>>;
   sync(): Promise<void>;
   first<S extends SelectType, K extends ObjectReturn<S>, T extends (context: SubqueryContext & C) => K>(expression: T): Promise<ToJsType<ReturnType<T>['select'] & ReturnType<T>['distinct'] & MakeOptional<NonNullable<ReturnType<T>['optional']>>> | undefined>;
   firstValue<S extends SelectType, K extends ValueReturn<S>, T extends (context: SubqueryContext & C) => K>(expression: T): Promise<GetDefined<ReturnType<T>> | undefined>;
