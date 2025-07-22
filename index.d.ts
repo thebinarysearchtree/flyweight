@@ -956,8 +956,12 @@ interface TypedDb<P, C> {
   rollback(): Promise<void>;
   pragma(sql: string): Promise<any[]>;
   deferForeignKeys(): Promise<void>;
-  getTransaction(type?: ('read' | 'write' | 'deferred')): Promise<TypedDb<P, C> & P>;
+  migrate(sql: string): Promise<void>;
+  getSchema(): string;
+  diff(schema: string): string;
+  getTransaction(type?: 'read' | 'write' | 'deferred'): Promise<TypedDb<P, C> & P>;
   batch:<T extends any[]> (batcher: (bx: TypedDb<P, C> & P) => T) => Promise<Unwrap<T>>;
+  batch:<T extends any[]> (type: 'read' | 'write', batcher: (bx: TypedDb<P, C> & P) => T) => Promise<Unwrap<T>>;
   sync(): Promise<void>;
   first<S extends SelectType, K extends ObjectReturn<S>, T extends (context: SubqueryContext & C) => K>(expression: T): Promise<ToJsType<ReturnType<T>['select'] & ReturnType<T>['distinct'] & MakeOptional<NonNullable<ReturnType<T>['optional']>>> | undefined>;
   firstValue<S extends SelectType, K extends ValueReturn<S>, T extends (context: SubqueryContext & C) => K>(expression: T): Promise<GetDefined<ReturnType<T>> | undefined>;
@@ -1146,9 +1150,6 @@ export class Table {
 
 export class Database {
   constructor();
-  migrate(sql: string): Promise<void>;
-  getSchema(): string;
-  diff(schema: string): string;
   getClient<T extends abstract new (...args: any[]) => any, C extends { [key: string]: T }>(classes: C): TypedDb<MakeClient<C>, MakeContext<C>> & MakeClient<C>;
   run(args: { query: any, params?: any }): Promise<number>;
   all<T>(args: { query: any, params?: any, options?: QueryOptions }): Promise<Array<T>>;

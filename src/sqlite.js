@@ -169,9 +169,12 @@ class SQLiteDatabase extends Database {
     lock.resolve();
   }
 
-  async batch(handler) {
+  async batch(type, handler) {
     if (!this.initialized) {
       await this.initialize();
+    }
+    if (!handler) {
+      handler = type;
     }
     const client = makeClient(this, { isBatch: true });
     const promises = handler(client).flat();

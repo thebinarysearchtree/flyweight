@@ -63,7 +63,11 @@ class TursoDatabase extends Database {
     await this.raw.batch(mapped, 'write');
   }
 
-  async batch(handler, type) {
+  async batch(type, handler) {
+    if (!handler) {
+      handler = type;
+      type = 'write';
+    }
     const client = makeClient(this, { isBatch: true });
     const handlers = handler(client).flat();
     const results = await Promise.all(handlers);
