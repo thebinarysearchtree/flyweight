@@ -362,16 +362,22 @@ interface ComputeMethods {
   upper(value: OnlyStrings): DbString;
   upper(value: StringParam): StringResult;
   date(): DbString;
+  date(time: OnlyDates): DbString;
   date(time: DateParam, ...modifers: StringParam[]): StringResult;
   time(): DbString;
+  time(time: OnlyDates): DbString;
   time(time: DateParam, ...modifers: StringParam[]): StringResult;
   dateTime(): DbString;
+  dateTime(time: OnlyDates): DbString;
   dateTime(time: DateParam, ...modifers: StringParam[]): StringResult;
-  julianDay(): DbString;
-  julianDay(time: DateParam, ...modifers: StringParam[]): StringResult;
+  julianDay(): DbNumber;
+  julianDay(time: OnlyDates): DbNumber;
+  julianDay(time: DateParam, ...modifers: StringParam[]): NumberResult;
   unixEpoch(): DbNumber;
+  unixEpoch(time: OnlyDates): DbNumber;
   unixEpoch(time: DateParam, ...modifers: StringParam[]): StringResult;
   strfTime(format: StringParam, time: DateParam, ...modifers: StringParam[]): StringResult;
+  timeDiff(start: OnlyDates, end: OnlyDates): DbString;
   timeDiff(start: DateParam, end: DateParam): StringResult;
   acos(value: NumberParam): NumberResult;
   acosh(value: NumberParam): NumberResult;
@@ -805,6 +811,7 @@ type AnyResult = DbString | DbNumber | DbDate | DbBoolean | DbJson | DbBuffer | 
 
 type BufferResult = DbBuffer | DbNull;
 
+type OnlyDates = DbDate | PkDate | ComputedDate;
 type DateParam = number | string | null | DbNumber | DbString | DbDate | PkNumber | PkString | PkDate | ComputedDate | ComputedNumber | ComputedString | DbNull;
 type DateResult = DbDate | DbNull;
 
@@ -925,12 +932,6 @@ interface ObjectReturn<S> extends QueryReturn {
   optional?: { [key: string | symbol]: S };
 }
 
-interface TableReturn<S, D, O> extends QueryReturn {
-  select?: ToDbInterface<S>;
-  distinct?: ToDbInterface<D>;
-  optional?: ToDbInterface<O>;
-}
-
 interface ValueReturn<S> extends QueryReturn {
   select?: S;
   distinct?: S;
@@ -958,8 +959,10 @@ interface TypedDb<P, C> {
   getTransaction(type?: ('read' | 'write' | 'deferred')): Promise<TypedDb<P, C> & C>;
   batch:<T extends any[]> (batcher: (bx: TypedDb<P, C>) => T) => Promise<Unwrap<T>>;
   sync(): Promise<void>;
-  query<S extends SelectType, K extends ValueReturn<S>, T extends (context: SubqueryContext & C) => K>(expression: T): Promise<GetDefined<ReturnType<T>>[]>;
+  first<S extends SelectType, K extends ObjectReturn<S>, T extends (context: SubqueryContext & C) => K>(expression: T): Promise<ToJsType<ReturnType<T>['select'] & ReturnType<T>['distinct'] & MakeOptional<NonNullable<ReturnType<T>['optional']>>> | undefined>;
+  firstValue<S extends SelectType, K extends ValueReturn<S>, T extends (context: SubqueryContext & C) => K>(expression: T): Promise<GetDefined<ReturnType<T>> | undefined>;
   query<S extends SelectType, K extends ObjectReturn<S>, T extends (context: SubqueryContext & C) => K>(expression: T): Promise<ToJsType<ReturnType<T>['select'] & ReturnType<T>['distinct'] & MakeOptional<NonNullable<ReturnType<T>['optional']>>>[]>;
+  queryValues<S extends SelectType, K extends ValueReturn<S>, T extends (context: SubqueryContext & C) => K>(expression: T): Promise<GetDefined<ReturnType<T>>[]>;
   subquery<S extends SelectType, K extends ObjectReturn<S>, T extends (context: SubqueryContext & C) => K>(expression: T): ReturnType<T>['select'] & ReturnType<T>['distinct'] & MakeOptional<NonNullable<ReturnType<T>['optional']>>;
 }
 
@@ -1070,16 +1073,22 @@ export class Table {
   Upper(value: OnlyStrings): ToComputed<DbString>;
   Upper(value: StringParam): ToComputed<StringResult>;
   ToDate(): ToComputed<DbString>;
+  ToDate(time: OnlyDates): ToComputed<DbString>;
   ToDate(time: DateParam, ...modifers: StringParam[]): ToComputed<StringResult>;
   Time(): ToComputed<DbString>;
+  Time(time: OnlyDates): ToComputed<DbString>;
   Time(time: DateParam, ...modifers: StringParam[]): ToComputed<StringResult>;
   DateTime(): ToComputed<DbString>;
+  DateTime(time: OnlyDates): ToComputed<DbString>;
   DateTime(time: DateParam, ...modifers: StringParam[]): ToComputed<StringResult>;
-  JulianDay(): ToComputed<DbString>;
-  JulianDay(time: DateParam, ...modifers: StringParam[]): ToComputed<StringResult>;
+  JulianDay(): ToComputed<DbNumber>;
+  JulianDay(time: OnlyDates): ToComputed<DbNumber>;
+  JulianDay(time: DateParam, ...modifers: StringParam[]): ToComputed<NumberResult>;
   UnixEpoch(): ToComputed<DbNumber>;
+  UnixEpoch(time: OnlyDates): ToComputed<DbNumber>;
   UnixEpoch(time: DateParam, ...modifers: StringParam[]): ToComputed<StringResult>;
   StrfTime(format: StringParam, time: DateParam, ...modifers: StringParam[]): ToComputed<StringResult>;
+  TimeDiff(start: OnlyDates, end: OnlyDates): ToComputed<DbString>;
   TimeDiff(start: DateParam, end: DateParam): ToComputed<StringResult>;
   Acos(value: NumberParam): ToComputed<NumberResult>;
   Acosh(value: NumberParam): ToComputed<NumberResult>;

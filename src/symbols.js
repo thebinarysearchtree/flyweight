@@ -168,7 +168,7 @@ const replaceParams = (subqueries, sql, params) => {
   }
 }
 
-const processQuery = (db, expression) => {
+const processQuery = (db, expression, firstResult) => {
   const requests = new Map();
   const subqueries = [];
   const proxy = makeProxy({
@@ -344,6 +344,9 @@ const processQuery = (db, expression) => {
     });
     sql += ` limit ${result.sql}`;
   }
+  if (firstResult && !limit) {
+    sql += ` limit 1`;
+  }
   const post = (rows) => {
     if (Object.keys(parsers).length > 0) {
       for (let i = 0; i < rows.length; i++) {
@@ -353,10 +356,11 @@ const processQuery = (db, expression) => {
         }
       }
     }
+    let mapped = rows;
     if (valueReturn) {
-      return rows.map(r => r.valueReturn);
+      mapped = rows.map(r => r.valueReturn);
     }
-    return rows;
+    return firstResult ? mapped.at(0) : mapped;
   }
   const adjusted = replaceParams(subqueries, sql, params);
   return {

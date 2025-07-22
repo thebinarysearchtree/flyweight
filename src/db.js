@@ -81,8 +81,8 @@ class Database {
     return processQuery(this, expression);
   }
 
-  async query(expression, tx) {
-    const { sql, params, post } = processQuery(this, expression);
+  async query(expression, tx, first) {
+    const { sql, params, post } = processQuery(this, expression, first);
     const options = {
       query: sql,
       params,

@@ -146,8 +146,11 @@ const makeQueryHandler = (table, db, tx, dbClient) => {
 const makeClient = (db, tx) => {
   const tableHandler = {
     get: function(target, table, dbClient) {
-      if (table === 'query') {
+      if (table === 'query' || table === 'queryValues') {
         return (expression) => db.query(expression, tx);
+      }
+      if (table === 'first' || table === 'firstValue') {
+        return (expression) => db.query(expression, tx, true);
       }
       if (table === 'subquery') {
         return (expression) => db.subquery(expression);
