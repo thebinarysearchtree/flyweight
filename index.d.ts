@@ -880,7 +880,7 @@ type ToVirtual<T> = VirtualQueries<ToJsType<T>, ToWhere<ToJsType<T>>>;
 type MakeClient<T extends { [key: string]: abstract new (...args: any) => any }> = {
   [K in keyof T as K extends string
     ? `${Uncapitalize<K>}`
-    : never]: K extends string ? (InstanceType<T[K]> extends { Virtual: undefined } ? ToQuery<MakeClient<T>, ExtractColumns<InstanceType<T[K]>>> : ToVirtual<ExtractColumns<InstanceType<T[K]>> & { [P in Uncapitalize<K>]: DbString }>) : never;
+    : never]: K extends string ? (InstanceType<T[K]> extends { Virtual: any } ? ToVirtual<ExtractColumns<InstanceType<T[K]>> & { [P in Uncapitalize<K>]: DbString }> : ToQuery<MakeClient<T>, ExtractColumns<InstanceType<T[K]>>>) : never;
 };
 
 type MakeContext<T extends { [key: string]: abstract new (...args: any) => any }> = {
