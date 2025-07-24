@@ -1,4 +1,4 @@
-import returnTypes from './returnTypes.js';
+import returnTypes from './types.js';
 import { getPlaceholder } from './utils.js';
 import { compareOperators, mathOperators, toDbName } from './methods.js';
 
@@ -43,7 +43,7 @@ const toLiteral = (value) => {
     return value === true ? 1 : 0;
   }
   if (value instanceof Date) {
-    return value.toISOString();
+    return `'${value.toISOString()}'`;
   }
   return value;
 }
@@ -66,7 +66,7 @@ const processArg = (options) => {
     });
   }
   else if (request && request.category === 'Column') {
-    let sql = request.selector || request.name;
+    let sql = request.selector || request.sql || request.name;
     const type = request.type;
     if (inJson) {
       if (type === 'boolean') {
@@ -233,12 +233,25 @@ const processMethod = (options) => {
   const operator = mathOperators.get(name);
   let type = operator ? 'real' : (method.type === 'Compare' ? 'boolean' : returnTypes[name]);
   if (method.type === 'Compare') {
+    const operator = compareOperators.get(name);
     const result = processArg({
       db,
       arg,
       params,
       requests
     });
+    if (method.args.length === 1) {
+      if (name === 'not' && arg === null) {
+        return {
+          sql: 'is not null',
+          type
+        }
+      }
+      return {
+        sql: `${operator} ${result.sql}`,
+        type
+      }
+    }
     const selector = result.sql;
     const to = method.args.at(1);
     if (name === 'not' && to === null) {
@@ -247,7 +260,6 @@ const processMethod = (options) => {
         type
       }
     }
-    const operator = compareOperators.get(name);
     const toResult = processArg({
       db,
       arg: to,
@@ -256,6 +268,23 @@ const processMethod = (options) => {
     });
     return {
       sql: `${selector} ${operator} ${toResult.sql}`,
+      type
+    }
+  }
+  if (name === 'cast') {
+    const result = processArg({
+      db,
+      arg,
+      params,
+      requests
+    });
+    const type = method.args.at(1);
+    if (!['real', 'integer'].includes(type)) {
+      throw Error(`Invalid cast type ${type}`);
+    }
+    const sql = `cast(${result.sql} as ${type})`;
+    return {
+      sql,
       type
     }
   }
@@ -551,7 +580,7 @@ const toWhere = (options) => {
       }
     }
     else {
-      selector = request.selector;
+      selector = request.selector || request.sql || request.name;
     }
     const value = where[symbol];
     const valueRequest = requests.get(value);
@@ -593,16 +622,26 @@ const toWhere = (options) => {
       statements.push(`${selector} is null`);
     }
     else {
-      const statement = addParam({
-        db,
-        params,
-        value
-      });
-      if (Array.isArray(value)) {
-        statements.push(`${selector} in (select json_each.value from json_each(${statement}))`);
+      if (params) {
+        const statement = addParam({
+          db,
+          params,
+          value
+        });
+        if (Array.isArray(value)) {
+          statements.push(`${selector} in (select json_each.value from json_each(${statement}))`);
+        }
+        else {
+          statements.push(`${selector} = ${statement}`);
+        }
       }
       else {
-        statements.push(`${selector} = ${statement}`);
+        if (Array.isArray(value)) {
+          statements.push(`${selector} in (${value.map(v => toLiteral(v)).join(', ')})`);
+        }
+        else {
+          statements.push(`${selector} = ${toLiteral(value)}`);
+        }
       }
     }
   }

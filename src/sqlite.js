@@ -9,7 +9,7 @@ const isEmpty = (params) => {
 }
 
 class SQLiteDatabase extends Database {
-  constructor(options) {
+  constructor(options = {}) {
     super();
     this.dbPath = options.db;
     this.sqlite3 = options.driver;

@@ -319,6 +319,8 @@ type IfEvenArgs<T> =
 interface ComputeMethods {
   abs(n: OnlyNumbers): DbNumber;
   abs(n: NumberParam): NumberResult;
+  cast(value: any, to: 'real'): DbNumber;
+  cast(value: any, to: 'integer'): DbNumber;
   coalesce(a: StringResult, b: string): DbString;
   coalesce(a: NumberResult, b: number): DbNumber;
   coalesce(a: BooleanResult, b: boolean): DbBoolean;
@@ -839,6 +841,10 @@ declare const sym6: unique symbol;
 declare const sym7: unique symbol;
 type DbPrimaryKey = typeof sym6 | typeof sym7;
 
+declare const sym8: unique symbol;
+declare const sym9: unique symbol;
+type DbCheck = typeof sym8 | typeof sym9;
+
 type GetReturnType<T> =
   PkNumber extends T[keyof T] ? number :
   PkString extends T[keyof T] ? string :
@@ -958,7 +964,7 @@ interface TypedDb<P, C> {
   deferForeignKeys(): Promise<void>;
   migrate(sql: string): Promise<void>;
   getSchema(): string;
-  diff(schema: string): string;
+  diff(schema?: string): string;
   getTransaction(type?: 'read' | 'write' | 'deferred'): Promise<TypedDb<P, C> & P>;
   batch:<T extends any[]> (batcher: (bx: TypedDb<P, C> & P) => T) => Promise<Unwrap<T>>;
   batch:<T extends any[]> (type: 'read' | 'write', batcher: (bx: TypedDb<P, C> & P) => T) => Promise<Unwrap<T>>;
@@ -1031,9 +1037,12 @@ export class Table {
   Index: DbIndex;
   Unique: DbUnique;
   PrimaryKey: DbPrimaryKey;
+  Check: DbCheck;
 
   Abs(n: OnlyNumbers): ToComputed<DbNumber>;
   Abs(n: NumberParam): ToComputed<NumberResult>;
+  Cast(value: any, to: 'real'): ToComputed<DbNumber>;
+  Cast(value: any, to: 'integer'): ToComputed<DbNumber>;
   Coalesce(a: StringResult, b: string): ToComputed<DbString>;
   Coalesce(a: NumberResult, b: number): ToComputed<DbNumber>;
   Coalesce(a: BooleanResult, b: boolean): ToComputed<DbBoolean>;
@@ -1138,13 +1147,21 @@ export class Table {
   Multiply(...args: OnlyNumbers[]): ToComputed<DbNumber>;
   Multiply(...args: NumberParam[]): ToComputed<NumberResult>;
 
+  Not: (value: symbol | QueryCompareTypes | QueryCompareTypes[]) => ToComputed<DbBoolean>;
   Not: (column: symbol, value: QueryCompareTypes | QueryCompareTypes[]) => ToComputed<DbBoolean>;
+  Gt: (value: symbol | QueryCompareTypes) => ToComputed<DbBoolean>;
 	Gt: (column: symbol, value: QueryCompareTypes) => ToComputed<DbBoolean>;
+  Lt: (value: symbol | QueryCompareTypes) => ToComputed<DbBoolean>;
 	Lt: (column: symbol, value: QueryCompareTypes) => ToComputed<DbBoolean>;
+  Lte: (value: symbol | QueryCompareTypes) => ToComputed<DbBoolean>;
 	Lte: (column: symbol, value: QueryCompareTypes) => ToComputed<DbBoolean>;
+  Like: (pattern: DbString | ComputedString | string) => ToComputed<DbBoolean>;
 	Like: (column: symbol, pattern: QueryCompareTypes) => ToComputed<DbBoolean>;
+  Match: (pattern: DbString | ComputedString | string) => ToComputed<DbBoolean>;
 	Match: (column: symbol, pattern: QueryCompareTypes) => ToComputed<DbBoolean>;
+  Glob: (pattern: DbString | ComputedString | string) => ToComputed<DbBoolean>;
 	Glob: (column: symbol, pattern: QueryCompareTypes) => ToComputed<DbBoolean>;
+  Eq: (value: symbol | QueryCompareTypes) => ToComputed<DbBoolean>;
 	Eq: (column: symbol, value: QueryCompareTypes) => ToComputed<DbBoolean>;
 }
 

@@ -3,7 +3,7 @@ import { parse } from './parsers.js';
 import { mapOne, mapMany } from './map.js';
 import { makeClient } from './proxy.js';
 import { processQuery } from './symbols.js';
-import { process } from './tables.js';
+import { process, toSql } from './tables.js';
 
 const dbTypes = {
   integer: true,
@@ -66,6 +66,17 @@ class Database {
 
   getSchema() {
     return JSON.stringify(this.schema);
+  }
+
+  diff(schema) {
+    if (!schema) {
+      const statements = [];
+      for (const table of this.schema) {
+        const sql = toSql(table);
+        statements.push(sql);
+      }
+      return statements.join('\n');
+    }
   }
 
   subquery(expression) {

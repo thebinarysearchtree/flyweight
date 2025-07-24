@@ -1,5 +1,6 @@
 const returnTypes = {
   abs: 'integer',
+  cast: 'any',
   changes: 'integer',
   char: 'text',
   format: 'text',
