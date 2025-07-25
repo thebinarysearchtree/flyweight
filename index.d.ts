@@ -963,8 +963,8 @@ interface TypedDb<P, C> {
   pragma(sql: string): Promise<any[]>;
   deferForeignKeys(): Promise<void>;
   migrate(sql: string): Promise<void>;
-  getSchema(): string;
-  diff(schema?: string): string;
+  getSchema(): any[];
+  diff(schema?: any[]): string;
   getTransaction(type?: 'read' | 'write' | 'deferred'): Promise<TypedDb<P, C> & P>;
   batch:<T extends any[]> (batcher: (bx: TypedDb<P, C> & P) => T) => Promise<Unwrap<T>>;
   batch:<T extends any[]> (type: 'read' | 'write', batcher: (bx: TypedDb<P, C> & P) => T) => Promise<Unwrap<T>>;

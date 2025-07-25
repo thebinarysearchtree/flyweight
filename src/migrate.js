@@ -13,14 +13,14 @@ const recreate = (table, current) => {
   sql += `drop table ${table.name};\n`;
   sql += `alter table ${temp} rename to ${table.name};\n`;
   for (const index of table.indexes) {
-    sql += indexToSql(index);
+    sql += indexToSql(table.name, index);
   }
   sql += 'pragma foreign_key_check;\n';
   return sql;
 }
 
-const diff = (existing, updated) => {
-  const migrations = '';
+const toMigration = (existing, updated) => {
+  let migrations = '';
   const newTables = updated.filter(u => !existing.map(e => e.name).includes(u.name));
   for (const table of newTables) {
     migrations += toSql(table);
@@ -48,7 +48,17 @@ const diff = (existing, updated) => {
       .filter(k => !table.foreignKeys.map(f => Object.values(f).join(''))
       .includes(k))
       .length > 0;
-    if (removeChecks || removePrimary || removeForeign) {
+    let alterColumns = false;
+    for (const column of table.columns) {
+      const existing = current.columns.find(c => c.name === column.name);
+      if (existing) {
+        if (Object.values(existing).join('') !== Object.values(column).join('')) {
+          alterColumns = true;
+          break;
+        }
+      }
+    }
+    if (removeChecks || removePrimary || removeForeign || alterColumns) {
       migrations += recreate(table, current);
       continue;
     }
@@ -64,7 +74,14 @@ const diff = (existing, updated) => {
     const updatedHashes = table.indexes.map(index => toHash(index));
     const removeIndexes = existingHashes.filter(h => !updatedHashes.includes(h));
     for (const index of removeIndexes) {
-      migrations += `drop index ${index};\n`;
+      migrations += `drop index ${table.name}_${index};\n`;
+    }
+    for (const index of table.indexes) {
+      const hash = toHash(index);
+      const existing = existingHashes.find(h => h === hash);
+      if (!existing) {
+        migrations += indexToSql(table.name, index);
+      }
     }
     const removeColumns = current
       .columns
@@ -76,4 +93,4 @@ const diff = (existing, updated) => {
   return migrations;
 }
 
-export default diff;
+export default toMigration;

@@ -4,6 +4,7 @@ import { mapOne, mapMany } from './map.js';
 import { makeClient } from './proxy.js';
 import { processQuery } from './symbols.js';
 import { process, toSql } from './tables.js';
+import toMigration from './migrate.js';
 
 const dbTypes = {
   integer: true,
@@ -65,18 +66,20 @@ class Database {
   }
 
   getSchema() {
-    return JSON.stringify(this.schema);
+    return structuredClone(this.schema);
   }
 
-  diff(schema) {
-    if (!schema) {
+  diff(previous) {
+    const current = this.getSchema();
+    if (!previous) {
       const statements = [];
-      for (const table of this.schema) {
+      for (const table of current) {
         const sql = toSql(table);
         statements.push(sql);
       }
       return statements.join('\n');
     }
+    return toMigration(previous, current);
   }
 
   subquery(expression) {

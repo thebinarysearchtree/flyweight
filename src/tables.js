@@ -437,15 +437,15 @@ const toHash = (index) => {
   return hash.toLowerCase();
 }
 
-const indexToSql = (index) => {
+const indexToSql = (table, index) => {
   const { type, on, where } = index;
   const hash = toHash(index);
-  const indexName = `${name}_${hash}`;
+  const indexName = `${table}_${hash}`;
   let sql = `create `;
   if (type === 'unique') {
     sql += 'unique ';
   }
-  sql += `index ${indexName} on ${name}(${on})`;
+  sql += `index ${indexName} on ${table}(${on})`;
   if (where) {
     sql += ` where ${where}`;
   }
@@ -494,7 +494,7 @@ const toSql = (table) => {
   }
   sql += ') strict;\n\n';
   for (const index of indexes) {
-    sql += indexToSql(index);
+    sql += indexToSql(name, index);
   }
   return sql;
 }
