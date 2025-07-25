@@ -337,7 +337,9 @@ const process = (Custom, tables) => {
         if (type) {
           index.type = type;
         }
-        index.on = args.map(r => r.sql).join(', ');
+        const mapped = args.map(r => r.sql);
+        mapped.sort();
+        index.on = mapped.join(', ');
         if (whereSql) {
           index.where = whereSql;
         }
@@ -417,13 +419,38 @@ const columnToSql = (column) => {
 }
 
 const toHash = (index) => {
-  return Object
-    .values(index)
-    .join('_')
-    .replaceAll(/([a-z])([A-Z])/gm, '$1_$2')
-    .toLowerCase()
-    .replaceAll(/\s+/gm, '_')
-    .replaceAll(/[^a-z_]/gm, '');
+  const replacers = [
+    [/([a-z])([A-Z])/gm, '$1_$2'],
+    [/\s+/gm, '_'],
+    ['<=', 'lte'],
+    ['>=', 'gte'],
+    ['=', 'eq'],
+    ['>', 'gt'],
+    ['<', 'lte'],
+    [/[^a-z_0-9]/gmi, '']
+  ];
+  let hash = Object.values(index).join('_');
+  for (const replacer of replacers) {
+    const [from, to] = replacer;
+    hash = hash.replaceAll(from, to);
+  }
+  return hash.toLowerCase();
+}
+
+const indexToSql = (index) => {
+  const { type, on, where } = index;
+  const hash = toHash(index);
+  const indexName = `${name}_${hash}`;
+  let sql = `create `;
+  if (type === 'unique') {
+    sql += 'unique ';
+  }
+  sql += `index ${indexName} on ${name}(${on})`;
+  if (where) {
+    sql += ` where ${where}`;
+  }
+  sql += ';\n';
+  return sql;
 }
 
 const toSql = (table) => {
@@ -467,19 +494,7 @@ const toSql = (table) => {
   }
   sql += ') strict;\n\n';
   for (const index of indexes) {
-    const { type, on, where } = index;
-    const hash = toHash(index);
-    const indexName = `${name}_${hash}`;
-    let indexSql = `create `;
-    if (type === 'unique') {
-      indexSql += 'unique ';
-    }
-    indexSql += `index ${indexName} on ${name}(${on})`;
-    if (where) {
-      indexSql += ` where ${where}`;
-    }
-    indexSql += ';\n';
-    sql += indexSql;
+    sql += indexToSql(index);
   }
   return sql;
 }
@@ -489,6 +504,7 @@ export {
   process,
   toSql,
   toHash,
+  indexToSql,
   columnToSql,
   removeCapital
 }
