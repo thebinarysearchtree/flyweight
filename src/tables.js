@@ -187,12 +187,12 @@ const process = (Custom, tables) => {
         const request = Table.requests.get(symbol);
         const column = { name: key, ...request };
         return {
-          symbol,
+          key,
           column
         }
       });
     for (const item of mapped) {
-      virtualColumns.set(item.symbol, item.column);
+      virtualColumns.set(item.key, item.column);
     }
     const primaryKey = mapped.find(m => m.column.primaryKey);
     table.columns.push({
@@ -205,7 +205,58 @@ const process = (Custom, tables) => {
     });
   }
   for (const key of keys) {
-    const symbol = instance[key];
+    let symbol = instance[key];
+    const valueType = typeof symbol;
+    const references = tables.find(t => t === symbol);
+    if (references) {
+      const name = removeCapital(references.name);
+      const other = new references();
+      const keys = getKeys(other);
+      const primaryKeys = keys
+        .map(key => Table.requests.get(other[key]))
+        .filter(r => r.primaryKey);
+      if (primaryKeys.length !== 1) {
+        throw Error('Cannot find an appropriate primary key from the referenced table');
+      }
+      const primaryKey = primaryKeys.at(0);
+      const request = { ...primaryKey };
+      request.primaryKey = false;
+      const updated = Symbol();
+      Table.requests.set(updated, request);
+      instance[key] = updated;
+      symbol = updated;
+      table.foreignKeys.push({
+        columns: [key],
+        references: {
+          table: name
+        }
+      });
+    }
+    if (valueType !== 'symbol' && !references) {
+      if (valueType === 'string') {
+        instance[key] = instance.Text;
+      }
+      else if (valueType === 'number') {
+        if (Number.isInteger(symbol)) {
+          instance[key] = instance.Int;
+        }
+        else {
+          instance[key] = instance.Real;
+        }
+      }
+      else if (valueType === 'boolean') {
+        instance[key] = instance.Bool;
+      }
+      else if (symbol instanceof Date) {
+        instance[key] = instance.Date;
+      }
+      else {
+        throw Error(`The default value for "${key}" is invalid`);
+      }
+      const request = Table.requests.get(instance[key]);
+      request.default = symbol;
+      symbol = instance[key];
+    }
     const request = Table.requests.get(symbol);
     const { category, ...column } = request;
     if (category === 'Method') {
@@ -229,7 +280,7 @@ const process = (Custom, tables) => {
       ...column
     };
     if (table.type === 'virtual') {
-      const column = virtualColumns.get(symbol);
+      const column = virtualColumns.get(key);
       data.original = {
         table: virtualTable,
         name: column.name
@@ -285,7 +336,13 @@ const process = (Custom, tables) => {
         }
       }
       else if (valueTable) {
-        column.references = valueTable.name;
+        const tableName = removeCapital(valueTable.name);
+        table.foreignKeys.push({
+          columns: [column.name],
+          references: {
+            table: tableName
+          }
+        });
       }
       else if (typeof value !== 'symbol') {
         if (Array.isArray(value)) {

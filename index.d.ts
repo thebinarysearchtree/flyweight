@@ -490,6 +490,10 @@ type ToJsType<T> =
     T extends DbBuffer ? Buffer :
     T extends PkBuffer ? Buffer :
     T extends ComputedBuffer ? Buffer :
+    T extends string ? string :
+    T extends number ? number :
+    T extends boolean ? boolean :
+    T extends Date ? Date :
     never;
 
 interface LagOptions<T> {
