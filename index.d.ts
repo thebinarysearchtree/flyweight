@@ -470,6 +470,7 @@ type ToJsType<T> =
   T extends DbNull ? null :
   T extends ComputedNull ? null :
   T extends (infer U)[] ? ToJsType<U>[] :
+  T extends new (...args: any[]) => Table ? GetReturnType<T> :
   T extends object
     ? {
         [K in keyof T]: ToJsType<T[K]>
@@ -856,6 +857,20 @@ type GetReturnType<T> =
   PkDate extends T[keyof T] ? Date :
   number;
 
+type GetPrimaryKey<T> =
+  PkNumber extends T[keyof T] ? DbNumber :
+  PkString extends T[keyof T] ? DbString :
+  PkBuffer extends T[keyof T] ? DbBuffer :
+  PkDate extends T[keyof T] ? DbDate :
+  never;
+
+type PkToDbType<T> = 
+  T extends PkNumber ? DbNumber :
+  T extends PkString ? DbString :
+  T extends PkBuffer ? DbBuffer :
+  T extends PkDate ? DbDate :
+  never;
+
 type ClassFields<T extends new (...args: any[]) => any> = {
   [K in keyof InstanceType<T>]: InstanceType<T>[K];
 };
@@ -995,18 +1010,9 @@ type ToComputed<T> =
   T extends null ? ComputedNull :
   T;
 
-export class Table {
-  static OnDeleteNoAction: ForeignKeyAction;
-  static OnDeleteRestrict: ForeignKeyAction;
-  static OnDeleteSetNull: ForeignKeyAction;
-  static OnDeleteSetDefault: ForeignKeyAction;
-  static OnDeleteCascade: ForeignKeyAction;
-  static OnUpdateNoAction: ForeignKeyAction;
-  static OnUpdateRestrict: ForeignKeyAction;
-  static OnUpdateSetNull: ForeignKeyAction;
-  static OnUpdateSetDefault: ForeignKeyAction;
-  static OnUpdateCascade: ForeignKeyAction;
+type ForeignActions = 'no action' | 'restrict' | 'set null' | 'set default' | 'cascade';
 
+export class Table {
   Int: DbNumber;
   Intp: PkNumber;
   Intx: DbNumber | DbNull;
@@ -1038,10 +1044,50 @@ export class Table {
   True: DbBoolean;
   False: DbBoolean;
 
-  Index: DbIndex;
-  Unique: DbUnique;
-  PrimaryKey: DbPrimaryKey;
-  Check: DbCheck;
+  References<T>(table: T, options?: {
+    onDelete?: ForeignActions,
+    onUpdate?: ForeignActions,
+    index?: false
+  }): GetPrimaryKey<InstanceType<T>>;
+  References<T, N extends true>(table: T, options?: {
+    onDelete?: ForeignActions,
+    onUpdate?: ForeignActions,
+    null: N,
+    index?: false
+  }): GetPrimaryKey<InstanceType<T>> | DbNull;
+  References<T, K extends keyof InstanceType<T>(table: T, options?: {
+    column: K,
+    onDelete?: ForeignActions,
+    onUpdate?: ForeignActions,
+    index?: false
+  }): PkToDbType<InstanceType<T>[K]>;
+  References<T, K extends keyof InstanceType<T>, N extends true>(table: T, options?: {
+    column: K,
+    onDelete?: ForeignActions,
+    onUpdate?: ForeignActions,
+    null: N,
+    index?: false
+  }): PkToDbType<InstanceType<T>[K]> | DbNull;
+  Cascade<T>(table: T, options?: {
+    index?: false
+  }): GetPrimaryKey<InstanceType<T>>;
+  Cascade<T, N extends true>(table: T, options?: {
+    null: N,
+    index?: false
+  }): GetPrimaryKey<InstanceType<T>> | DbNull;
+  Cascade<T, K extends keyof InstanceType<T>>(table: T, options?: {
+    column: K,
+    index?: false
+  }): PkToDbType<InstanceType<T>[K]>;
+  Cascade<T, K extends keyof InstanceType<T>, N extends true>(table: T, options?: {
+    column: K,
+    null: N,
+    index?: false
+  }): PkToDbType<InstanceType<T>[K]> | DbNull;
+
+  Index<T>(type: T): T;
+  Unique(...columns: any[]): void;
+  Check<T>(type: T, checks: any): T;
 
   Abs(n: OnlyNumbers): ToComputed<DbNumber>;
   Abs(n: NumberParam): ToComputed<NumberResult>;

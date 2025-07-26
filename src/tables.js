@@ -86,7 +86,7 @@ class Table {
         });
       }
     }
-    for (const category of ['Index', 'Unique', 'PrimaryKey', 'Check']) {
+    for (const category of ['Index', 'Unique', 'Check']) {
       Object.defineProperty(this, category, {
         get: function() {
           const symbol = Symbol();
@@ -133,6 +133,42 @@ class Table {
       });
     }
   }
+
+  ForeignKey(options) {
+    const { 
+      references, 
+      column, 
+      onDelete, 
+      onUpdate, 
+      notNull, 
+      index 
+    } = options;
+    const request = {
+      category: 'ForeignKey',
+      column: null,
+      references: removeCapital(references.name),
+      actions: [],
+      index: index === false ? false : true
+    };
+    const columns = getColumns(references)
+      .filter(c => column ? c.name === column : c.primaryKey);
+    if (columns.length !== 1) {
+      throw Error('The foreign key options are not valid');
+    }
+    const target = columns.at(0);
+    target.primaryKey = false;
+    target.notNull = notNull === false ? false : true;
+    request.column = target;
+    if (onDelete) {
+      request.actions.push(`on delete ${onDelete}`);
+    }
+    if (onUpdate) {
+      request.actions.push(`on update ${onUpdate}`);
+    }
+    const symbol = Symbol();
+    Table.requests.set(request);
+    return symbol;
+  }
 }
 
 for (const type of ['Delete', 'Update']) {
@@ -147,7 +183,9 @@ for (const type of ['Delete', 'Update']) {
         Table.requests.set(symbol, {
           category: 'ForeignKey',
           table: removeCapital(this.name),
-          action: adjustedAction
+          action: adjustedAction,
+          notNull: true,
+          index: false
         });
         return symbol;
       }
@@ -160,6 +198,26 @@ const getKeys = (instance) => {
     .getOwnPropertyNames(instance)
     .filter(k => /[a-z]/.test(k.at(0)));
 }
+
+const getColumns = (constructor) => {
+  const instance = new constructor();
+  const keys = getKeys(instance);
+  return keys.map(key => {
+    const clone = Table.requests.get(instance[key]);
+    clone.name = key;
+    return clone;
+  });
+}
+
+const getPrimaryKey = (constructor) => {
+  const columns = getColumns(constructor).filter(r => r.primaryKey);
+  if (columns.length !== 1) {
+    throw Error('Cannot find an appropriate primary key from the referenced table');
+  }
+  const clone = columns.at(0);
+  clone.primaryKey = false;
+  return clone;
+} 
 
 const process = (Custom, tables) => {
   const instance = new Custom();
@@ -204,23 +262,28 @@ const process = (Custom, tables) => {
       }
     });
   }
+  const processForeignKey = (columnName, request) => {
+    const existing = table.foreignKeys.find(k => k.columns.length === 1 && k.columns.at(0) === columnName);
+    if (existing) {
+      existing.actions.push(request.action);
+    }
+    else {
+      table.foreignKeys.push({
+        columns: [columnName],
+        references: {
+          table: request.table
+        },
+        actions: [request.action]
+      });
+    }
+  }
   for (const key of keys) {
     let symbol = instance[key];
     const valueType = typeof symbol;
     const references = tables.find(t => t === symbol);
     if (references) {
       const name = removeCapital(references.name);
-      const other = new references();
-      const keys = getKeys(other);
-      const primaryKeys = keys
-        .map(key => Table.requests.get(other[key]))
-        .filter(r => r.primaryKey);
-      if (primaryKeys.length !== 1) {
-        throw Error('Cannot find an appropriate primary key from the referenced table');
-      }
-      const primaryKey = primaryKeys.at(0);
-      const request = { ...primaryKey };
-      request.primaryKey = false;
+      const request = getPrimaryKey(references);
       const updated = Symbol();
       Table.requests.set(updated, request);
       instance[key] = updated;
@@ -231,6 +294,7 @@ const process = (Custom, tables) => {
           table: name
         }
       });
+      table.indexes.push({ on: key });
     }
     if (valueType !== 'symbol' && !references) {
       if (valueType === 'string') {
@@ -259,6 +323,22 @@ const process = (Custom, tables) => {
     }
     const request = Table.requests.get(symbol);
     const { category, ...column } = request;
+    if (category === 'ForeignKey') {
+      processForeignKey(key, request);
+      const tableName = addCapital(request.table);
+      const constructor = tables.find(t => t.name === tableName);
+      const column = getPrimaryKey(constructor);
+      if (!request.notNull) {
+        column.notNull = false;
+      }
+      column.name = key;
+      table.columns.push(column);
+      Table.requests.set(symbol, column);
+      if (request.index !== false) {
+        table.indexes.push({ on: key });
+      }
+      continue;
+    }
     if (category === 'Method') {
       const { type, sql } = processMethod({
         method: request,
@@ -311,13 +391,7 @@ const process = (Custom, tables) => {
       if (valueRequest) {
         const category = valueRequest.category;
         if (category === 'ForeignKey') {
-          table.foreignKeys.push({
-            columns: [column.name],
-            references: {
-              table: valueRequest.table
-            },
-            action: valueRequest.action
-          });
+          processForeignKey(column.name, valueRequest);
         }
         else if (category === 'Column') {
           column.default = valueRequest.default;
@@ -341,7 +415,8 @@ const process = (Custom, tables) => {
           columns: [column.name],
           references: {
             table: tableName
-          }
+          },
+          actions: []
         });
       }
       else if (typeof value !== 'symbol') {
@@ -535,9 +610,9 @@ const toSql = (table) => {
       const {
         columns,
         references,
-        action
+        actions
       } = foreignKey;
-      const actionClause = action ? ` ${action}` : '';
+      const actionClause = actions.length > 0 ? ` ${actions.join(' ')}` : '';
       sql += `  foreign key (${columns.join(', ')}) references ${references.table}${actionClause},\n`;
     }
   }
