@@ -1055,7 +1055,7 @@ export class Table {
     null: N,
     index?: false
   }): GetPrimaryKey<InstanceType<T>> | DbNull;
-  References<T, K extends keyof InstanceType<T>(table: T, options?: {
+  References<T, K extends keyof InstanceType<T>>(table: T, options?: {
     column: K,
     onDelete?: ForeignActions,
     onUpdate?: ForeignActions,
