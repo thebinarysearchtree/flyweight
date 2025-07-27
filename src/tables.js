@@ -5,8 +5,7 @@ const types = ['Int', 'Real', 'Text', 'Blob', 'Json', 'Date', 'Bool'];
 const modifiers = [
   ['', {}],
   ['p', { primaryKey: true }],
-  ['x', { notNull: false }],
-  ['u', { unique: true }]
+  ['x', { notNull: false }]
 ];
 
 const removeCapital = (name) => {
@@ -18,6 +17,34 @@ const addCapital = (name) => {
 }
 
 const sanitize = (s) => s.replaceAll(/'/gmi, '\'\'');
+
+const toColumn = (instance, literal) => {
+  const type = typeof literal;
+  let column;
+  if (type === 'string') {
+    column = instance.Text;
+  }
+  else if (type === 'number') {
+    if (Number.isInteger(literal)) {
+      column = instance.Int;
+    }
+    else {
+      column = instance.Real;
+    }
+  }
+  else if (type === 'boolean') {
+    column = instance.Bool;
+  }
+  else if (symbol instanceof Date) {
+    column = instance.Date;
+  }
+  else {
+    throw Error(`Invalid default value ${literal}`);
+  }
+  const request = Table.requests.get(column);
+  request.default = literal;
+  return column;
+}
 
 const toLiteral = (value) => {
   const type = typeof value;
@@ -86,37 +113,17 @@ class Table {
         });
       }
     }
-    for (const category of ['Index', 'Unique', 'Check']) {
-      Object.defineProperty(this, category, {
-        get: function() {
-          const symbol = Symbol();
-          Table.requests.set(symbol, {
-            category
-          });
-          return symbol;
-        }
-      });
-    }
-    const defaults = [
-      ['date', 'Now', 'now'],
-      ['boolean', 'True', true],
-      ['boolean', 'False', false]
-    ];
-    for (const item of defaults) {
-      const [type, key, value] = item;
-      Object.defineProperty(this, key, {
-        get: function() {
-          const symbol = Symbol();
-          Table.requests.set(symbol, {
-            category: 'Column',
-            type,
-            notNull: true,
-            default: value
-          });
-          return symbol;
-        }
-      });
-    }
+  }
+
+  get Now() {
+    const symbol = Symbol();
+    Table.requests.set(symbol, {
+      category: 'Column',
+      type: 'date',
+      notNull: true,
+      default: 'now'
+    });
+    return symbol;
   }
 
   ReplaceFields() {
@@ -134,23 +141,57 @@ class Table {
     }
   }
 
-  ForeignKey(options) {
+  Index(column, expression) {
+    const symbol = Symbol();
+    Table.requests.set(symbol, {
+      category: 'Index',
+      column,
+      expression
+    });
+    return symbol;
+  }
+
+  Unique(...columns) {
+    const symbol = Symbol();
+    Table.requests.set(symbol, {
+      category: 'Unique',
+      columns
+    });
+    return symbol;
+  }
+
+  Check(column, expression) {
+    const symbol = Symbol();
+    Table.requests.set(symbol, {
+      category: 'Check',
+      column,
+      expression
+    });
+    return symbol;
+  }
+
+  Cascade(instance, options) {
+    options = options || {};
+    options.onDelete = 'cascade';
+    return this.References(instance, options);
+  }
+
+  References(instance, options) {
     const { 
-      references, 
-      column, 
-      onDelete, 
-      onUpdate, 
-      notNull, 
-      index 
+      column,
+      onDelete,
+      onUpdate,
+      notNull,
+      index
     } = options;
     const request = {
       category: 'ForeignKey',
       column: null,
-      references: removeCapital(references.name),
+      references: removeCapital(instance.name),
       actions: [],
       index: index === false ? false : true
     };
-    const columns = getColumns(references)
+    const columns = getColumns(instance)
       .filter(c => column ? c.name === column : c.primaryKey);
     if (columns.length !== 1) {
       throw Error('The foreign key options are not valid');
@@ -171,28 +212,6 @@ class Table {
   }
 }
 
-for (const type of ['Delete', 'Update']) {
-  for (const action of ['NoAction', 'Restrict', 'SetNull', 'SetDefault', 'Cascade']) {
-    const key = `On${type}${action}`;
-    const adjustedAction = key
-      .replaceAll(/([a-z])([A-Z])/gm, '$1 $2')
-      .toLowerCase();
-    Object.defineProperty(Table, key, {
-      get: function() {
-        const symbol = Symbol();
-        Table.requests.set(symbol, {
-          category: 'ForeignKey',
-          table: removeCapital(this.name),
-          action: adjustedAction,
-          notNull: true,
-          index: false
-        });
-        return symbol;
-      }
-    });
-  }
-}
-
 const getKeys = (instance) => {
   return Object
     .getOwnPropertyNames(instance)
@@ -203,21 +222,19 @@ const getColumns = (constructor) => {
   const instance = new constructor();
   const keys = getKeys(instance);
   return keys.map(key => {
-    const clone = Table.requests.get(instance[key]);
+    const value = instance[key];
+    let request;
+    if (typeof value === 'symbol') {
+      request = Table.requests.get(value);
+    }
+    else {
+      request = toColumn(instance, value);
+    }
+    const clone = structuredClone(request);
     clone.name = key;
     return clone;
   });
 }
-
-const getPrimaryKey = (constructor) => {
-  const columns = getColumns(constructor).filter(r => r.primaryKey);
-  if (columns.length !== 1) {
-    throw Error('Cannot find an appropriate primary key from the referenced table');
-  }
-  const clone = columns.at(0);
-  clone.primaryKey = false;
-  return clone;
-} 
 
 const process = (Custom, tables) => {
   const instance = new Custom();
@@ -262,81 +279,86 @@ const process = (Custom, tables) => {
       }
     });
   }
-  const processForeignKey = (columnName, request) => {
-    const existing = table.foreignKeys.find(k => k.columns.length === 1 && k.columns.at(0) === columnName);
-    if (existing) {
-      existing.actions.push(request.action);
-    }
-    else {
-      table.foreignKeys.push({
-        columns: [columnName],
-        references: {
-          table: request.table
-        },
-        actions: [request.action]
-      });
-    }
-  }
   for (const key of keys) {
     let symbol = instance[key];
     const valueType = typeof symbol;
-    const references = tables.find(t => t === symbol);
-    if (references) {
-      const name = removeCapital(references.name);
-      const request = getPrimaryKey(references);
-      const updated = Symbol();
-      Table.requests.set(updated, request);
-      instance[key] = updated;
-      symbol = updated;
-      table.foreignKeys.push({
-        columns: [key],
-        references: {
-          table: name
-        }
-      });
-      table.indexes.push({ on: key });
-    }
-    if (valueType !== 'symbol' && !references) {
-      if (valueType === 'string') {
-        instance[key] = instance.Text;
-      }
-      else if (valueType === 'number') {
-        if (Number.isInteger(symbol)) {
-          instance[key] = instance.Int;
-        }
-        else {
-          instance[key] = instance.Real;
-        }
-      }
-      else if (valueType === 'boolean') {
-        instance[key] = instance.Bool;
-      }
-      else if (symbol instanceof Date) {
-        instance[key] = instance.Date;
-      }
-      else {
-        throw Error(`The default value for "${key}" is invalid`);
-      }
-      const request = Table.requests.get(instance[key]);
-      request.default = symbol;
+    if (valueType !== 'symbol') {
+      instance[key] = toColumn(instance, symbol);
       symbol = instance[key];
     }
     const request = Table.requests.get(symbol);
     const { category, ...column } = request;
     if (category === 'ForeignKey') {
-      processForeignKey(key, request);
-      const tableName = addCapital(request.table);
-      const constructor = tables.find(t => t.name === tableName);
-      const column = getPrimaryKey(constructor);
-      if (!request.notNull) {
-        column.notNull = false;
+      const { 
+        references,
+        actions,
+        index
+      } = request;
+      const column = structuredClone(request.column);
+      column.name = key;
+      table.columns.push(column);
+      table.foreignKeys.push({
+        columns: [key],
+        references: {
+          table: references,
+          column: request.column.name
+        },
+        actions
+      });
+      Table.requests.set(symbol, column);
+      if (index !== false) {
+        table.indexes.push({ on: key });
       }
+      continue;
+    }
+    else if (category === 'Check') {
+      const column = Table.requests.get(request.column);
       column.name = key;
       table.columns.push(column);
       Table.requests.set(symbol, column);
-      if (request.index !== false) {
-        table.indexes.push({ on: key });
+      const check = request.expression;
+      if (typeof check === 'symbol') {
+        const method = Table.requests.get(check);
+        if (method.category === 'Column') {
+          table.checks.push(`${key} = ${method.name}`);
+        }
+        else {
+          const result = processMethod({
+            method,
+            requests: Table.requests
+          });
+          table.checks.push(`${key} ${result.sql}`);
+        }
       }
+      else if (Array.isArray(check)) {
+        const clause = check.map(s => toLiteral(s)).join(', ');
+        table.checks.push(`${key} in (${clause})`);
+      }
+      else {
+        table.checks.push(`${key} = ${toLiteral(check)}`);
+      }
+      continue;
+    }
+    else if (['Index', 'Unique'].includes(category)) {
+      const type = category === 'Unique' ? 'unique' : undefined;
+      const column = Table.requests.get(request.column);
+      column.name = key;
+      table.columns.push(column);
+      Table.requests.set(symbol, column);
+      let where;
+      if (request.expression) {
+        const result = request.expression(symbol);
+        const { sql } = toWhere({
+          where: result,
+          requests: Table.requests
+        });
+        where = sql;
+      }
+      table.indexes.push({
+        type,
+        on: [key],
+        where
+      });
       continue;
     }
     if (category === 'Method') {
@@ -613,7 +635,7 @@ const toSql = (table) => {
         actions
       } = foreignKey;
       const actionClause = actions.length > 0 ? ` ${actions.join(' ')}` : '';
-      sql += `  foreign key (${columns.join(', ')}) references ${references.table}${actionClause},\n`;
+      sql += `  foreign key (${columns.join(', ')}) references ${references.table}(${references.column})${actionClause},\n`;
     }
   }
   if (checks.length > 0) {

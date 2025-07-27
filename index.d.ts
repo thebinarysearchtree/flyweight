@@ -459,7 +459,7 @@ type ToDbType<T> =
     U extends boolean ? DbBoolean :
     U extends null ? DbNull :
     U extends Json ? DbJson :
-    DbJson
+    U
   ) : T;
 
 type ToDbInterface<T> = {
@@ -985,8 +985,8 @@ interface TypedDb<P, C> {
   getSchema(): any[];
   diff(schema?: any[]): string;
   getTransaction(type?: 'read' | 'write' | 'deferred'): Promise<TypedDb<P, C> & P>;
-  batch:<T extends any[]> (batcher: (bx: TypedDb<P, C> & P) => T) => Promise<Unwrap<T>>;
-  batch:<T extends any[]> (type: 'read' | 'write', batcher: (bx: TypedDb<P, C> & P) => T) => Promise<Unwrap<T>>;
+  batch<T extends any[]>(batcher: (bx: TypedDb<P, C> & P) => T): Promise<Unwrap<T>>;
+  batch<T extends any[]> (type: 'read' | 'write', batcher: (bx: TypedDb<P, C> & P) => T): Promise<Unwrap<T>>;
   sync(): Promise<void>;
   first<S extends SelectType, K extends ObjectReturn<S>, T extends (context: SubqueryContext & C) => K>(expression: T): Promise<ToJsType<ReturnType<T>['select'] & ReturnType<T>['distinct'] & MakeOptional<NonNullable<ReturnType<T>['optional']>>> | undefined>;
   firstValue<S extends SelectType, K extends ValueReturn<S>, T extends (context: SubqueryContext & C) => K>(expression: T): Promise<GetDefined<ReturnType<T>> | undefined>;
@@ -1016,78 +1016,77 @@ export class Table {
   Int: DbNumber;
   Intp: PkNumber;
   Intx: DbNumber | DbNull;
-  Intu: DbNumber;
   Real: DbNumber;
   Realp: PkNumber;
   Realx: DbNumber | DbNull;
-  Realu: DbNumber;
   Text: DbString;
   Textp: PkString;
   Textx: DbString | DbNull;
-  Textu: DbString;
   Blob: DbBuffer;
   Blobp: PkBuffer;
   Blobx: DbBuffer | DbNull;
-  Blobu: DbBuffer;
   Json: DbJson;
   Jsonx: DbJson | DbNull;
-  Jsonu: DbJson;
   Date: DbDate;
   Datep: PkDate;
   Datex: DbDate | DbNull;
-  Dateu: DbDate;
   Bool: DbBoolean;
   Boolx: DbBoolean | DbNull;
-  Boolu: DbBoolean;
 
   Now: DbDate;
   True: DbBoolean;
   False: DbBoolean;
 
-  References<T>(table: T, options?: {
+  References<T extends abstract new (...args: any[]) => any>(table: T, options?: {
     onDelete?: ForeignActions,
     onUpdate?: ForeignActions,
     index?: false
   }): GetPrimaryKey<InstanceType<T>>;
-  References<T, N extends true>(table: T, options?: {
+  References<T extends abstract new (...args: any[]) => any, N extends true>(table: T, options?: {
     onDelete?: ForeignActions,
     onUpdate?: ForeignActions,
     null: N,
     index?: false
   }): GetPrimaryKey<InstanceType<T>> | DbNull;
-  References<T, K extends keyof InstanceType<T>>(table: T, options?: {
+  References<T extends abstract new (...args: any[]) => any, K extends keyof InstanceType<T>>(table: T, options?: {
     column: K,
     onDelete?: ForeignActions,
     onUpdate?: ForeignActions,
     index?: false
   }): PkToDbType<InstanceType<T>[K]>;
-  References<T, K extends keyof InstanceType<T>, N extends true>(table: T, options?: {
+  References<T extends abstract new (...args: any[]) => any, K extends keyof InstanceType<T>, N extends true>(table: T, options?: {
     column: K,
     onDelete?: ForeignActions,
     onUpdate?: ForeignActions,
     null: N,
     index?: false
   }): PkToDbType<InstanceType<T>[K]> | DbNull;
-  Cascade<T>(table: T, options?: {
+  Cascade<T extends abstract new (...args: any[]) => any>(table: T, options?: {
     index?: false
   }): GetPrimaryKey<InstanceType<T>>;
-  Cascade<T, N extends true>(table: T, options?: {
+  Cascade<T extends abstract new (...args: any[]) => any, N extends true>(table: T, options?: {
     null: N,
     index?: false
   }): GetPrimaryKey<InstanceType<T>> | DbNull;
-  Cascade<T, K extends keyof InstanceType<T>>(table: T, options?: {
+  Cascade<T extends abstract new (...args: any[]) => any, K extends keyof InstanceType<T>>(table: T, options?: {
     column: K,
     index?: false
   }): PkToDbType<InstanceType<T>[K]>;
-  Cascade<T, K extends keyof InstanceType<T>, N extends true>(table: T, options?: {
+  Cascade<T extends abstract new (...args: any[]) => any, K extends keyof InstanceType<T>, N extends true>(table: T, options?: {
     column: K,
     null: N,
     index?: false
   }): PkToDbType<InstanceType<T>[K]> | DbNull;
 
-  Index<T>(type: T): T;
-  Unique(...columns: any[]): void;
-  Check<T>(type: T, checks: any): T;
+  Index<T>(type: T): ToDbType<T>;
+  Index<T>(type: T, expression: (column: T) => any): ToDbType<T>;
+  Index<T>(type: T, ...other: symbol[]): ToDbType<T>;
+  Index<T>(type: T, ...other: symbol[], expression: { [key: symbol]: any }): ToDbType<T>;
+  Unique<T>(type: T): ToDbType<T>;
+  Unique<T>(type: T, expression: (column: T) => any): ToDbType<T>;
+  Unique<T>(type: T, ...other: symbol[]): ToDbType<T>;
+  Unique<T>(type: T, ...other: symbol[], expression: { [key: symbol]: any }): ToDbType<T>;
+  Check<T>(type: T, checks: any): ToDbType<T>;
 
   Abs(n: OnlyNumbers): ToComputed<DbNumber>;
   Abs(n: NumberParam): ToComputed<NumberResult>;
@@ -1197,22 +1196,22 @@ export class Table {
   Multiply(...args: OnlyNumbers[]): ToComputed<DbNumber>;
   Multiply(...args: NumberParam[]): ToComputed<NumberResult>;
 
-  Not: (value: symbol | QueryCompareTypes | QueryCompareTypes[]) => ToComputed<DbBoolean>;
-  Not: (column: symbol, value: QueryCompareTypes | QueryCompareTypes[]) => ToComputed<DbBoolean>;
-  Gt: (value: symbol | QueryCompareTypes) => ToComputed<DbBoolean>;
-	Gt: (column: symbol, value: QueryCompareTypes) => ToComputed<DbBoolean>;
-  Lt: (value: symbol | QueryCompareTypes) => ToComputed<DbBoolean>;
-	Lt: (column: symbol, value: QueryCompareTypes) => ToComputed<DbBoolean>;
-  Lte: (value: symbol | QueryCompareTypes) => ToComputed<DbBoolean>;
-	Lte: (column: symbol, value: QueryCompareTypes) => ToComputed<DbBoolean>;
-  Like: (pattern: DbString | ComputedString | string) => ToComputed<DbBoolean>;
-	Like: (column: symbol, pattern: QueryCompareTypes) => ToComputed<DbBoolean>;
-  Match: (pattern: DbString | ComputedString | string) => ToComputed<DbBoolean>;
-	Match: (column: symbol, pattern: QueryCompareTypes) => ToComputed<DbBoolean>;
-  Glob: (pattern: DbString | ComputedString | string) => ToComputed<DbBoolean>;
-	Glob: (column: symbol, pattern: QueryCompareTypes) => ToComputed<DbBoolean>;
-  Eq: (value: symbol | QueryCompareTypes) => ToComputed<DbBoolean>;
-	Eq: (column: symbol, value: QueryCompareTypes) => ToComputed<DbBoolean>;
+  Not(value: symbol | QueryCompareTypes | QueryCompareTypes[]): ToComputed<DbBoolean>;
+  Not(column: symbol, value: QueryCompareTypes | QueryCompareTypes[]): ToComputed<DbBoolean>;
+  Gt(value: symbol | QueryCompareTypes): ToComputed<DbBoolean>;
+	Gt(column: symbol, value: QueryCompareTypes): ToComputed<DbBoolean>;
+  Lt(value: symbol | QueryCompareTypes): ToComputed<DbBoolean>;
+	Lt(column: symbol, value: QueryCompareTypes): ToComputed<DbBoolean>;
+  Lte(value: symbol | QueryCompareTypes): ToComputed<DbBoolean>;
+	Lte(column: symbol, value: QueryCompareTypes): ToComputed<DbBoolean>;
+  Like(pattern: DbString | ComputedString | string): ToComputed<DbBoolean>;
+	Like(column: symbol, pattern: QueryCompareTypes): ToComputed<DbBoolean>;
+  Match(pattern: DbString | ComputedString | string): ToComputed<DbBoolean>;
+	Match(column: symbol, pattern: QueryCompareTypes): ToComputed<DbBoolean>;
+  Glob(pattern: DbString | ComputedString | string): ToComputed<DbBoolean>;
+	Glob(column: symbol, pattern: QueryCompareTypes): ToComputed<DbBoolean>;
+  Eq(value: symbol | QueryCompareTypes): ToComputed<DbBoolean>;
+	Eq(column: symbol, value: QueryCompareTypes): ToComputed<DbBoolean>;
 }
 
 export class Database {
