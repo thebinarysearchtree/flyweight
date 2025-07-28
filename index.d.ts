@@ -1079,13 +1079,11 @@ export class Table {
   }): PkToDbType<InstanceType<T>[K]> | DbNull;
 
   Index<T>(type: T): ToDbType<T>;
-  Index<T>(type: T, expression: (column: T) => any): ToDbType<T>;
-  Index<T>(type: T, ...other: symbol[]): ToDbType<T>;
-  Index<T>(type: T, ...other: symbol[], expression: { [key: symbol]: any }): ToDbType<T>;
+  Index<T>(type: T, expression: (column: T) => { [key: symbol]: any }): ToDbType<T>;
+  Index<T>(type: T, ...other: any[]): ToDbType<T>;
   Unique<T>(type: T): ToDbType<T>;
-  Unique<T>(type: T, expression: (column: T) => any): ToDbType<T>;
-  Unique<T>(type: T, ...other: symbol[]): ToDbType<T>;
-  Unique<T>(type: T, ...other: symbol[], expression: { [key: symbol]: any }): ToDbType<T>;
+  Unique<T>(type: T, expression: (column: T) => { [key: symbol]: any }): ToDbType<T>;
+  Unique<T>(type: T, ...other: any[]): ToDbType<T>;
   Check<T>(type: T, checks: any): ToDbType<T>;
 
   Abs(n: OnlyNumbers): ToComputed<DbNumber>;

@@ -18,32 +18,36 @@ const addCapital = (name) => {
 
 const sanitize = (s) => s.replaceAll(/'/gmi, '\'\'');
 
-const toColumn = (instance, literal) => {
+const toColumn = (literal) => {
+  const instance = new Table();
   const type = typeof literal;
-  let column;
+  let symbol;
   if (type === 'string') {
-    column = instance.Text;
+    symbol = instance.Text;
   }
   else if (type === 'number') {
     if (Number.isInteger(literal)) {
-      column = instance.Int;
+      symbol = instance.Int;
     }
     else {
-      column = instance.Real;
+      symbol = instance.Real;
     }
   }
   else if (type === 'boolean') {
-    column = instance.Bool;
+    symbol = instance.Bool;
   }
   else if (symbol instanceof Date) {
-    column = instance.Date;
+    symbol = instance.Date;
   }
   else {
     throw Error(`Invalid default value ${literal}`);
   }
-  const request = Table.requests.get(column);
-  request.default = literal;
-  return column;
+  const column = Table.requests.get(symbol);
+  column.default = literal;
+  return {
+    symbol,
+    column
+  };
 }
 
 const toLiteral = (value) => {
@@ -62,6 +66,7 @@ const toLiteral = (value) => {
 
 class Table {
   static requests = new Map();
+  Called = [];
 
   constructor() {
     const methods = [...compareMethods, ...computeMethods];
@@ -141,23 +146,29 @@ class Table {
     }
   }
 
-  Index(column, expression) {
+  MakeIndex(args, category) {
     const symbol = Symbol();
+    const last = args.at(-1);
+    let expression;
+    let columns = args;
+    if (typeof last === 'function') {
+      expression = args.pop();
+    }
     Table.requests.set(symbol, {
-      category: 'Index',
-      column,
+      category,
+      columns,
       expression
     });
+    this.Called.push(symbol);
     return symbol;
   }
 
-  Unique(...columns) {
-    const symbol = Symbol();
-    Table.requests.set(symbol, {
-      category: 'Unique',
-      columns
-    });
-    return symbol;
+  Index(...args) {
+    return this.MakeIndex(args, 'Index');
+  }
+
+  Unique(...args) {
+    return this.MakeIndex(args, 'Unique');
   }
 
   Check(column, expression) {
@@ -167,6 +178,7 @@ class Table {
       column,
       expression
     });
+    this.Called.push(symbol);
     return symbol;
   }
 
@@ -183,7 +195,7 @@ class Table {
       onUpdate,
       notNull,
       index
-    } = options;
+    } = options || {};
     const request = {
       category: 'ForeignKey',
       column: null,
@@ -207,7 +219,7 @@ class Table {
       request.actions.push(`on update ${onUpdate}`);
     }
     const symbol = Symbol();
-    Table.requests.set(request);
+    Table.requests.set(symbol, request);
     return symbol;
   }
 }
@@ -228,15 +240,16 @@ const getColumns = (constructor) => {
       request = Table.requests.get(value);
     }
     else {
-      request = toColumn(instance, value);
+      const result = toColumn(value);
+      request = result.column;
     }
-    const clone = structuredClone(request);
+    const clone = { ...request };
     clone.name = key;
     return clone;
   });
 }
 
-const process = (Custom, tables) => {
+const process = (Custom) => {
   const instance = new Custom();
   const name = removeCapital(Custom.name);
   const table = {
@@ -279,24 +292,41 @@ const process = (Custom, tables) => {
       }
     });
   }
-  for (const key of keys) {
-    let symbol = instance[key];
-    const valueType = typeof symbol;
-    if (valueType !== 'symbol') {
-      instance[key] = toColumn(instance, symbol);
-      symbol = instance[key];
+  const getColumn = (key, value) => {
+    const type = typeof value;
+    if (type !== 'symbol') {
+      const result = toColumn(value);
+      result.column.name = key;
+      return {
+        category: 'Literal',
+        name: key,
+        ...result
+      };
     }
-    const request = Table.requests.get(symbol);
-    const { category, ...column } = request;
-    if (category === 'ForeignKey') {
+    const request = Table.requests.get(value);
+    const category = request.category;
+    if (category === 'Column') {
+      const column = { ...request, name: key };
+      if (table.type === 'virtual') {
+        const virtual = virtualColumns.get(key);
+        column.original = {
+          table: virtualTable,
+          name: virtual.name
+        }
+      }
+      if (column.primaryKey) {
+        table.primaryKeys.push(key);
+      }
+      return column;
+    }
+    else if (category === 'ForeignKey') {
       const { 
         references,
         actions,
         index
       } = request;
-      const column = structuredClone(request.column);
+      const column = { ...request.column };
       column.name = key;
-      table.columns.push(column);
       table.foreignKeys.push({
         columns: [key],
         references: {
@@ -305,205 +335,120 @@ const process = (Custom, tables) => {
         },
         actions
       });
-      Table.requests.set(symbol, column);
       if (index !== false) {
         table.indexes.push({ on: key });
       }
-      continue;
+      return column;
     }
     else if (category === 'Check') {
-      const column = Table.requests.get(request.column);
-      column.name = key;
-      table.columns.push(column);
-      Table.requests.set(symbol, column);
+      const column = getColumn(key, request.column);
+      const sql = column.sql || column.name;
       const check = request.expression;
       if (typeof check === 'symbol') {
         const method = Table.requests.get(check);
         if (method.category === 'Column') {
-          table.checks.push(`${key} = ${method.name}`);
+          table.checks.push(`${sql} = ${method.name}`);
         }
         else {
           const result = processMethod({
             method,
             requests: Table.requests
           });
-          table.checks.push(`${key} ${result.sql}`);
+          table.checks.push(`${sql} ${result.sql}`);
         }
       }
       else if (Array.isArray(check)) {
         const clause = check.map(s => toLiteral(s)).join(', ');
-        table.checks.push(`${key} in (${clause})`);
+        table.checks.push(`${sql} in (${clause})`);
       }
       else {
-        table.checks.push(`${key} = ${toLiteral(check)}`);
+        table.checks.push(`${sql} = ${toLiteral(check)}`);
       }
-      continue;
+      if (column.primaryKey) {
+        table.primaryKeys.push(column.name);
+      }
+      return column;
     }
     else if (['Index', 'Unique'].includes(category)) {
       const type = category === 'Unique' ? 'unique' : undefined;
-      const column = Table.requests.get(request.column);
-      column.name = key;
-      table.columns.push(column);
-      Table.requests.set(symbol, column);
+      if (request.columns.length > 1) {
+        throw Error('Multi-column indexes can only be defined in the "Attributes" function');
+      }
+      const arg = request.columns.at(0);
+      const result = getColumn(key, arg);
+      let symbol = arg;
+      let column = result;
+      if (result.category === 'Literal') {
+        symbol = result.symbol;
+        column = result.column;
+      }
       let where;
       if (request.expression) {
         const result = request.expression(symbol);
-        const { sql } = toWhere({
+        where = toWhere({
           where: result,
           requests: Table.requests
         });
-        where = sql;
       }
       table.indexes.push({
         type,
-        on: [key],
+        on: column.sql || column.name,
         where
       });
-      continue;
+      return column;
     }
     if (category === 'Method') {
       const { type, sql } = processMethod({
         method: request,
         requests: Table.requests
       });
-      const data = {
-        category: 'Column',
+      return {
+        category: 'Computed',
         name: key,
         type,
         sql
       };
-      table.computed.push(data);
-      Table.requests.set(symbol, data);
-      continue;
     }
-    const data = {
-      category: 'Column',
-      name: key,
-      ...column
-    };
-    if (table.type === 'virtual') {
-      const column = virtualColumns.get(key);
-      data.original = {
-        table: virtualTable,
-        name: column.name
-      }
+  }
+  for (const key of keys) {
+    const value = instance[key];
+    const result = getColumn(key, value);
+    if (result.category === 'Computed') {
+      result.category = 'Column';
+      table.computed.push(result);
+      Table.requests.set(value, result);
+    }
+    else if (result.category === 'Literal') {
+      table.columns.push(result.column);
+      Table.requests.set(result.symbol, result.column);
     }
     else {
-      request.name = key;
+      table.columns.push(result);
+      Table.requests.set(value, result);
     }
-    if (request.primaryKey) {
-      table.primaryKeys.push(key);
-    }
-    table.columns.push(data);
-    Table.requests.set(symbol, data);
   }
-  let attributes = {};
   if (instance.Attributes) {
     instance.ReplaceFields();
-    attributes = instance.Attributes();
+    instance.Called = [];
+    instance.Attributes();
   }
-  const symbols = Object.getOwnPropertySymbols(attributes);
-  for (const symbol of symbols) {
-    const value = attributes[symbol];
-    const keyRequest = Table.requests.get(symbol);
-    const valueRequest = Table.requests.get(value);
-    const valueTable = tables.find(t => t === value);
-    if (keyRequest.category === 'Column') {
-      const column = keyRequest;
-      if (valueRequest) {
-        const category = valueRequest.category;
-        if (category === 'ForeignKey') {
-          processForeignKey(column.name, valueRequest);
-        }
-        else if (category === 'Column') {
-          column.default = valueRequest.default;
-        }
-        else if (category === 'Method') {
-          const result = processMethod({
-            method: valueRequest,
-            requests: Table.requests
-          });
-          if (valueRequest.type === 'Compare') {
-            table.checks.push(`${keyRequest.name} ${result.sql}`);
-          }
-          else {
-            column.default = result.sql;
-          }
-        }
-      }
-      else if (valueTable) {
-        const tableName = removeCapital(valueTable.name);
-        table.foreignKeys.push({
-          columns: [column.name],
-          references: {
-            table: tableName
-          },
-          actions: []
-        });
-      }
-      else if (typeof value !== 'symbol') {
-        if (Array.isArray(value)) {
-          const sql = `${column.name} in (${value.map(v => toLiteral(v)).join(', ')})`;
-          table.checks.push(sql);
-        }
-        else {
-          if (typeof value === 'string') {
-            column.default = sanitize(value);
-          }
-          else {
-            column.default = value;
-          }
-        }
-      }
-    }
-    else if (keyRequest) {
-      const category = keyRequest.category;
-      if (category === 'Check') {
-        const sql = toWhere({
-          where: value,
-          requests: Table.requests
-        });
-        table.checks.push(sql);
-      }
-      else if (['Unique', 'Index'].includes(category)) {
-        let on;
-        let where;
-        const type = category === 'Unique' ? 'unique' : undefined;
-        if (!Array.isArray(value) && typeof value !== 'symbol') {
-          on = Array.isArray(value.on) ? value.on : [value.on];
-          where = value.where;
-        }
-        else if (Array.isArray(value)) {
-          on = value;
-        }
-        else {
-          on = [value];
-        }
-        const args = on.map(arg => processArg({
+  for (const symbol of instance.Called) {
+    const request = Table.requests.get(symbol);
+    const category = request.category;
+    if (['Index', 'Unique'].includes(category)) {
+      const type = category === 'Unique' ? 'unique' : undefined;
+      const on = request
+        .columns
+        .map(arg => processArg({
           arg,
           requests: Table.requests
-        }));
-        const whereSql = where ? toWhere({
-          where,
-          requests: Table.requests
-        }) : undefined;
-        const index = {};
-        if (type) {
-          index.type = type;
-        }
-        const mapped = args.map(r => r.sql);
-        mapped.sort();
-        index.on = mapped.join(', ');
-        if (whereSql) {
-          index.where = whereSql;
-        }
-        table.indexes.push(index);
-      }
-      else if (category === 'PrimaryKey') {
-        const values = Array.isArray(value) ? value : [value];
-        const columns = values.map(v => Table.requests.get(v).name);
-        table.primaryKeys.push(...columns);
-      }
+        }))
+        .map(r => r.sql)
+        .join(', ');
+      table.indexes.push({
+        type,
+        on
+      });
     }
   }
   table.columns = table.columns.map(column => {
@@ -583,7 +528,10 @@ const toHash = (index) => {
     ['<', 'lte'],
     [/[^a-z_0-9]/gmi, '']
   ];
-  let hash = Object.values(index).join('_');
+  let hash = Object
+    .values(index)
+    .filter(v => v !== undefined)
+    .join('_');
   for (const replacer of replacers) {
     const [from, to] = replacer;
     hash = hash.replaceAll(from, to);

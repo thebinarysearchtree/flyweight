@@ -58,7 +58,7 @@ class Database {
   getClient(schema) {
     const classes = Object.values(schema);
     for (const type of classes) {
-      const table = process(type, classes);
+      const table = process(type);
       this.schema.push(table);
     }
     this.addTables();
