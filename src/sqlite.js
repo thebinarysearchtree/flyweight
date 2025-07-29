@@ -1,4 +1,5 @@
 import Database from './db.js';
+import sqlite3 from 'better-sqlite3';
 import { makeClient } from './proxy.js';
 
 const isEmpty = (params) => {
@@ -9,10 +10,10 @@ const isEmpty = (params) => {
 }
 
 class SQLiteDatabase extends Database {
-  constructor(options = {}) {
+  constructor(path, options = {}) {
     super();
-    this.dbPath = options.db;
-    this.sqlite3 = options.driver;
+    this.dbPath = path;
+    this.sqlite3 = sqlite3;
     this.extensions = options.extensions;
     this.read = null;
     this.writer = null;

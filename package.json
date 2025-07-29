@@ -18,6 +18,7 @@
     "esbuild": "0.25.5"
   },
   "dependencies": {
+    "better-sqlite3": "^12.2.0",
     "pluralize": "^8.0.0"
   },
   "engines": {

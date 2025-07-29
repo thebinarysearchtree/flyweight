@@ -690,7 +690,6 @@ interface DatabaseConfig {
 }
 
 interface SQLiteConfig extends DatabaseConfig {
-  db: string | URL;
   driver: any;
   extensions?: string | URL | Array<string | URL>;
 }
@@ -1220,7 +1219,7 @@ export class Database {
 }
 
 export class SQLiteDatabase extends Database {
-  constructor(options: SQLiteConfig);
+  constructor(path?: string | URL, options?: SQLiteConfig);
   initialize(): Promise<void>;
   close(): Promise<void>;
 }

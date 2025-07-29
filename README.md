@@ -1,43 +1,91 @@
 # Flyweight
-Flyweight is a NodeJS ORM for SQLite and Turso.
+Flyweight is a NodeJS ORM for SQLite and Turso with full TypeScript support and no code generation.
 
-Features include a comprehensive API, the ability to automatically type and query inside JSON, and advanced typing of raw SQL queries so that you are not without TypeScript support in any situation.
+Tables are defined in JavaScript. ```displayName``` uses the built-in ```concat``` function of SQLite.
+
+```js
+export class Locations extends Table {
+  id = this.IntPrimary;
+  name = this.Text;
+  address = this.Text;
+
+  displayName = this.Concat(this.name, ' - ', this.address);
+}
+
+export class Events extends Table {
+  id = this.IntPrimary;
+  name = this.Text;
+  startTime = this.Index(this.Date);
+  locationId = this.Cascade(Locations);
+}
+```
+
+There are two levels of API. The first is a table-level syntax for basic queries.
+
+```js
+const event = await db.events.get({ id: 1 });
+```
+
+Includes are specified at the time of the query, rather than in the schema.
+
+```js
+const locations = await db.locations.query({
+  include: {
+    events: (t, c) => t.events.many({ 
+      locationId: c.id 
+    })
+  },
+  where: {
+    name: n => n.like('Spanish%')
+  }
+});
+```
+
+The second type of syntax is much like SQL and builds on many of the new features that JavaScript has added to its language in recent times.
+
+```js
+const events = await db.query(c => {
+  const {
+    locations: l,
+    events: e
+  } = c;
+  return {
+    select: {
+      ...e,
+      location: l.name
+    },
+    join: [e.locationId, l.id],
+    where: {
+      [e.id]: [1, 2, 3]
+    }
+  }
+});
+```
+
+This syntax allows you to perform queries that usually aren't possible in ORMs.
 
 ## Getting started
 
 ```
-mkdir test
-cd test
-npm init
+npm install flyweightjs
 ```
-
-For a standard SQLite database, then run
-
-```
-npx create-flyweight database
-```
-
-For Turso, run
-
-```
-npx create-flyweight turso database
-```
-
-You can run the ```npx``` command at the root of either an existing or a new project. Once that is done, you can import the database this way:
 
 ```js
-import { db } from './database/db.js';
+import { SQLiteDatabase, Table } from 'flyweightjs';
+
+const database = new SQLiteDatabase('app.db');
+
+class Users extends Table {
+  id = this.IntPrimary;
+  name = this.Text;
+};
+
+const db = database.getClient({ Users });
 
 await db.users.insert({ name: 'Andrew' });
 const users = await db.users.many();
 console.log(users);
 ```
-
-A ```users``` table has already been created for you to play around with.
-
-You can update types whenever you change the SQL by either calling ```npm run watch``` to automatically update the types, or ```npm run types``` to do it manually.
-
-Configuration options can be found in the ```config.js``` file. Go to the [migrations](#migrations) section to learn how to start adding columns and tables.
 
 ## The API
 

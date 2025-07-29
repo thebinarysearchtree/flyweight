@@ -133,7 +133,42 @@ const expressionHandler = (expression) => {
   };
 }
 
+const blank = (clause) => {
+  const chars = clause.split('');
+  const sections = [];
+  let inside = false;
+  let count = 0;
+  let start;
+  for (let i = 0; i < chars.length; i++) {
+    const char = chars[i];
+    if (char === '\'') {
+      if (!inside) {
+        inside = true;
+        start = i;
+      }
+      else {
+        count++;
+        if (i < chars.length) {
+          const next = chars[i + 1];
+          if (next !== '\'') {
+            if (count % 2 === 1) {
+              sections.push([start, i]);
+              count = 0;
+              inside = false;
+            }
+          }
+        }
+        else {
+          sections.push([start, i]);
+        }
+      }
+    }
+  }
+  return sections;
+}
+
 export {
+  blank,
   toValues,
   getPlaceholder,
   expressionHandler

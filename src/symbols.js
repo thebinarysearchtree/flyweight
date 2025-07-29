@@ -30,6 +30,7 @@ const makeProxy = (options) => {
         }
         const symbol = Symbol();
         const type = db.columns[table][property];
+        console.log(db.computed[table][property]);
         requests.set(symbol, {
           category: 'Column',
           table,
