@@ -133,18 +133,16 @@ const expressionHandler = (expression) => {
   };
 }
 
-const blank = (clause) => {
+const addAlias = (clause, alias) => {
   const chars = clause.split('');
-  const sections = [];
   let inside = false;
   let count = 0;
-  let start;
+  let blanked = '';
   for (let i = 0; i < chars.length; i++) {
     const char = chars[i];
     if (char === '\'') {
       if (!inside) {
         inside = true;
-        start = i;
       }
       else {
         count++;
@@ -152,23 +150,41 @@ const blank = (clause) => {
           const next = chars[i + 1];
           if (next !== '\'') {
             if (count % 2 === 1) {
-              sections.push([start, i]);
-              count = 0;
               inside = false;
             }
+            count = 0;
           }
-        }
-        else {
-          sections.push([start, i]);
+          blanked += ' ';
+          continue;
         }
       }
     }
+    blanked += inside ? ' ' : char;
   }
-  return sections;
+  const sections = blanked
+    .replaceAll(/[a-z][a-z0-9_]+\s*\(/gmi, m => ' '.repeat(m.length))
+    .replaceAll(/\(|\)/gm, ' ')
+    .replaceAll('.', ' ')
+    .replaceAll(/((^|[^a-z_])\d+([^a-z_]|$))/gmi, m => ' '.repeat(m.length))
+    .replaceAll(/([^a-z0-9_])/gm, m => ' '.repeat(m.length))
+    .split(/(\s+)/gm)
+    .filter(s => s.length > 0);
+  let index = 0;
+  let result = '';
+  for (const section of sections) {
+    if (section.startsWith(' ')) {
+      result += clause.substring(index, index + section.length);
+    }
+    else {
+      result += `${alias}.${section}`;
+    }
+    index += section.length;
+  }
+  return result;
 }
 
 export {
-  blank,
+  addAlias,
   toValues,
   getPlaceholder,
   expressionHandler

@@ -1,5 +1,6 @@
 import { compareMethods, computeMethods, windowMethods } from './methods.js';
 import { processArg, processMethod, toWhere } from './requests.js';
+import { addAlias } from './utils.js';
 
 const makeProxy = (options) => {
   const {
@@ -30,12 +31,16 @@ const makeProxy = (options) => {
         }
         const symbol = Symbol();
         const type = db.columns[table][property];
-        console.log(db.computed[table][property]);
+        const computed = db.computed[table][property];
+        let selector = `${tableAlias}.${property}`;
+        if (computed !== undefined) {
+          selector = addAlias(computed, tableAlias);
+        }
         requests.set(symbol, {
           category: 'Column',
           table,
           name: property,
-          selector: `${tableAlias}.${property}`,
+          selector,
           type,
           tableAlias
         });
