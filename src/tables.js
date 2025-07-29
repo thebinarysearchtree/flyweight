@@ -4,8 +4,7 @@ import { processArg, processMethod, toWhere } from './requests.js';
 const types = ['Int', 'Real', 'Text', 'Blob', 'Json', 'Date', 'Bool'];
 const modifiers = [
   ['', {}],
-  ['p', { primaryKey: true }],
-  ['x', { notNull: false }]
+  ['Primary', { primaryKey: true }]
 ];
 
 const removeCapital = (name) => {
@@ -151,7 +150,10 @@ class Table {
     const last = args.at(-1);
     let expression;
     let columns = args;
-    if (typeof last === 'function') {
+    const type = typeof last;
+    const isDate = last instanceof Date;
+    const isBuffer = Buffer && Buffer.isBuffer(last);
+    if (!isDate && !isBuffer && ['function', 'object'].includes(type)) {
       expression = args.pop();
     }
     Table.requests.set(symbol, {
@@ -180,6 +182,17 @@ class Table {
     });
     this.Called.push(symbol);
     return symbol;
+  }
+
+  Null(value) {
+    if (typeof value !== 'symbol') {
+      const result = toColumn(value);
+      result.column.notNull = false;
+      return result.symbol;
+    }
+    const request = Table.requests.get(value);
+    request.notNull = false;
+    return value;
   }
 
   Cascade(instance, options) {
@@ -292,6 +305,29 @@ const process = (Custom) => {
       }
     });
   }
+  const addCheck = (column, check) => {
+    const sql = column.sql || column.name;
+    if (typeof check === 'symbol') {
+      const method = Table.requests.get(check);
+      if (method.category === 'Column') {
+        table.checks.push(`${sql} = ${method.name}`);
+      }
+      else {
+        const result = processMethod({
+          method,
+          requests: Table.requests
+        });
+        table.checks.push(`${sql} ${result.sql}`);
+      }
+    }
+    else if (Array.isArray(check)) {
+      const clause = check.map(s => toLiteral(s)).join(', ');
+      table.checks.push(`${sql} in (${clause})`);
+    }
+    else {
+      table.checks.push(`${sql} = ${toLiteral(check)}`);
+    }
+  }
   const getColumn = (key, value) => {
     const type = typeof value;
     if (type !== 'symbol') {
@@ -313,9 +349,6 @@ const process = (Custom) => {
           table: virtualTable,
           name: virtual.name
         }
-      }
-      if (column.primaryKey) {
-        table.primaryKeys.push(key);
       }
       return column;
     }
@@ -342,31 +375,8 @@ const process = (Custom) => {
     }
     else if (category === 'Check') {
       const column = getColumn(key, request.column);
-      const sql = column.sql || column.name;
       const check = request.expression;
-      if (typeof check === 'symbol') {
-        const method = Table.requests.get(check);
-        if (method.category === 'Column') {
-          table.checks.push(`${sql} = ${method.name}`);
-        }
-        else {
-          const result = processMethod({
-            method,
-            requests: Table.requests
-          });
-          table.checks.push(`${sql} ${result.sql}`);
-        }
-      }
-      else if (Array.isArray(check)) {
-        const clause = check.map(s => toLiteral(s)).join(', ');
-        table.checks.push(`${sql} in (${clause})`);
-      }
-      else {
-        table.checks.push(`${sql} = ${toLiteral(check)}`);
-      }
-      if (column.primaryKey) {
-        table.primaryKeys.push(column.name);
-      }
+      addCheck(column, check);
       return column;
     }
     else if (['Index', 'Unique'].includes(category)) {
@@ -413,6 +423,9 @@ const process = (Custom) => {
   for (const key of keys) {
     const value = instance[key];
     const result = getColumn(key, value);
+    if (result.primaryKey) {
+      table.primaryKeys.push(result.name);
+    }
     if (result.category === 'Computed') {
       result.category = 'Column';
       table.computed.push(result);
@@ -443,12 +456,32 @@ const process = (Custom) => {
           arg,
           requests: Table.requests
         }))
-        .map(r => r.sql)
+        .map(r => r.sql || r.name)
         .join(', ');
+      let where;
+      if (request.expression) {
+        let result;
+        if (typeof request.expression === 'function') {
+          result = request.expression(symbol);
+        }
+        else {
+          result = request.expression;
+        }
+        where = toWhere({
+          where: result,
+          requests: Table.requests
+        });
+      }
       table.indexes.push({
         type,
-        on
+        on,
+        where
       });
+    }
+    else if (category === 'Check') {
+      const column = getColumn(null, request.column);
+      const check = request.expression;
+      addCheck(column, check);
     }
   }
   table.columns = table.columns.map(column => {
