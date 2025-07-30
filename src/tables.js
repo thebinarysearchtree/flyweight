@@ -173,12 +173,12 @@ class Table {
     return this.MakeIndex(args, 'Unique');
   }
 
-  Check(column, expression) {
+  Check(column, ...checks) {
     const symbol = Symbol();
     Table.requests.set(symbol, {
       category: 'Check',
       column,
-      expression
+      checks
     });
     this.Called.push(symbol);
     return symbol;
@@ -305,28 +305,32 @@ const process = (Custom) => {
       }
     });
   }
-  const addCheck = (column, check) => {
+  const addCheck = (column, checks) => {
     const sql = column.sql || column.name;
-    if (typeof check === 'symbol') {
-      const method = Table.requests.get(check);
-      if (method.category === 'Column') {
-        table.checks.push(`${sql} = ${method.name}`);
+    const statements = [];
+    for (const check of checks) {
+      if (typeof check === 'symbol') {
+        const method = Table.requests.get(check);
+        if (method.category === 'Column') {
+          statements.push(`${sql} = ${method.name}`);
+        }
+        else {
+          const result = processMethod({
+            method,
+            requests: Table.requests
+          });
+          statements.push(`${sql} ${result.sql}`);
+        }
+      }
+      else if (Array.isArray(check)) {
+        const clause = check.map(s => toLiteral(s)).join(', ');
+        statements.push(`${sql} in (${clause})`);
       }
       else {
-        const result = processMethod({
-          method,
-          requests: Table.requests
-        });
-        table.checks.push(`${sql} ${result.sql}`);
+        statements.push(`${sql} = ${toLiteral(check)}`);
       }
     }
-    else if (Array.isArray(check)) {
-      const clause = check.map(s => toLiteral(s)).join(', ');
-      table.checks.push(`${sql} in (${clause})`);
-    }
-    else {
-      table.checks.push(`${sql} = ${toLiteral(check)}`);
-    }
+    table.checks.push(statements.join(' and '));
   }
   const getColumn = (key, value) => {
     const type = typeof value;
@@ -375,8 +379,7 @@ const process = (Custom) => {
     }
     else if (category === 'Check') {
       const column = getColumn(key, request.column);
-      const check = request.expression;
-      addCheck(column, check);
+      addCheck(column, request.checks);
       return column;
     }
     else if (['Index', 'Unique'].includes(category)) {
@@ -480,8 +483,7 @@ const process = (Custom) => {
     }
     else if (category === 'Check') {
       const column = getColumn(null, request.column);
-      const check = request.expression;
-      addCheck(column, check);
+      addCheck(column, request.checks);
     }
   }
   table.columns = table.columns.map(column => {

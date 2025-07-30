@@ -1078,7 +1078,7 @@ export class Table {
   Unique<T>(type: T, expression: (column: T) => { [key: symbol]: any }): ToDbType<T>;
   Unique(...args: [any, ...any[]]): void;
   Unique(...args: [any, ...any[], { [key: symbol]: any }]): void;
-  Check<T>(type: T, checks: any): ToDbType<T>;
+  Check<T>(type: T, ...checks: any): ToDbType<T>;
   Null<T>(type: T): T | DbNull;
 
   Abs(n: OnlyNumbers): ToComputed<DbNumber>;
