@@ -1,8 +1,6 @@
 # Midnight
 Midnight is a NodeJS ORM for SQLite and Turso with full TypeScript support and no code generation.
 
-Tables are defined in JavaScript. ```displayName``` uses the built-in ```concat``` function of SQLite.
-
 ```js
 class Forests extends Table {
   id = this.IntPrimary;
