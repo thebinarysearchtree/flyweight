@@ -375,37 +375,37 @@ catch (e) {
 
 You can also run multiple statements inside a single transaction without any logic using ```batch```.
 
-```ts
-const projectId = 1;
-const [project, tags, issues] = await db.batch((bx) => [
-  bx.projects.get({ id: projectId }),
-  bx.tags.many({ projectId }),
-  bx.issues.many({ projectId })
+```js
+const forestId = 1;
+const [forest, trees, sightings] = await db.batch((bx) => [
+  bx.forests.get({ id: forestId }),
+  bx.trees.many({ forestId }),
+  bx.sightings.many({ forestId })
 ]);
 
-const result = { ...project, tags, issues };
+const result = { ...forest, trees, sightings };
 ```
 
 ## Migrations
 
-Tables are defined in ```./database/sql/tables.sql```. You can add or change tables from here and then run the migration command ```npm run migrate <migration-name>```.
+The client returned from ```getClient``` has three methods that can be used to create a migration system. This includes:
 
-If you want to reset the migration system to a new database that already has tables created on it, edit the ```tables.sql``` file and then run ```npm run reset```.
-
-If you want to add a new column to a table without needing to drop the table, make sure you put the column at the end of the list of columns.
+```getSchema```: return the tables loaded into the ```getClient``` method in a format suitable for saving as JSON.
+```diff```: takes a saved schema and diffs it with the currently loaded schema to create a migration.
+```migrate```: takes a SQL string representing the migration. This method defers the foreign keys and wraps the SQL in a transaction.
 
 ## Creating tables
 
-In addition to the built-in SQLite types of ```Integer```, ```Real```, ```Text```, and ```Blob```, Midnight adds a few extra types. ```Boolean``` is stored in the database as a 1 or a 0, ```Date``` is stored as an ISO8601 string, and ```Json``` is a jsonb blob.
+In addition to the built-in SQLite types of ```Integer```, ```Real```, ```Text```, and ```Blob```, Midnight adds a few extra types. ```Boolean``` is stored in the database as a 1 or a 0, ```Date``` is stored as an ISO8601 string, and ```Json``` is a JSONB blob.
 
 To create a table, you simply extend the ```Table``` class.
 
 ```js
-export class Coaches extends Table {
+class Moons extends Table {
   id = this.IntPrimary;
-  name = this.Text;
-  email = this.Unique(this.Text);
-  isActive = false;
+  name = this.Unique(this.Text);
+  planetId = this.Cascade(Planets);
+  discovered = this.Now;
 }
 ```
 
@@ -422,26 +422,28 @@ Column types can be wrapped in many different methods:
 Constraints can be represented as either an array of valid values, or a comparison function.
 
 ```js
-class Users extends Table {
+class Trees extends Table {
   id = this.IntPrimary;
-  credits = this.Check(1, this.Gt(0));
+  height = this.Int;
+  leaves = this.Check(this.Int, this.Gte(0));
+  alive = true;
 }
 ```
 
 Constraints can also be defined in the ```Attributes``` function and span across multiple columns.
 
 ```js
-class Users extends Table {
+class Rangers extends Table {
   id = this.IntPrimary;
   admin = false;
-  credits = 1;
+  staffLimit = 3;
   createdAt = this.Now;
 
   Attributes = () => {
     this.Check({
       or: [
         { [admin]: true },
-        { [credits]: this.Gt(0) }
+        { [staffLimit]: this.Gt(0) }
       ]
     });
   }
@@ -455,11 +457,18 @@ Foreign keys do not need to specify a column type, as the type will be determine
 By default, an index is created for the foreign key, and the column is set to not null. Also, the related column in the references table is assumed to be the primary key of that table.
 
 ```js
-class Users extends Table {
+class Sightings extends Table {
+  id = this.IntPrimary;
+  personId = this.Cascade(People);
+  animalId = this.Cascade(Animals);
+  date = this.Now;
+}
+
+class Animals extends Table {
   id = this.IntPrimary;
   name = this.Text;
-  titleId = this.References(Titles, {
-    column: 'userId',
+  owner = this.References(Sightings, {
+    column: 'personId',
     null: true,
     index: false,
     onDelete: 'set null',
@@ -475,16 +484,16 @@ class Users extends Table {
 For indexes that span multiple columns or are based on expressions, you can define an ```Attributes``` function on the class.
 
 ```js
-class FighterCoaches extends Table {
+class Trees extends Table {
   id = this.IntPrimary;
-  coachId = this.Cascade(Coaches);
-  fighterId = this.Cascade(Fighters);
-  startDate = this.Now;
+  name = this.Text;
+  category = this.Text;
+  planted = this.Now;
 
   Attributes = () => {
-    const computed = this.Cast(this.StrfTime('%Y', this.StartDate), 'integer');
+    const computed = this.Cast(this.StrfTime('%Y', this.planted), 'integer');
     this.Index(computed);
-    this.Unique(this.fighterId, this.coachId);
+    this.Unique(this.name, this.category);
   }
 }
 ```
@@ -494,11 +503,11 @@ class FighterCoaches extends Table {
 Partial indexes can be defined on a class field.
 
 ```js
-class Users extends Table {
+class Animals extends Table {
   id = this.IntPrimary;
   name = this.Index(this.Text, name => {
     return {
-      [name]: this.Like('Andrew%')
+      [name]: this.Like('%Wolf')
     }
   });
 }
@@ -507,63 +516,72 @@ class Users extends Table {
 The can also be defined inside the ```Attributes``` function if they span across multiple columns.
 
 ```js
-class Users extends Table {
+class Trees extends Table {
   id = this.IntPrimary;
   name = this.Text;
-  isActive = true;
+  forestId = this.References(Forests);
+  alive = true;
 
   Attributes = () => {
     this.Index(this.name, {
-      [this.isActive]: true
+      [this.alive]: true
     });
   }
 }
 ```
 
-The above example applies a partial index on ```name``` where ```isActive``` is ```true```.
+The above example applies a partial index on ```name``` where ```alive``` is ```true```.
 
 ## Computed fields
 
 Computed fields use the built-in SQLite functions and therefore can be used in any part of a query.
 
 ```js
-class Users extends Table {
+class Trees extends Table {
   id = this.IntPrimary;
   name = this.Text;
-  nickname = this.Text;
+  category = this.Text;
 
-  displayName = this.Concat(this.name, ' (', this.nickname, ')');
+  displayName = this.Concat(this.name, ' (', this.category, ')');
 }
 ```
 
 ## SQL queries in JavaScript
 
-Midnight alllows you to create SQL queries without leaving JavaScript.
+Midnight alllows you to create complex SQL queries without leaving JavaScript.
 
-The object returned from the ```query``` and ```subquery``` methods can include the following:
-
-```select```, ```optional```, ```distinct```, ```where```, ```groupBy```, ```having```, ```orderBy```, ```desc```, ```limit```, and ```offset```.
-
-```optional```: the same as ```select``` but provides hints to TypeScript that these columns may be ```null```. This is useful for columns that come from a left join.
-
-```distinct```: used instead of ```select``` when you want the results to be distinct.
-
-```select```, ```distinct```, and ```optional``` can also be single values instead of objects. This will mean the return type is an array of values instead of an array of objects.
-
-For example:
+The following queries uses a window function to rank trees by their height.
 
 ```js
-const eventIds = await db.query(c => {
-  const { id, startTime } = c.events;
-  const now = new Date();
+const trees = await db.query(c => {
+  const { 
+    id,
+    name,
+    height
+  } = c.trees;
   return {
-    select: id,
+    select: {
+      id,
+      name,
+      rank: c.rowNumber({
+        orderBy: height,
+        desc: true
+      })
+    },
     where: {
-      [startTime]: c.gt(now)
+      [height]: c.gt(1)
     }
   }
 });
 ```
+
+The object returned from the ```query``` and ```subquery``` methods can include the following:
+
+```select```, ```optional```, ```distinct```, ```join```, ```where```, ```groupBy```, ```having```, ```orderBy```, ```desc```, ```limit```, and ```offset```.
+
+```optional```: the same as ```select``` but provides hints to TypeScript that these columns may be ```null```. This is useful for columns that come from a left join.
+
+```distinct```: used instead of ```select``` when you want the results to be distinct.
 
 ```join```: a tuple or array of tuples representing the keys to join on. For a left or right join, you can use:
 
