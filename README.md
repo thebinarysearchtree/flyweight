@@ -575,6 +575,67 @@ const trees = await db.query(c => {
 });
 ```
 
+The built-in SQLite functions are just JavaScript functions. This query gets the tree planted the furthest time away from the supplied date.
+
+```js
+const tree = await db.first(c => {
+  const { id, name, planted } = c.trees;
+  const now = new Date();
+  const max = c.max(c.timeDiff(planted, now));
+  return {
+    select: {
+      id,
+      name,
+      max
+    },
+    orderBy: max,
+    desc: true
+  }
+});
+```
+
+The ```c``` parameter of the query represents the context of the database, including both tables and functions.
+
+The ```group``` function represents ```json_group_array``` or ```json_group_object``` depending on the number of parameters supplied to the function.
+
+If you want to create a subquery for use in many different queries, you can use the ```subquery``` method.
+
+The query below creates a list of people that have sighted a particular ```animalId```.
+
+```js
+const sighted = db.subquery(c => {
+  const { personId, animalId } = c.sightings;
+  const p = c.people;
+  return {
+    select: {
+      animalId,
+      sightedBy: c.group(p)
+    },
+    join: [personId, p.id],
+    groupBy: animalId
+  }
+});
+```
+
+You can now use this subquery in other queries.
+
+```js
+const animals = await db.query(c => {
+  const { animalId, sightedBy } = c.use(sighted);
+  const a = c.animals;
+  return {
+    select: {
+      ...a,
+      sightedBy
+    },
+    where: {
+      [c.length(a.name)]: c.gt(10)
+    },
+    join: [a.id, animalId, 'left']
+  }
+});
+```
+
 The object returned from the ```query``` and ```subquery``` methods can include the following:
 
 ```select```, ```optional```, ```distinct```, ```join```, ```where```, ```groupBy```, ```having```, ```orderBy```, ```desc```, ```limit```, and ```offset```.
@@ -584,7 +645,3 @@ The object returned from the ```query``` and ```subquery``` methods can include 
 ```distinct```: used instead of ```select``` when you want the results to be distinct.
 
 ```join```: a tuple or array of tuples representing the keys to join on. For a left or right join, you can use:
-
-```js
-const join = [f.id, n.fighterId, 'left'];
-```
