@@ -69,7 +69,7 @@ This syntax allows you to perform queries that usually aren't possible in ORMs.
 ## Getting started
 
 ```
-npm install midnightjs
+npm install @andrewitsover/midnightjs
 ```
 
 ```js
