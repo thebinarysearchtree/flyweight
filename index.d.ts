@@ -881,13 +881,14 @@ type ExtractColumns<T> = {
         ? K
         : never
       : never
-    : never]: T[K];
+    : never]: ToDbType<T[K]>;
 };
 
 type PkType = PkNumber | PkString | PkDate | PkBuffer;
 
+
 type ToInsert<T> = {
-  [K in keyof T as T[K] extends PkType
+  [K in keyof T as T[K] extends PkType | DbTypes
     ? K
     : DbNull extends T[K]
       ? K
@@ -1025,9 +1026,7 @@ export class Table {
   DatePrimary: PkDate;
   Bool: DbBoolean;
 
-  Now: DbDate;
-  True: DbBoolean;
-  False: DbBoolean;
+  Now: Date;
 
   References<T extends abstract new (...args: any[]) => any>(table: T, options?: {
     onDelete?: ForeignActions,
@@ -1070,15 +1069,15 @@ export class Table {
     index?: false
   }): PkToDbType<InstanceType<T>[K]> | DbNull;
 
-  Index<T>(type: T): ToDbType<T>;
-  Index<T>(type: T, expression: (column: T) => { [key: symbol]: any }): ToDbType<T>;
+  Index<T>(type: T): T;
+  Index<T>(type: T, expression: (column: T) => { [key: symbol]: any }): T;
   Index(...args: [any, ...any[]]): void;
   Index(...args: [any, ...any[], { [key: symbol]: any }]): void;
-  Unique<T>(type: T): ToDbType<T>;
-  Unique<T>(type: T, expression: (column: T) => { [key: symbol]: any }): ToDbType<T>;
+  Unique<T>(type: T): T;
+  Unique<T>(type: T, expression: (column: T) => { [key: symbol]: any }): T;
   Unique(...args: [any, ...any[]]): void;
   Unique(...args: [any, ...any[], { [key: symbol]: any }]): void;
-  Check<T>(type: T, ...checks: any): ToDbType<T>;
+  Check<T>(type: T, ...checks: any): T;
   Null<T>(type: T): T | DbNull;
 
   Abs(n: OnlyNumbers): ToComputed<DbNumber>;
