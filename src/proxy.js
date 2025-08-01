@@ -159,7 +159,7 @@ const makeClient = (db, tx) => {
         db[table] = db[table].bind(db);
         return (sql) => db[table](tx, sql);
       }
-      if (db[table] && ['getTransaction', 'batch', 'sync'].includes(table)) {
+      if (db[table] && ['getTransaction', 'batch', 'sync', 'diff', 'getSchema', 'migrate'].includes(table)) {
         db[table] = db[table].bind(db);
         return db[table];
       }

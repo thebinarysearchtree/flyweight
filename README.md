@@ -467,7 +467,7 @@ class Sightings extends Table {
 class Animals extends Table {
   id = this.IntPrimary;
   name = this.Text;
-  owner = this.References(Sightings, {
+  ownerId = this.References(Sightings, {
     column: 'personId',
     null: true,
     index: false,

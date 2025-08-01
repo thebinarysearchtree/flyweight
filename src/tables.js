@@ -626,9 +626,7 @@ const toSql = (table) => {
       sql += `  check (${check}),\n`;
     }
   }
-  if (sql.endsWith(',')) {
-    sql = sql.slice(0, -1);
-  }
+  sql = sql.replace(/,(\s+)$/, '$1');
   sql += ') strict;\n\n';
   for (const index of indexes) {
     sql += indexToSql(name, index);
