@@ -73,7 +73,7 @@ npm install midnightjs
 ```
 
 ```js
-import { SQLiteDatabase, Table } from 'midnightjs';
+import { SQLiteDatabase, Table } from '@andrewitsover/midnight';
 
 const database = new SQLiteDatabase('forest.db');
 
@@ -350,8 +350,6 @@ const changes = await db.moons.remove({ id: 100 });
 Transactions involve locking writes to the database with ```getTransaction```. If multiple transactions try to run at the same time, they will wait until the current transaction is complete.
 
 ```js
-import { db } from './db.js';
-
 const tx = await db.getTransaction();
 try {
   await tx.begin();
